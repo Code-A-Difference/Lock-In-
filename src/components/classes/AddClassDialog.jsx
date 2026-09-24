@@ -17,7 +17,7 @@ const CLASS_COLORS = [
   { name: 'Teal', value: 'bg-teal-500' },
 ];
 
-export default function AddClassDialog({ open, onOpenChange, onSubmit, isLoading }) {
+export default function AddClassDialog({ open, onOpenChange, onSubmit, isLoading, onUseShareCode }) {
   const [formData, setFormData] = useState({
     name: '',
     teacher: '',
@@ -122,6 +122,14 @@ export default function AddClassDialog({ open, onOpenChange, onSubmit, isLoading
               'Add Class'
             )}
           </Button>
+          {onUseShareCode && (
+            <p className="text-center text-sm text-slate-500">
+              A classmate already set it up?{' '}
+              <button type="button" onClick={onUseShareCode} className="font-medium text-indigo-600 hover:text-indigo-500">
+                Use their share code
+              </button>
+            </p>
+          )}
         </form>
       </DialogContent>
     </Dialog>

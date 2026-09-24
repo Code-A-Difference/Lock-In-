@@ -1,11 +1,12 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+import { db, sharing } from '@/api/db';
+import { toast } from '@/components/ui/use-toast';
 
 import React, { useState, useEffect } from 'react';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, BookOpen, ClipboardList, GraduationCap, Sparkles, CalendarDays, Clock, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, Share2, BookOpen, ClipboardList, GraduationCap, Sparkles, CalendarDays, Clock, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { format, isToday, isTomorrow, startOfDay, addDays, isSameDay } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,6 @@ import AddTestDialog from "../components/tests/AddTestDialog";
 import ClassCard from "../components/classes/ClassCard";
 import AddClassDialog from "../components/classes/AddClassDialog";
 import JoinClassDialog from "../components/classes/JoinClassDialog";
-import JoinFriendClassDialog from "../components/classes/JoinFriendClassDialog";
 import ClassDetailsDialog from "../components/classes/ClassDetailsDialog";
 import EditClassDialog from "../components/classes/EditClassDialog";
 import EditHomeworkDialog from "../components/homework/EditHomeworkDialog";
@@ -41,7 +41,6 @@ export default function Home() {
   const [showTestDialog, setShowTestDialog] = useState(false);
   const [showClassDialog, setShowClassDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
-  const [showJoinFriendDialog, setShowJoinFriendDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showEditClassDialog, setShowEditClassDialog] = useState(false);
   const [showEditHomeworkDialog, setShowEditHomeworkDialog] = useState(false);
@@ -106,20 +105,23 @@ export default function Home() {
     }
   });
 
+  // No shared database to look a short code up in, so a share code carries the
+  // class itself (api/db.js → sharing). Importing the same code again later
+  // only adds what is new, which is how a classmate's updates reach you.
   const joinClassMutation = useMutation({
-    mutationFn: async (joinCode) => {
-      const classToJoin = allClasses.find(c => c.join_code === joinCode);
-      if (!classToJoin) throw new Error('Invalid class code');
-      if (classToJoin.members?.includes(user?.email)) throw new Error('You are already in this class');
-      const updatedMembers = [...(classToJoin.members || []), user?.email];
-      await db.entities.Class.update(classToJoin.id, { members: updatedMembers });
-      return classToJoin;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['classes'] });
+    mutationFn: (code) => sharing.importClass(code),
+    onSuccess: (r) => {
+      ['classes', 'homework', 'tests'].forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
       setShowJoinDialog(false);
+      setShowClasses(true);
+      toast({
+        title: r.isNew ? `Added ${r.className}` : `Updated ${r.className}`,
+        description: r.added
+          ? `${r.added} new item${r.added === 1 ? '' : 's'}${r.from ? ` from ${r.from}` : ''}.`
+          : 'You already had everything in that code.',
+      });
     },
-    onError: (error) => alert(error.message)
+    onError: (error) => toast({ title: 'Could not add that class', description: error.message, variant: 'destructive' })
   });
 
   const updateClassMutation = useMutation({
@@ -139,9 +141,18 @@ export default function Home() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['classes'] })
   });
 
+  // Take the class's homework and tests with it. They are filtered by class
+  // name, so left behind they would be invisible but still stored forever.
   const deleteClassMutation = useMutation({
-    mutationFn: (id) => db.entities.Class.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['classes'] })
+    mutationFn: async (id) => {
+      const cls = allClasses.find(c => c.id === id);
+      if (cls) {
+        for (const h of allHomework.filter(x => x.class_name === cls.name)) await db.entities.Homework.delete(h.id);
+        for (const t of allTests.filter(x => x.class_name === cls.name)) await db.entities.Test.delete(t.id);
+      }
+      await db.entities.Class.delete(id);
+    },
+    onSuccess: () => ['classes', 'homework', 'tests'].forEach(k => queryClient.invalidateQueries({ queryKey: [k] }))
   });
 
   const createHomeworkMutation = useMutation({
@@ -388,15 +399,20 @@ export default function Home() {
         {/* Classes (collapsible) */}
         {!classesLoading && classes.length > 0 && (
           <div className="mt-8">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <button
               onClick={() => setShowClasses(!showClasses)}
-              className="flex items-center gap-2 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors mb-4"
+              className="flex items-center gap-2 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
               {showClasses ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
               <GraduationCap className="w-5 h-5" />
               <h2 className="text-lg font-semibold">My Classes</h2>
               <span className="text-sm text-slate-400 dark:text-slate-500">({classes.length})</span>
             </button>
+            <Button variant="outline" size="sm" onClick={() => setShowJoinDialog(true)}>
+              <Share2 className="mr-1.5 h-4 w-4" /> Add a shared class
+            </Button>
+            </div>
 
             <AnimatePresence>
               {showClasses && (
@@ -450,6 +466,7 @@ export default function Home() {
       <AddClassDialog
         open={showClassDialog}
         onOpenChange={setShowClassDialog}
+        onUseShareCode={() => { setShowClassDialog(false); setShowJoinDialog(true); }}
         onSubmit={(data) => createClassMutation.mutate(data)}
         isLoading={createClassMutation.isPending}
       />
@@ -461,19 +478,7 @@ export default function Home() {
         isLoading={joinClassMutation.isPending}
       />
       
-      <JoinFriendClassDialog
-        open={showJoinFriendDialog}
-        onOpenChange={setShowJoinFriendDialog}
-        user={user}
-        onJoin={(classId) => {
-          const classToJoin = allClasses.find(c => c.id === classId);
-          if (classToJoin) {
-            const updatedMembers = [...(classToJoin.members || []), user?.email];
-            updateClassMutation.mutate({ id: classId, data: { members: updatedMembers } });
-          }
-          setShowJoinFriendDialog(false);
-        }}
-      />
+
       
       <ClassDetailsDialog
         open={showDetailsDialog}
