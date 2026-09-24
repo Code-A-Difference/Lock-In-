@@ -1,0 +1,25 @@
+{
+  "name": "ClassGroup",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the class group"
+    },
+    "class_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of class IDs in this group",
+      "default": []
+    },
+    "join_code": {
+      "type": "string",
+      "description": "Unique code to join all classes in group"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

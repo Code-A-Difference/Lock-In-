@@ -1,0 +1,21 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string",
+      "description": "Unique username for the user"
+    },
+    "dark_mode": {
+      "type": "boolean",
+      "default": false
+    },
+    "theme_color": {
+      "type": "string",
+      "default": "indigo"
+    }
+  },
+  "required": [
+    "username"
+  ]
+}
