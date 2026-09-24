@@ -1,0 +1,31 @@
+{
+  "name": "StudyHistory",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "conversation",
+        "quiz",
+        "grading"
+      ],
+      "description": "Type of study activity"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title or topic of the activity"
+    },
+    "data": {
+      "type": "object",
+      "description": "Stored data - messages for conversations, quiz results, or grading results"
+    },
+    "score": {
+      "type": "string",
+      "description": "Score if applicable (quiz or grading)"
+    }
+  },
+  "required": [
+    "type",
+    "title"
+  ]
+}

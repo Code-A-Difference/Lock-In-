@@ -1,0 +1,42 @@
+{
+  "name": "Class",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the class/subject"
+    },
+    "teacher": {
+      "type": "string",
+      "description": "Teacher's name"
+    },
+    "color": {
+      "type": "string",
+      "description": "Color for the class card"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon name for the class",
+      "default": "BookOpen"
+    },
+    "schedule": {
+      "type": "string",
+      "description": "When the class meets (e.g., Mon/Wed/Fri 9am)"
+    },
+    "join_code": {
+      "type": "string",
+      "description": "Unique code for others to join this class"
+    },
+    "members": {
+      "type": "array",
+      "description": "List of user emails who are members of this class",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
