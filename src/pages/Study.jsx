@@ -1,4 +1,4 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+import { db } from '@/api/db';
 
 import React, { useState, useEffect } from 'react';
 
@@ -145,8 +145,15 @@ export default function Study() {
         ? `Upcoming tests: ${tests.map(t => `${t.title} (${t.class_name}) on ${format(new Date(t.date), 'MMM d')}`).join(', ')}` 
         : '';
       
+      // The chat used to send only the latest message, so the assistant could
+      // not follow up on anything it had just said. Send the recent turns too,
+      // each trimmed, so the whole thing stays well inside the proxy's limit.
+      const history = messages.slice(-10)
+        .map(m => `${m.role === 'user' ? 'Student' : 'Assistant'}: ${String(m.content).slice(0, 1500)}`)
+        .join('\n\n');
+
       const response = await db.integrations.Core.InvokeLLM({
-        prompt: `You are a helpful, friendly AI assistant. ${testsContext ? testsContext + '. ' : ''}Answer any questions the student has - whether about studying, homework, tests, or anything else they're curious about. Be conversational, helpful, and concise.\n\nStudent: ${currentInput}`,
+        prompt: `You are a helpful, friendly AI assistant. ${testsContext ? testsContext + '. ' : ''}Answer any questions the student has - whether about studying, homework, tests, or anything else they're curious about. Be conversational, helpful, and concise.\n\n${history ? `Conversation so far:\n${history}\n\n` : ''}Student: ${currentInput}`,
         add_context_from_internet: true,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined
       });
@@ -179,7 +186,7 @@ export default function Study() {
         window.speechSynthesis.speak(utterance);
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `Sorry — ${error?.message || 'something went wrong. Please try again.'}` }]);
     } finally {
       setIsThinking(false);
     }
@@ -256,7 +263,7 @@ Be constructive, encouraging, and specific.`;
         score: gradeMatch ? gradeMatch[1] : null
       });
     } catch (error) {
-      setGradingResult('Error grading homework. Please try again.');
+      setGradingResult(`Couldn't grade that: ${error?.message || 'please try again.'}`);
     } finally {
       setIsGrading(false);
     }
@@ -352,7 +359,7 @@ Return ONLY valid JSON in this exact format:
       setCustomQuizTopic('');
       setCustomQuizClass('');
     } catch (error) {
-      alert('Error generating quiz. Please try again.');
+      alert(`Couldn't make that quiz: ${error?.message || 'please try again.'}`);
     } finally {
       setIsGeneratingQuiz(false);
     }

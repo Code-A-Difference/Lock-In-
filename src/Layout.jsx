@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
-import { Home, Settings, Brain, GraduationCap } from 'lucide-react';
+import { Home, Settings, Brain, Lock, LogOut } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
  * and gives every page one consistent place for identity and navigation.
  */
 export default function Layout({ children, currentPageName }) {
+  const { user, logout } = useAuth();
   const navItems = [
     { name: 'Home', icon: Home, page: 'Home' },
     { name: 'Study', icon: Brain, page: 'Study' },
@@ -27,15 +29,16 @@ export default function Layout({ children, currentPageName }) {
       <header className="sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
 
-          <Link to={createPageUrl('Home')} className="flex items-center gap-2.5 min-w-0">
-            <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600">
-              <GraduationCap className="h-5 w-5 text-white" />
+          <Link to={createPageUrl('Home')} className="flex items-center gap-2.5 min-w-0" aria-label="LOCK IN! home">
+            <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-gradient-to-br from-indigo-600 to-fuchsia-600">
+              <Lock className="h-[18px] w-[18px] text-white" />
             </span>
-            <span className="truncate text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              StudyHub
+            <span className="truncate text-lg font-black tracking-tight text-slate-900 dark:text-slate-100">
+              LOCK IN<span className="text-fuchsia-600 dark:text-fuchsia-400">!</span>
             </span>
           </Link>
 
+          <div className="flex items-center gap-2">
           {/* desktop nav — in the flow, so nothing can sit under it */}
           <nav className="hidden md:flex items-center gap-1" aria-label="Main">
             {navItems.map((item) => {
@@ -59,6 +62,28 @@ export default function Layout({ children, currentPageName }) {
               );
             })}
           </nav>
+
+          {/* Who is signed in, and a one-click way out. On a shared computer the
+              next student should not have to find Settings to leave. */}
+          {user && (
+            <div className="flex items-center gap-1 md:ml-2 md:border-l md:border-slate-200 md:pl-3 dark:md:border-slate-700">
+              <span
+                title={`Signed in as ${user.username}`}
+                className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-xs font-bold uppercase text-white"
+              >
+                {(user.full_name || user.username).slice(0, 1)}
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Sign out</span>
+              </button>
+            </div>
+          )}
+          </div>
         </div>
       </header>
 
