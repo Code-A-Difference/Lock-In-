@@ -1,0 +1,32 @@
+{
+  "name": "Test",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title/topic of the test"
+    },
+    "class_id": {
+      "type": "string",
+      "description": "ID of the class this test belongs to"
+    },
+    "class_name": {
+      "type": "string",
+      "description": "Name of the class for display"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the test"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Study notes or topics to cover"
+    }
+  },
+  "required": [
+    "title",
+    "class_name",
+    "date"
+  ]
+}

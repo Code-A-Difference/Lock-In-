@@ -1,0 +1,57 @@
+{
+  "name": "Homework",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the homework"
+    },
+    "description": {
+      "type": "string",
+      "description": "Details about the homework"
+    },
+    "class_id": {
+      "type": "string",
+      "description": "ID of the class this homework belongs to"
+    },
+    "class_name": {
+      "type": "string",
+      "description": "Name of the class for display"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When the homework is due"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "asap"
+      ],
+      "default": "medium",
+      "description": "Priority level of the homework"
+    },
+    "is_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the homework is completed"
+    },
+    "is_shared": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this homework is shared publicly"
+    },
+    "author_name": {
+      "type": "string",
+      "description": "Name of the person who created this"
+    }
+  },
+  "required": [
+    "title",
+    "class_name",
+    "due_date"
+  ]
+}
