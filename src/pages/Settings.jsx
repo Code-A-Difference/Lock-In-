@@ -1,4 +1,4 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+import { db, accounts, backup } from '@/api/db';
 
 import React, { useState, useEffect } from 'react';
 
@@ -7,244 +7,278 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, User, Palette, Trash2, Loader2, Users, UserPlus } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import UserNotRegisteredError from '../components/UserNotRegisteredError';
-import { Badge } from "@/components/ui/badge";
-import FriendsSection from '../components/settings/FriendsSection';
+import { toast } from "@/components/ui/use-toast";
+import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Download, HardDrive, ShieldCheck, AlertTriangle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
-const THEME_COLORS = [
-  { name: 'Indigo', value: 'indigo' },
-  { name: 'Rose', value: 'rose' },
-  { name: 'Emerald', value: 'emerald' },
-  { name: 'Amber', value: 'amber' },
-  { name: 'Cyan', value: 'cyan' },
-  { name: 'Purple', value: 'purple' },
-];
-
+/**
+ * Settings for a local account. Everything here acts on data in this
+ * browser — there is no server copy — so the backup card is the important
+ * one, and delete really does delete.
+ *
+ * Gone from the base44 version: Friends (it needs a shared database to find
+ * other people in, which a browser-only app does not have — classes are
+ * shared with share codes instead), and a Theme Color picker that saved a
+ * value nothing ever read.
+ */
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
   const [darkMode, setDarkMode] = useState(false);
-  const [themeColor, setThemeColor] = useState('indigo');
+  const [savingName, setSavingName] = useState(false);
+
+  const [pw, setPw] = useState({ current: '', next: '', again: '' });
+  const [pwBusy, setPwBusy] = useState(false);
+
+  const [persisted, setPersisted] = useState(null);
+  const [usage, setUsage] = useState(null);
+  const [lastBackup, setLastBackup] = useState(() => {
+    try { return localStorage.getItem('lockin.lastBackup.' + (accounts.current()?.username || '')); } catch (_) { return null; }
+  });
+
+  const [confirmDelete, setConfirmDelete] = useState('');
 
   useEffect(() => {
-    const fetchUser = async () => {
+    db.auth.me().then(u => {
+      setUser(u);
+      setFullName(u.full_name || '');
+      setDarkMode(!!u.dark_mode);
+    }).catch(() => {});
+    (async () => {
       try {
-        const userData = await db.auth.me();
-        setUser(userData);
-        setFullName(userData.full_name || '');
-        setUsername(userData.username || '');
-        setDarkMode(userData.dark_mode || false);
-        setThemeColor(userData.theme_color || 'indigo');
-      } catch (error) {
-        console.error('Error fetching user:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
+        if (navigator.storage?.persisted) setPersisted(await navigator.storage.persisted());
+        if (navigator.storage?.estimate) {
+          const e = await navigator.storage.estimate();
+          setUsage(e.usage || 0);
+        }
+      } catch (_) {}
+    })();
   }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
 
-  const updateProfileMutation = useMutation({
-    mutationFn: (data) => db.auth.updateMe(data),
-    onSuccess: async () => {
-      const updatedUser = await db.auth.me();
-      setUser(updatedUser);
-      setFullName(updatedUser.full_name || '');
-      setUsername(updatedUser.username || '');
-      alert('Profile updated successfully!');
-    }
-  });
-
-  const deleteAccountMutation = useMutation({
-    mutationFn: async () => {
-      await db.entities.User.delete(user.id);
-      db.auth.logout();
-    }
-  });
-
-  const handleUpdateProfile = async () => {
-    const updates = { full_name: fullName };
-    if (username) updates.username = username;
-    await updateProfileMutation.mutateAsync(updates);
-  };
-
-  const handleUpdateTheme = (field, value) => {
-    const updates = { [field]: value };
-    if (field === 'dark_mode') setDarkMode(value);
-    if (field === 'theme_color') setThemeColor(value);
-    updateProfileMutation.mutate(updates);
-  };
-
-  const handleSignOut = () => {
-    db.auth.logout();
-  };
-
-  const handleDeleteAccount = () => {
-    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      deleteAccountMutation.mutate();
-    }
-  };
-
-  if (loading) {
+  if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
       </div>
     );
   }
 
-  if (!user) {
-    return <UserNotRegisteredError />;
-  }
+  const saveName = async () => {
+    setSavingName(true);
+    try {
+      const u = await db.auth.updateMe({ full_name: fullName.trim() || user.username });
+      setUser(u);
+      toast({ title: 'Saved', description: 'Your name is updated.' });
+    } catch (e) {
+      toast({ title: 'Could not save', description: e.message, variant: 'destructive' });
+    } finally { setSavingName(false); }
+  };
+
+  const toggleDark = async (on) => {
+    setDarkMode(on);
+    try { await db.auth.updateMe({ dark_mode: on }); } catch (_) {}
+  };
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    if (pw.next !== pw.again) {
+      toast({ title: 'Passwords differ', description: 'Type the new password the same way twice.', variant: 'destructive' });
+      return;
+    }
+    setPwBusy(true);
+    try {
+      await accounts.changePassword(pw.current, pw.next);
+      setPw({ current: '', next: '', again: '' });
+      toast({
+        title: 'Password changed',
+        description: 'Backups made before now still open with the OLD password. Make a new one.',
+      });
+    } catch (err) {
+      toast({ title: 'Password not changed', description: err.message, variant: 'destructive' });
+    } finally { setPwBusy(false); }
+  };
+
+  const downloadBackup = async () => {
+    try {
+      const text = await backup.export();
+      const stamp = new Date().toISOString().slice(0, 10);
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lockin-${user.username}-${stamp}.lockin`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const now = new Date().toISOString();
+      try { localStorage.setItem('lockin.lastBackup.' + user.username, now); } catch (_) {}
+      setLastBackup(now);
+    } catch (e) {
+      toast({ title: 'Backup failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const signOut = async () => {
+    queryClient.clear();
+    await accounts.signOut();
+  };
+
+  const deleteAccount = async () => {
+    if (confirmDelete.trim().toLowerCase() !== user.username) return;
+    queryClient.clear();
+    await accounts.deleteCurrent();
+  };
+
+  const fmtBytes = n => n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`;
+  const backupAge = lastBackup ? Math.floor((Date.now() - new Date(lastBackup)) / 86400000) : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 p-4 pb-24 md:pb-4">
-      <div className="max-w-3xl mx-auto pt-6">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-6">Settings</h1>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="profile">Profile & Account</TabsTrigger>
-            <TabsTrigger value="friends">Friends</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="profile" className="space-y-6">
-          {/* Profile Section */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 px-4 pb-10 sm:px-6">
+      <div className="mx-auto max-w-3xl pt-8">
+        <h1 className="mb-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Settings</h1>
+        <p className="mb-8 text-sm text-slate-500 dark:text-slate-400">
+          Signed in as <strong className="text-slate-700 dark:text-slate-200">{user.username}</strong> on this browser.
+        </p>
+
+        <div className="space-y-6">
+
+          {/* Profile */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Profile
-              </CardTitle>
-              <CardDescription>Manage your personal information</CardDescription>
+              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Profile</CardTitle>
+              <CardDescription>How LOCK IN! greets you.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" value={user.email} disabled className="bg-slate-50" />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Your full name"
-                />
-              </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Choose a username"
-                />
+                <Input id="username" value={user.username} disabled className="bg-slate-50 dark:bg-slate-800" />
+                <p className="text-xs text-slate-500">
+                  Your username is part of how your data is locked, so it can't be changed.
+                </p>
               </div>
-              
-              <Button
-                onClick={handleUpdateProfile}
-                disabled={updateProfileMutation.isPending}
-                className="bg-indigo-500 hover:bg-indigo-600"
-              >
-                {updateProfileMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Your name</Label>
+                <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your name" />
+              </div>
+              <Button onClick={saveName} disabled={savingName} className="bg-indigo-600 hover:bg-indigo-500">
+                {savingName ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : 'Save'}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Appearance Section */}
+          {/* Appearance */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5" />
-                Appearance
-              </CardTitle>
-              <CardDescription>Customize how the app looks</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5" />Appearance</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="darkMode" className="text-base">Dark Mode</Label>
-                  <p className="text-sm text-slate-500">Toggle dark theme</p>
+                  <Label htmlFor="darkMode" className="text-base">Dark mode</Label>
+                  <p className="text-sm text-slate-500">Easier on the eyes at night.</p>
                 </div>
-                <Switch
-                  id="darkMode"
-                  checked={darkMode}
-                  onCheckedChange={(checked) => handleUpdateTheme('dark_mode', checked)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="themeColor">Theme Color</Label>
-                <Select value={themeColor} onValueChange={(value) => handleUpdateTheme('theme_color', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a color" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {THEME_COLORS.map((color) => (
-                      <SelectItem key={color.value} value={color.value}>
-                        {color.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Switch id="darkMode" checked={darkMode} onCheckedChange={toggleDark} />
               </div>
             </CardContent>
           </Card>
 
-          {/* Account Actions */}
-          <Card>
+          {/* Backup — the one that matters */}
+          <Card className="border-indigo-200 dark:border-indigo-900/60">
             <CardHeader>
-              <CardTitle>Account Actions</CardTitle>
-              <CardDescription>Manage your account</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5" />Backup</CardTitle>
+              <CardDescription>
+                Your work is stored only in this browser. A backup is your copy — keep one somewhere safe.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                onClick={handleSignOut}
-                variant="outline"
-                className="w-full justify-start"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+            <CardContent className="space-y-4">
+              <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                <li className="flex gap-2.5"><ShieldCheck className="mt-0.5 h-4 w-4 flex-none text-emerald-600" />
+                  The file is encrypted with your password. It's safe to email to yourself or keep in Google Drive.</li>
+                <li className="flex gap-2.5"><HardDrive className="mt-0.5 h-4 w-4 flex-none text-indigo-600" />
+                  On another computer, choose <em>Restore from a backup</em> on the sign-in page.</li>
+              </ul>
+              {backupAge === null
+                ? <p className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400"><AlertTriangle className="h-4 w-4" />You haven't made a backup from this browser yet.</p>
+                : <p className="text-sm text-slate-500">Last backup: {backupAge === 0 ? 'today' : `${backupAge} day${backupAge === 1 ? '' : 's'} ago`}.</p>}
+              <Button onClick={downloadBackup} className="bg-indigo-600 hover:bg-indigo-500">
+                <Download className="mr-2 h-4 w-4" /> Download backup
               </Button>
-              
-              <Button
-                onClick={handleDeleteAccount}
-                variant="destructive"
-                className="w-full justify-start"
-                disabled={deleteAccountMutation.isPending}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Account
-              </Button>
+              <p className="text-xs text-slate-500">
+                {usage != null && <>Using {fmtBytes(usage)} in this browser. </>}
+                {persisted === true && 'This browser has agreed not to clear it automatically.'}
+                {persisted === false && 'This browser may clear it if the device runs low on space — another reason to keep a backup.'}
+              </p>
             </CardContent>
           </Card>
-          </TabsContent>
-          
-          <TabsContent value="friends">
-            <FriendsSection user={user} />
-          </TabsContent>
-        </Tabs>
+
+          {/* Password */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />Password</CardTitle>
+              <CardDescription>There is no reset, so pick one you'll remember.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={changePassword} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pwCurrent">Current password</Label>
+                  <Input id="pwCurrent" type="password" autoComplete="current-password" required
+                         value={pw.current} onChange={e => setPw({ ...pw, current: e.target.value })} />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pwNext">New password</Label>
+                    <Input id="pwNext" type="password" autoComplete="new-password" required
+                           value={pw.next} onChange={e => setPw({ ...pw, next: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pwAgain">New password again</Label>
+                    <Input id="pwAgain" type="password" autoComplete="new-password" required
+                           value={pw.again} onChange={e => setPw({ ...pw, again: e.target.value })} />
+                  </div>
+                </div>
+                <Button type="submit" variant="outline" disabled={pwBusy}>
+                  {pwBusy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Changing…</> : 'Change password'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Account */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Account</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <Button onClick={signOut} variant="outline" className="w-full justify-start">
+                <LogOut className="mr-2 h-4 w-4" /> Sign out
+              </Button>
+
+              <div className="rounded-lg border border-red-200 p-4 dark:border-red-900/50">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400">Delete this account</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Removes the account and all of its classes, homework and tests from this browser.
+                  It can't be undone — only a backup would bring it back.
+                </p>
+                <Label htmlFor="confirmDelete" className="mt-3 block text-xs text-slate-500">
+                  Type <strong>{user.username}</strong> to confirm
+                </Label>
+                <div className="mt-1.5 flex gap-2">
+                  <Input id="confirmDelete" value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)}
+                         autoComplete="off" autoCapitalize="none" spellCheck={false} />
+                  <Button variant="destructive" onClick={deleteAccount}
+                          disabled={confirmDelete.trim().toLowerCase() !== user.username}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

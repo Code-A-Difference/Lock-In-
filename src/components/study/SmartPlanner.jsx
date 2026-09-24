@@ -1,4 +1,4 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+import { db } from '@/api/db';
 
 import React, { useState } from 'react';
 
@@ -145,7 +145,7 @@ Return ONLY valid JSON in this exact format:
 
       setSchedule(response);
     } catch (e) {
-      setError('Something went wrong generating your schedule. Please try again.');
+      setError(e?.message || 'Something went wrong generating your schedule. Please try again.');
     } finally {
       setIsGenerating(false);
     }

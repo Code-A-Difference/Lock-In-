@@ -1,154 +1,53 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
+import { accounts } from '@/api/db';
+import { queryClientInstance } from '@/lib/query-client';
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
-
-// The exporter dropped this import, so the app threw
-// "createAxiosClient is not defined" the moment AuthContext mounted.
-// It is not part of the SDK's public entry point — dist/index.js exports
-// createClient, getAccessToken and friends but not this — so it has to come
-// from the internal path. That resolves because @base44/sdk declares no
-// "exports" field in its package.json. If a future SDK version adds one,
-// this breaks and the fix is to rewrite this call against createClient.
-import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client.js';
-
-import { appParams } from '@/lib/app-params';
-
-const AuthContext = createContext();
+/**
+ * Who is signed in. Accounts are local to this browser (see api/db.js), so
+ * there is no server round trip here — "loading" is just the moment it takes
+ * to reopen a signed-in tab's vault after a reload.
+ */
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
-  const [authError, setAuthError] = useState(null);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const lastUsername = useRef(null);
 
-  useEffect(() => {
-    checkAppState();
+  const apply = useCallback((u) => {
+    const name = u ? u.username : null;
+    // Different person, or nobody: drop every cached query. React Query keeps
+    // the last account's homework in memory, and on a shared computer the next
+    // student would otherwise see it flash up before their own loads.
+    if (name !== lastUsername.current) {
+      queryClientInstance.clear();
+      lastUsername.current = name;
+    }
+    if (!u) document.documentElement.classList.remove('dark');
+    setUser(u);
   }, []);
 
-  const checkAppState = async () => {
-    try {
-      setIsLoadingPublicSettings(true);
-      setAuthError(null);
-      
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
-      const appClient = createAxiosClient({
-        baseURL: `/api/apps/public`,
-        headers: {
-          'X-App-Id': appParams.appId
-        },
-        token: appParams.token, // Include token if available
-        interceptResponses: true
-      });
-      
-      try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
-        setAppPublicSettings(publicSettings);
-        
-        // If we got the app public settings successfully, check if user is authenticated
-        if (appParams.token) {
-          await checkUserAuth();
-        } else {
-          setIsLoadingAuth(false);
-          setIsAuthenticated(false);
-        }
-        setIsLoadingPublicSettings(false);
-      } catch (appError) {
-        console.error('App state check failed:', appError);
-        
-        // Handle app-level errors
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
-          if (reason === 'auth_required') {
-            setAuthError({
-              type: 'auth_required',
-              message: 'Authentication required'
-            });
-          } else if (reason === 'user_not_registered') {
-            setAuthError({
-              type: 'user_not_registered',
-              message: 'User not registered for this app'
-            });
-          } else {
-            setAuthError({
-              type: reason,
-              message: appError.message
-            });
-          }
-        } else {
-          setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
-          });
-        }
-        setIsLoadingPublicSettings(false);
-        setIsLoadingAuth(false);
-      }
-    } catch (error) {
-      console.error('Unexpected error:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
-      });
-      setIsLoadingPublicSettings(false);
-      setIsLoadingAuth(false);
-    }
-  };
+  useEffect(() => {
+    const off = accounts.onChange(apply);
+    accounts.resume()
+      .then(apply)
+      .catch(() => apply(null))
+      .finally(() => setIsLoadingAuth(false));
+    return off;
+  }, [apply]);
 
-  const checkUserAuth = async () => {
-    try {
-      // Now check if the user is authenticated
-      setIsLoadingAuth(true);
-      const currentUser = await db.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(true);
-      setIsLoadingAuth(false);
-    } catch (error) {
-      console.error('User auth check failed:', error);
-      setIsLoadingAuth(false);
-      setIsAuthenticated(false);
-      
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      }
-    }
-  };
-
-  const logout = (shouldRedirect = true) => {
-    setUser(null);
-    setIsAuthenticated(false);
-    
-    if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
-      db.auth.logout(window.location.href);
-    } else {
-      // Just remove the token without redirect
-      db.auth.logout();
-    }
-  };
-
-  const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
-    db.auth.redirectToLogin(window.location.href);
-  };
+  const logout = useCallback(() => accounts.signOut(), []);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
       isLoadingAuth,
-      isLoadingPublicSettings,
-      authError,
-      appPublicSettings,
+      // kept for pages written against the base44 context
+      isLoadingPublicSettings: false,
+      authError: null,
       logout,
-      navigateToLogin,
-      checkAppState
+      navigateToLogin: logout,
     }}>
       {children}
     </AuthContext.Provider>
@@ -157,8 +56,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
