@@ -120,7 +120,7 @@ export default function SignIn() {
             <span className="text-amber-300">Then lock in.</span>
           </h1>
           <p className="mt-5 max-w-md text-base text-white/80 sm:text-lg">
-            Track every class, see what is due, and let the AI planner build your study time around it.
+            Type what is due and it sorts itself. One click starts a focus timer on the most urgent thing, with rain in your ears and the steps beside the clock.
           </p>
         </div>
 
