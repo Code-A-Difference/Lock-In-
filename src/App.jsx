@@ -22,12 +22,29 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isAuthenticated, authError, retryAuth } = useAuth();
 
   if (isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center" role="status" aria-label="Loading">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"></div>
+      </div>
+    );
+  }
+
+  // The server couldn't be reached, so we don't know yet whether this browser
+  // is signed in. Say so, rather than showing a sign-in form that can't work.
+  if (!isAuthenticated && authError) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-50 px-6 dark:bg-slate-950">
+        <div className="max-w-sm text-center" role="alert">
+          <p className="text-lg font-bold text-slate-900 dark:text-white">LOCK IN! can't reach its server</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{authError}</p>
+          <button type="button" onClick={retryAuth}
+            className="mt-5 inline-flex h-10 items-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-500">
+            Try again
+          </button>
+        </div>
       </div>
     );
   }
