@@ -1,24 +1,29 @@
 import { db } from '@/api/db';
 
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Upload, MessageSquare, Target, Sparkles, Loader2, Mic, Volume2, VolumeX, Paperclip, X, History, Plus, CalendarClock } from "lucide-react";
+import { Brain, Upload, MessageSquare, Target, Sparkles, Loader2, Mic, Volume2, VolumeX, Paperclip, X, Plus, CalendarClock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from 'react-markdown';
-import { format, isFuture, addDays } from "date-fns";
+import { format } from "date-fns";
+import { useStudyData } from '@/lib/data';
+import { parseDay, daysUntil } from '@/lib/dates';
+import { speak, stopSpeaking as stopVoice } from '@/lib/voice';
+import { listenOnce, canListen } from '@/lib/listen';
 import StudyHistorySidebar from "../components/study/StudyHistorySidebar";
 import SmartPlanner from "../components/study/SmartPlanner";
 
 export default function Study() {
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("assistant");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || "assistant");
   const [plannerKey, setPlannerKey] = useState(0);
   
   // AI Assistant state
@@ -26,8 +31,10 @@ export default function Study() {
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [chatFiles, setChatFiles] = useState([]);
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingIdx, setSpeakingIdx] = useState(null);   // which answer is being read aloud
   const [isListening, setIsListening] = useState(false);
+  const [micError, setMicError] = useState('');
+  const isSpeaking = speakingIdx !== null;
   
   // Homework grading state
   const [selectedFile, setSelectedFile] = useState(null);
@@ -82,43 +89,23 @@ export default function Study() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studyHistory'] })
   });
 
+  // Same data, same filtering as every other page. Tests are sorted soonest
+  // first — the old list was sorted latest first, so the "upcoming test"
+  // banner named the one furthest away.
+  const { user, homework, tests: myTests } = useStudyData();
+  const tests = myTests
+    .filter(t => { const d = parseDay(t.date); return d && daysUntil(d) >= 0; })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Deep links: "Quiz me on this" from Today or Focus, "Plan my week".
   useEffect(() => {
-    db.auth.me().then(userData => {
-      setUser(userData);
-      if (userData.dark_mode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }).catch(() => {});
-  }, []);
+    const id = location.state?.testId;
+    if (!id || selectedTest) return;
+    const t = myTests.find(x => x.id === id);
+    if (t) setSelectedTest(t);
+  }, [location.state, myTests, selectedTest]);
 
-  const { data: allClasses = [] } = useQuery({
-    queryKey: ['classes'],
-    queryFn: () => db.entities.Class.list()
-  });
-
-  const classes = allClasses.filter(c => 
-    c.members?.includes(user?.email)
-  );
-
-  const { data: allTests = [] } = useQuery({
-    queryKey: ['tests'],
-    queryFn: () => db.entities.Test.list('-date')
-  });
-
-  const tests = allTests.filter(test => 
-    classes.some(c => c.name === test.class_name) && isFuture(new Date(test.date))
-  );
-
-  const { data: allHomework = [] } = useQuery({
-    queryKey: ['homework'],
-    queryFn: () => db.entities.Homework.list('-due_date')
-  });
-
-  const homework = allHomework.filter(hw => 
-    classes.some(c => c.name === hw.class_name)
-  );
+  useEffect(() => () => stopVoice(), []);
 
   const upcomingTest = tests[0];
 
@@ -142,7 +129,7 @@ export default function Study() {
       }
 
       const testsContext = tests.length > 0 
-        ? `Upcoming tests: ${tests.map(t => `${t.title} (${t.class_name}) on ${format(new Date(t.date), 'MMM d')}`).join(', ')}` 
+        ? `Upcoming tests: ${tests.map(t => `${t.title} (${t.class_name}) on ${format(parseDay(t.date), 'MMM d')}`).join(', ')}` 
         : '';
       
       // The chat used to send only the latest message, so the assistant could
@@ -177,14 +164,9 @@ export default function Study() {
         queryClient.invalidateQueries({ queryKey: ['studyHistory'] });
       }
       
-      // Text-to-speech
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(response);
-        utterance.rate = 1.1;
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        window.speechSynthesis.speak(utterance);
-      }
+      // Read aloud only if they asked for it (Settings → Voice). It used to
+      // read every answer, robotically, markdown symbols and all.
+      if (user?.voice?.readAloud) readAloud(newMessages.length - 1, response);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: `Sorry — ${error?.message || 'something went wrong. Please try again.'}` }]);
     } finally {
@@ -192,32 +174,31 @@ export default function Study() {
     }
   };
 
+  function readAloud(idx, text) {
+    setSpeakingIdx(idx);
+    speak(text, { onEnd: () => setSpeakingIdx(cur => (cur === idx ? null : cur)) });
+  }
+
   const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
+    stopVoice();
+    setSpeakingIdx(null);
   };
 
-  const startListening = () => {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      alert('Speech recognition not supported in this browser');
-      return;
+  // Dictation into the box: the words appear as you say them, and you can
+  // still edit before sending.
+  const startListening = async () => {
+    setMicError('');
+    const before = input ? `${input.trim()} ` : '';
+    const { promise } = listenOnce({ onInterim: (t) => setInput(before + t) });
+    setIsListening(true);
+    try {
+      const text = await promise;
+      setInput(before + text);
+    } catch (e) {
+      setMicError(e.message);
+    } finally {
+      setIsListening(false);
     }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(prev => prev + ' ' + transcript);
-    };
-
-    recognition.start();
   };
 
   // Homework Grading
@@ -456,15 +437,15 @@ Provide a score out of 10 and brief feedback.`,
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 p-4 pb-24 md:pb-4">
-      <div className="max-w-5xl mx-auto pt-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-            <Brain className="w-6 h-6 text-white" />
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div>
+        <div className="mb-6 flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent text-accent-foreground">
+            <Brain className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">AI Study Assistant</h1>
-            <p className="text-slate-500 dark:text-slate-400">Get help, grade homework, and practice with quizzes</p>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Study</h1>
+            <p className="text-sm text-muted-foreground">Ask anything, plan your week, get feedback on work, and quiz yourself.</p>
           </div>
         </div>
 
@@ -476,7 +457,7 @@ Provide a score out of 10 and brief feedback.`,
                 <div className="flex-1">
                   <p className="text-sm font-medium text-purple-900 dark:text-purple-300">Upcoming Test Alert</p>
                   <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
-                    You have <strong>{upcomingTest.title}</strong> ({upcomingTest.class_name}) on {format(new Date(upcomingTest.date), 'MMMM d')}. 
+                    You have <strong>{upcomingTest.title}</strong> ({upcomingTest.class_name}) on {format(parseDay(upcomingTest.date), 'MMMM d')}. 
                     Want to practice with an AI-generated quiz?
                   </p>
                   <Button 
@@ -564,6 +545,16 @@ Provide a score out of 10 and brief feedback.`,
                           <ReactMarkdown className={`text-sm prose prose-sm max-w-none ${msg.role !== 'user' ? 'dark:prose-invert' : ''}`}>
                             {msg.content}
                           </ReactMarkdown>
+                          {msg.role !== 'user' && (
+                            <button
+                              type="button"
+                              onClick={() => (speakingIdx === idx ? stopSpeaking() : readAloud(idx, msg.content))}
+                              className="mt-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                            >
+                              {speakingIdx === idx ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                              {speakingIdx === idx ? 'Stop' : 'Listen'}
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -590,6 +581,7 @@ Provide a score out of 10 and brief feedback.`,
                     </div>
                   )}
 
+                  {micError && <p className="text-sm text-red-700 dark:text-red-400" role="alert">{micError}</p>}
                   <div className="flex gap-2">
                     <div className="flex gap-1">
                       <Button
@@ -612,7 +604,9 @@ Provide a score out of 10 and brief feedback.`,
                         variant="outline"
                         size="icon"
                         onClick={isListening ? null : startListening}
-                        disabled={isThinking}
+                        disabled={isThinking || !canListen}
+                        aria-label={isListening ? 'Listening' : 'Dictate'}
+                        title={canListen ? 'Dictate' : 'This browser cannot listen'}
                         className={isListening ? "bg-red-100 text-red-600" : ""}
                       >
                         <Mic className={`w-4 h-4 ${isListening ? 'animate-pulse' : ''}`} />
@@ -622,6 +616,8 @@ Provide a score out of 10 and brief feedback.`,
                         size="icon"
                         onClick={isSpeaking ? stopSpeaking : null}
                         disabled={!isSpeaking}
+                        aria-label="Stop reading aloud"
+                        title="Stop reading aloud"
                       >
                         {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                       </Button>
