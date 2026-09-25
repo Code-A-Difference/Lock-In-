@@ -3,10 +3,11 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import SignIn from '@/pages/SignIn';
+import { FocusProvider } from '@/lib/FocusContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -34,7 +35,10 @@ const AuthenticatedApp = () => {
   // Everything is stored per account, so nothing renders until someone signs in.
   if (!isAuthenticated) return <SignIn />;
 
+  // The timer sits above the routes so it keeps running between pages, and
+  // inside the sign-in gate so signing out stops it.
   return (
+    <FocusProvider>
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
@@ -52,8 +56,10 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
+      <Route path="/Home" element={<Navigate to="/" replace />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    </FocusProvider>
   );
 };
 
