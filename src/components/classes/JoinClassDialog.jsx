@@ -7,8 +7,8 @@ import { Loader2, Share2, ClipboardPaste } from "lucide-react";
 
 /**
  * Add a class a classmate shared. The code is long because it carries the
- * class and its homework and tests inside it — there is no server to look a
- * short code up on.
+ * class and its homework and tests inside it, so nobody's account has to be
+ * opened to anyone else to share one.
  */
 export default function JoinClassDialog({ open, onOpenChange, onSubmit, isLoading }) {
   const [code, setCode] = useState('');

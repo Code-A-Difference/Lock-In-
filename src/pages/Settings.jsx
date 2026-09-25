@@ -1,4 +1,4 @@
-import { db, accounts, backup } from '@/api/db';
+import { db, accounts } from '@/api/db';
 
 import React, { useEffect, useState } from 'react';
 
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
-import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Download, HardDrive, ShieldCheck, AlertTriangle, Timer, AudioLines, Play, Square } from "lucide-react";
+import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
@@ -44,9 +44,8 @@ function Row({ id, label, hint, children }) {
 }
 
 /**
- * Settings for a local account. Everything here acts on data in this
- * browser — there is no server copy — so the backup section is the important
- * one, and delete really does delete.
+ * Settings. Everything here is saved to the student's account on the
+ * server, so it follows them to any computer they sign in on.
  */
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -58,27 +57,15 @@ export default function Settings() {
   const [pw, setPw] = useState({ current: '', next: '', again: '' });
   const [pwBusy, setPwBusy] = useState(false);
 
-  const [persisted, setPersisted] = useState(null);
-  const [usage, setUsage] = useState(null);
-  const [lastBackup, setLastBackup] = useState(() => {
-    try { return localStorage.getItem('lockin.lastBackup.' + (accounts.current()?.username || '')); } catch (_) { return null; }
-  });
-  const [confirmDelete, setConfirmDelete] = useState('');
+  const [deletePw, setDeletePw] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const voice = { ...VOICE_DEFAULTS, ...(user?.voice || {}) };
   const [browserVoices, setBrowserVoices] = useState([]);
   const [playing, setPlaying] = useState(null);      // which sample is playing
   const [heardWith, setHeardWith] = useState('');
 
-  useEffect(() => {
-    (async () => {
-      try {
-        if (navigator.storage?.persisted) setPersisted(await navigator.storage.persisted());
-        if (navigator.storage?.estimate) setUsage((await navigator.storage.estimate()).usage || 0);
-      } catch (_) {}
-    })();
-    return onVoicesReady(() => setBrowserVoices(listBrowserVoices()));
-  }, []);
+  useEffect(() => onVoicesReady(() => setBrowserVoices(listBrowserVoices())), []);
 
   useEffect(() => () => stopSpeaking(), []);
 
@@ -132,41 +119,27 @@ export default function Settings() {
     try {
       await accounts.changePassword(pw.current, pw.next);
       setPw({ current: '', next: '', again: '' });
-      toast({ title: 'Password changed', description: 'Backups made before now still open with the OLD password. Make a new one.' });
+      toast({ title: 'Password changed', description: 'Any other computer signed in to your account has been signed out.' });
     } catch (err) {
       toast({ title: 'Password not changed', description: err.message, variant: 'destructive' });
     } finally { setPwBusy(false); }
   };
 
-  const downloadBackup = async () => {
+  const signOut = async () => { queryClient.clear(); await accounts.signOut(); };
+  const deleteAccount = async (e) => {
+    e.preventDefault();
+    if (!deletePw) return;
+    if (!window.confirm(`Delete "${user.username}" and everything in it? This can't be undone.`)) return;
+    setDeleting(true);
     try {
-      const text = await backup.export();
-      const stamp = new Date().toISOString().slice(0, 10);
-      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lockin-${user.username}-${stamp}.lockin`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      const now = new Date().toISOString();
-      try { localStorage.setItem('lockin.lastBackup.' + user.username, now); } catch (_) {}
-      setLastBackup(now);
-    } catch (e) {
-      toast({ title: 'Backup failed', description: e.message, variant: 'destructive' });
+      await accounts.deleteCurrent(deletePw);
+      queryClient.clear();
+    } catch (err) {
+      toast({ title: 'Account not deleted', description: err.message, variant: 'destructive' });
+      setDeleting(false);
     }
   };
 
-  const signOut = async () => { queryClient.clear(); await accounts.signOut(); };
-  const deleteAccount = async () => {
-    if (confirmDelete.trim().toLowerCase() !== user.username) return;
-    queryClient.clear();
-    await accounts.deleteCurrent();
-  };
-
-  const fmtBytes = n => n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`;
-  const backupAge = lastBackup ? Math.floor((Date.now() - new Date(lastBackup)) / 86400000) : null;
   const p = focus.prefs;
   const aiOk = voiceStatus().aiAvailable;
   const numberBox = 'h-9 w-20 rounded-lg border bg-background px-2 text-center text-sm tabular-nums text-foreground';
@@ -175,7 +148,7 @@ export default function Settings() {
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-8">
       <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Settings</h1>
       <p className="mb-6 mt-1 text-sm text-muted-foreground">
-        Signed in as <strong className="font-semibold text-foreground">{user.username}</strong> on this browser.
+        Signed in as <strong className="font-semibold text-foreground">{user.username}</strong>. Everything here is saved to your account.
       </p>
 
       <div className="space-y-5">
@@ -186,7 +159,7 @@ export default function Settings() {
               <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your name" />
               <Button onClick={saveName} disabled={savingName}>{savingName ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}</Button>
             </div>
-            <p className="text-xs text-muted-foreground">Your username, <strong>{user.username}</strong>, is part of how your data is locked, so it can't change.</p>
+            <p className="text-xs text-muted-foreground">Your username, <strong>{user.username}</strong>, is how you sign in, so it can't change.</p>
           </div>
         </Section>
 
@@ -314,26 +287,7 @@ export default function Settings() {
           </div>
         </Section>
 
-        <Section icon={Download} title="Backup" description="Your work is stored only in this browser. A backup is your copy — keep one somewhere safe."
-          className="border-indigo-200 dark:border-indigo-900/60">
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex gap-2.5"><ShieldCheck className="mt-0.5 h-4 w-4 flex-none text-emerald-600" />
-              The file is encrypted with your password. It's safe to email to yourself or keep in Google Drive.</li>
-            <li className="flex gap-2.5"><HardDrive className="mt-0.5 h-4 w-4 flex-none text-indigo-600" />
-              On another computer, choose <em>Restore from a backup</em> on the sign-in page.</li>
-          </ul>
-          {backupAge === null
-            ? <p className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400"><AlertTriangle className="h-4 w-4" />You haven't made a backup from this browser yet.</p>
-            : <p className="text-sm text-muted-foreground">Last backup: {backupAge === 0 ? 'today' : `${backupAge} day${backupAge === 1 ? '' : 's'} ago`}.</p>}
-          <Button onClick={downloadBackup}><Download className="mr-2 h-4 w-4" /> Download backup</Button>
-          <p className="text-xs text-muted-foreground">
-            {usage != null && <>Using {fmtBytes(usage)} in this browser. </>}
-            {persisted === true && 'This browser has agreed not to clear it automatically.'}
-            {persisted === false && 'This browser may clear it if the device runs low on space — another reason to keep a backup.'}
-          </p>
-        </Section>
-
-        <Section icon={KeyRound} title="Password" description="There is no reset, so pick one you'll remember.">
+        <Section icon={KeyRound} title="Password" description="There's no email on your account, so there's no reset. Changing it signs out your other devices.">
           <form onSubmit={changePassword} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="pwCurrent">Current password</Label>
@@ -362,23 +316,22 @@ export default function Settings() {
           <Button onClick={signOut} variant="outline" className="w-full justify-start">
             <LogOut className="mr-2 h-4 w-4" /> Sign out
           </Button>
-          <div className="rounded-xl border border-red-200 p-4 dark:border-red-900/50">
+          <form onSubmit={deleteAccount} className="rounded-xl border border-red-200 p-4 dark:border-red-900/50">
             <p className="text-sm font-semibold text-red-700 dark:text-red-400">Delete this account</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Removes the account and all of its classes, homework and tests from this browser.
-              It can't be undone — only a backup would bring it back.
+              Removes the account and all of its classes, homework, tests and study chats from the server. It can't be undone.
             </p>
-            <Label htmlFor="confirmDelete" className="mt-3 block text-xs text-muted-foreground">
-              Type <strong>{user.username}</strong> to confirm
+            <Label htmlFor="deletePw" className="mt-3 block text-xs text-muted-foreground">
+              Your password, to confirm
             </Label>
             <div className="mt-1.5 flex gap-2">
-              <Input id="confirmDelete" value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)}
-                autoComplete="off" autoCapitalize="none" spellCheck={false} />
-              <Button variant="destructive" onClick={deleteAccount} disabled={confirmDelete.trim().toLowerCase() !== user.username}>
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              <Input id="deletePw" type="password" value={deletePw} onChange={e => setDeletePw(e.target.value)}
+                autoComplete="current-password" />
+              <Button type="submit" variant="destructive" disabled={!deletePw || deleting}>
+                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete
               </Button>
             </div>
-          </div>
+          </form>
         </Section>
       </div>
     </div>

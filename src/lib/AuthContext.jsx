@@ -1,17 +1,18 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
-import { accounts } from '@/api/db';
+import { accounts, sync } from '@/api/db';
 import { queryClientInstance } from '@/lib/query-client';
 
 /**
- * Who is signed in. Accounts are local to this browser (see api/db.js), so
- * there is no server round trip here — "loading" is just the moment it takes
- * to reopen a signed-in tab's vault after a reload.
+ * Who is signed in. The account lives on the server (see api/db.js); a
+ * reload asks it who this browser's sign-in cookie belongs to. "Loading" is
+ * that one request.
  */
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [authError, setAuthError] = useState(null);
   const lastUsername = useRef(null);
 
   const apply = useCallback((u) => {
@@ -27,14 +28,22 @@ export const AuthProvider = ({ children }) => {
     setUser(u);
   }, []);
 
-  useEffect(() => {
-    const off = accounts.onChange(apply);
+  const resume = useCallback(() => {
+    setIsLoadingAuth(true);
+    setAuthError(null);
     accounts.resume()
       .then(apply)
-      .catch(() => apply(null))
+      .catch(e => { apply(null); setAuthError(e.message || "Can't reach LOCK IN!'s server."); })
       .finally(() => setIsLoadingAuth(false));
-    return off;
   }, [apply]);
+
+  useEffect(() => {
+    const off = accounts.onChange(apply);
+    // Another device changed something: every page reloads what it shows.
+    const offData = sync.onData(() => queryClientInstance.invalidateQueries());
+    resume();
+    return () => { off(); offData(); };
+  }, [apply, resume]);
 
   const logout = useCallback(() => accounts.signOut(), []);
 
@@ -43,9 +52,10 @@ export const AuthProvider = ({ children }) => {
       user,
       isAuthenticated: !!user,
       isLoadingAuth,
+      authError,
+      retryAuth: resume,
       // kept for pages written against the base44 context
       isLoadingPublicSettings: false,
-      authError: null,
       logout,
       navigateToLogin: logout,
     }}>

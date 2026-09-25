@@ -1,21 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { accounts, backup, MIN_PASSWORD } from '@/api/db';
+import { accounts, MIN_PASSWORD } from '@/api/db';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, Lock, ShieldCheck, Upload, UserRound, Loader2 } from 'lucide-react';
+import { ArrowLeft, Cloud, Eye, EyeOff, Lock, UserRound, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// The Code A Difference home page. LOCK IN! is served from /lockin/ inside it.
+const SITE_URL = import.meta.env.VITE_SITE_URL || '/';
+
 /**
- * Sign in / create account. Accounts live in this browser only, encrypted
- * with the password (api/vault.js), so this page has to be honest about two
- * things a normal login page never mentions: the data is on this device,
- * and a forgotten password cannot be reset.
+ * Sign in / create account. The account and everything in it are kept on
+ * the Code A Difference server, so any computer will do. There's no email,
+ * so there's no password reset either, and the page says so.
  */
 export default function SignIn() {
   const [mode, setMode] = useState('signin');          // 'signin' | 'signup'
-  const [known, setKnown] = useState([]);
+  const [legacy, setLegacy] = useState([]);            // accounts from when LOCK IN! lived in the browser
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -24,33 +26,29 @@ export default function SignIn() {
   const [rememberDevice, setRememberDevice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const fileRef = useRef(null);
   const pwRef = useRef(null);
 
-  const refreshKnown = () => accounts.list().then(setKnown).catch(() => setKnown([]));
-
+  // Work saved in this browser before accounts moved to the server: point
+  // the way to bringing it across (sign up with the same name and password).
   useEffect(() => {
-    refreshKnown();
-  }, []);
-
-  // First visit in this browser: nobody to sign in as yet, so start on sign-up.
-  useEffect(() => {
-    accounts.list().then(list => { if (!list.length) setMode('signup'); }).catch(() => {});
+    accounts.legacyAccounts().then(list => {
+      setLegacy(list);
+      if (list.length) { setMode('signup'); setUsername(list[0].username); setDisplayName(list[0].displayName || ''); }
+    });
   }, []);
 
   const switchMode = (m) => {
-    setMode(m); setError(''); setNotice(''); setPassword(''); setConfirm('');
+    setMode(m); setError(''); setPassword(''); setConfirm('');
   };
 
-  const pick = (u) => {
-    setUsername(u); setMode('signin'); setError(''); setNotice('');
+  const pick = (a) => {
+    setUsername(a.username); setDisplayName(a.displayName || ''); setMode('signup'); setError('');
     setTimeout(() => pwRef.current?.focus(), 0);
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    setError(''); setNotice('');
+    setError('');
     if (mode === 'signup') {
       if (password.length < MIN_PASSWORD) return setError(`Use at least ${MIN_PASSWORD} characters for your password.`);
       if (password !== confirm) return setError('Those two passwords are different. Type them again.');
@@ -69,34 +67,6 @@ export default function SignIn() {
     }
   };
 
-  const restore = async (file) => {
-    if (!file) return;
-    setError(''); setNotice('');
-    try {
-      const text = await file.text();
-      let u;
-      try {
-        u = await backup.import(text);
-      } catch (err) {
-        if (err.code !== 'exists') throw err;
-        const ok = window.confirm(
-          `There is already an account called "${err.username}" in this browser.\n\n` +
-          'Replace it with the backup? Anything saved in it since the backup was made will be lost.'
-        );
-        if (!ok) return;
-        u = await backup.import(text, { overwrite: true });
-      }
-      await refreshKnown();
-      setMode('signin'); setUsername(u); setPassword('');
-      setNotice(`Backup restored. Sign in with the password for "${u}".`);
-      setTimeout(() => pwRef.current?.focus(), 0);
-    } catch (err) {
-      setError(err.message || 'That backup could not be restored.');
-    } finally {
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  };
-
   const isSignup = mode === 'signup';
 
   return (
@@ -107,11 +77,16 @@ export default function SignIn() {
         <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-2xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-fuchsia-300/20 blur-3xl" />
 
-        <div className="relative flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25">
-            <Lock className="h-5 w-5" />
-          </span>
-          <span className="text-lg font-black tracking-tight">LOCK IN<span className="text-amber-300">!</span></span>
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 ring-1 ring-white/25">
+              <Lock className="h-5 w-5" />
+            </span>
+            <span className="text-lg font-black tracking-tight">LOCK IN<span className="text-amber-300">!</span></span>
+          </div>
+          <a href={SITE_URL} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />Code A Difference
+          </a>
         </div>
 
         <div className="relative mt-10 lg:mt-0">
@@ -125,8 +100,8 @@ export default function SignIn() {
         </div>
 
         <ul className="relative mt-10 hidden space-y-3 text-sm text-white/85 lg:block">
-          <li className="flex gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 flex-none" />Your data stays in this browser, encrypted with your password.</li>
-          <li className="flex gap-3"><UserRound className="mt-0.5 h-4 w-4 flex-none" />Shared computer? Every student gets their own locked account.</li>
+          <li className="flex gap-3"><Cloud className="mt-0.5 h-4 w-4 flex-none" />Saved to your account. Sign in from any computer and it's all there.</li>
+          <li className="flex gap-3"><UserRound className="mt-0.5 h-4 w-4 flex-none" />No email needed. Just a username and a password.</li>
         </ul>
       </aside>
 
@@ -155,32 +130,31 @@ export default function SignIn() {
             {isSignup ? 'Make your account' : 'Welcome back'}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {isSignup ? 'It lives in this browser — no email needed.' : 'Pick up where you left off.'}
+            {isSignup ? 'No email needed. Sign in from any computer.' : 'Pick up where you left off, on any computer.'}
           </p>
 
-          {!isSignup && known.length > 0 && (
-            <div className="mt-6">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">On this device</p>
-              <div className="flex flex-wrap gap-2">
-                {known.map(a => (
-                  <button
-                    key={a.username}
-                    type="button"
-                    onClick={() => pick(a.username)}
-                    className={cn(
-                      'flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors',
-                      username === a.username
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-                    )}
-                  >
-                    <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[11px] font-bold uppercase text-white">
-                      {(a.displayName || a.username).slice(0, 1)}
-                    </span>
-                    {a.displayName && a.displayName !== a.username ? `${a.displayName} · ${a.username}` : a.username}
-                  </button>
-                ))}
-              </div>
+          {legacy.length > 0 && (
+            <div className="mt-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-100">
+              <p className="font-semibold">Your work from this browser is still here.</p>
+              <p className="mt-1 text-indigo-900/80 dark:text-indigo-200/80">
+                LOCK IN! now saves to an account online. Create one with the <strong>same username and password</strong> you
+                used here, and your classes and homework come across.
+              </p>
+              {legacy.length > 1 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {legacy.map(a => (
+                    <button key={a.username} type="button" onClick={() => pick(a)}
+                      className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        username === a.username
+                          ? 'border-indigo-500 bg-white text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200'
+                          : 'border-indigo-200 bg-white/60 text-indigo-800 hover:bg-white dark:border-indigo-800 dark:bg-transparent dark:text-indigo-200'
+                      )}>
+                      {a.username}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -230,15 +204,15 @@ export default function SignIn() {
               <span>
                 Keep me signed in on this device
                 <span className="block text-xs text-slate-400">
-                  Only on your own device. Anyone using this browser could open your account.
+                  For 60 days. Only on your own device; on a shared computer, leave this off.
                 </span>
               </span>
             </label>
 
             {isSignup && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
-                <strong>There is no password reset.</strong> Your password is the key that unlocks your data,
-                so if you forget it, nobody can get it back. Make a backup from Settings once you have added some work.
+                <strong>There is no password reset.</strong> With no email on the account there's nowhere to send one,
+                so pick a password you'll remember.
               </p>
             )}
 
@@ -247,30 +221,14 @@ export default function SignIn() {
                 {error}
               </p>
             )}
-            {notice && (
-              <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
-                {notice}
-              </p>
-            )}
-
             <Button type="submit" disabled={busy}
                     className="h-11 w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-base font-semibold hover:from-indigo-500 hover:to-fuchsia-500">
               {busy
-                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isSignup ? 'Creating…' : 'Unlocking…'}</>
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isSignup ? 'Creating…' : 'Signing in…'}</>
                 : (isSignup ? 'Create account' : 'Sign in')}
             </Button>
           </form>
 
-          <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              New computer? Bring your account over with a backup file.
-            </p>
-            <input ref={fileRef} type="file" accept=".lockin,application/json" className="hidden"
-                   onChange={e => restore(e.target.files?.[0])} />
-            <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => fileRef.current?.click()}>
-              <Upload className="mr-2 h-4 w-4" /> Restore from a backup
-            </Button>
-          </div>
         </div>
       </main>
     </div>
