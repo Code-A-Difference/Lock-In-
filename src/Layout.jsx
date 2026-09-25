@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard } from 'lucide-react';
+import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { sync } from '@/api/db';
 import { cn } from '@/lib/utils';
 import TimerPill from '@/components/lockin/TimerPill';
 import ShortcutsDialog from '@/components/lockin/ShortcutsDialog';
@@ -33,6 +34,25 @@ function Brand({ compact = false }) {
         </span>
       )}
     </Link>
+  );
+}
+
+// The Code A Difference home page. LOCK IN! is served from /lockin/ inside it.
+const SITE_URL = import.meta.env.VITE_SITE_URL || '/';
+
+/**
+ * Changes save to the server as they're made. This only speaks up when they
+ * can't: the connection dropped, and they're queued until it's back.
+ */
+function SaveStatus() {
+  const [st, setSt] = useState(sync.state());
+  useEffect(() => sync.onChange(setSt), []);
+  if (!st.offline || !st.pending) return null;
+  return (
+    <div role="status" className="fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-lg lg:bottom-4 lg:left-[calc(50%+7.5rem)]">
+      <CloudOff className="h-4 w-4 text-amber-600" aria-hidden="true" />
+      Not saved yet. Trying again…
+    </div>
   );
 }
 
@@ -110,6 +130,9 @@ export default function Layout({ children, currentPageName }) {
 
         <div className="mt-auto flex flex-col gap-3">
           <TimerPill wide />
+          <a href={SITE_URL} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Code A Difference
+          </a>
           <div className="flex items-center gap-2 rounded-lg border p-2">
             <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white">{initial(user)}</span>
             <div className="min-w-0 flex-1">
@@ -142,6 +165,8 @@ export default function Layout({ children, currentPageName }) {
             <DropdownMenuLabel className="truncate">@{user?.username}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate('/Settings')}><Settings className="mr-2 h-4 w-4" />Settings</DropdownMenuItem>
+            <DropdownMenuItem asChild><a href={SITE_URL}><ArrowLeft className="mr-2 h-4 w-4" />Code A Difference</a></DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={logout}><LogOut className="mr-2 h-4 w-4" />Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -174,6 +199,7 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </nav>
 
+      <SaveStatus />
       <ShortcutsDialog open={showKeys} onOpenChange={setShowKeys} />
     </div>
   );

@@ -9,7 +9,7 @@ a focus timer that knows what you're working on, and an AI assistant.
 | **Focus** | The timer (25/5, 50/10, 90/20 or custom; a long break every 4th), background sound (rain, brown noise, a drone — generated live, nothing to download), the checklist for the task you picked, and voice control. Finished blocks are logged to that task and feed the streak. The timer keeps running on every other page; its countdown is in the nav and the tab title. |
 | **Study** | AI assistant (web search, attach images and PDFs, answers can be read aloud), weekly planner, homework feedback, practice quizzes. |
 | **Classes** | Add, edit, share with a code, delete. |
-| **Settings** | Timer defaults, voice, dark mode, backup, password, account. |
+| **Settings** | Timer defaults, voice, dark mode, password, account. |
 
 Keyboard: **N** or **/** add, **T F S C** go to a page, **?** lists them all. On
 Focus: **Space** start/pause, **+ / −** five minutes, **M** talk.
@@ -49,39 +49,51 @@ does it on the device. Settings and the Focus page say so.
 
 ## Where the data lives
 
-**In the student's own browser, not on a server.** Each account's data is one
-encrypted blob in IndexedDB (`src/api/vault.js`):
+**On the Code A Difference server, in the student's account.** Sign in from
+any computer and everything is there. The server side is two files in the
+website repo: `site/api/lockin.php` (the endpoint) and
+`site/_lib/lockin-store.php` (storage).
 
-- PBKDF2-SHA256, 600,000 rounds, turns the password into an AES-256 key.
-- AES-GCM encrypts the whole account, with the username bound in so one
-  account's data can't be passed off as another's.
-- On a shared school computer every student uses the same browser storage.
-  Encrypted, anyone opening devtools sees ciphertext, not someone's homework.
-
-Consequences that the app says out loud, and you should know too:
+- One JSON file per account for sign-in (a bcrypt password hash and the
+  hashes of its sign-in tokens), one for its data. Both live in the site's
+  `_data/lockin/`, which the web server refuses to serve and deploys never
+  overwrite.
+- Signing in sets an HttpOnly cookie. "Keep me signed in" makes it last 60
+  days; otherwise it ends with the browser, or after a day unused.
+- Every call carries an `X-LockIn: 1` header, which a page on another site
+  can't add, so the cookie can't be used from elsewhere.
+- Changes go up as small operations ("create this homework", "tick that
+  step"), applied under a file lock, so a laptop and a phone signed in at
+  once never overwrite each other. A tab that comes back into view picks up
+  what the other device changed.
+- Wrong passwords are rate-limited per network and per username.
 
 | | |
 |---|---|
-| **No password reset** | The password *is* the key. Forget it and the data is unrecoverable. |
-| **One device** | Data doesn't follow you. Settings → **Download backup** makes an encrypted `.lockin` file; **Restore from a backup** on the sign-in page loads it anywhere. |
-| **Browsers can clear storage** | Under low disk space some browsers evict site data. The app asks to be kept, and Settings shows whether the browser agreed. Backups are the real safety net. |
-| **No friends list** | That needs a shared database to look people up in. Classes are shared with **share codes** instead: the code carries the class and its homework and tests, and pasting it again later brings in only what's new. Share codes are *not* encrypted — they're meant to be read by whoever you send them to. |
+| **No password reset** | There's no email on an account, so there's nowhere to send a reset. The sign-up page says so. |
+| **No friends list** | Classes are shared with **share codes**: the code carries the class and its homework and tests, and pasting it again later brings in only what's new. Share codes are readable by whoever you send them to. |
 
-What *is* visible without a password: each account's username and display
-name, which the sign-in page lists under "On this device".
+**Before this, LOCK IN! kept everything in the browser**, encrypted in
+IndexedDB (`src/api/vault.js`), with backup files to move between
+computers. That copy is read one last time: the sign-in page notices it,
+and creating an account with the same username and password carries it
+up to the server and removes it from the browser.
 
 ## The backend
 
 `src/api/db.js` implements the same interface the pages were written against
 when this was a base44 export — `db.auth.*`, `db.entities.<Name>.list /
 filter / get / create / update / delete`, `db.integrations.Core.UploadFile /
-InvokeLLM` — plus `accounts`, `backup` and `sharing`. No `@base44` packages
-remain.
+InvokeLLM` — plus `accounts`, `sharing` and `sync` (saving status and
+changes from other devices). Reads come from the copy loaded at sign-in;
+writes update it at once and queue for the server, retrying if the
+connection drops. No `@base44` packages remain.
 
 ## AI features
 
-They call `/api/ai.php` on the Code A Difference site, which holds one shared
-Gemini key (set in that site's `/admin/` → AI key) and never sends it to the
+They call `/api/ai.php` on the Code A Difference site, which holds the AI
+keys (set in that site's `/admin/` → AI keys: Gemini, OpenAI, Anthropic or
+any OpenAI-compatible service, tried in order) and never sends them to the
 browser. So LOCK IN! has to be served **from that site** for AI to work —
 same origin, no setup. Uploaded files (images, PDFs, text) go along inline;
 the proxy caps them at 5 files and 6 MB.
