@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Pause, Play } from 'lucide-react';
 import { useFocus, PHASE_LABEL } from '@/lib/FocusContext';
 import { clock } from '@/lib/agenda';
@@ -28,12 +27,12 @@ export default function TimerPill({ className, wide = false }) {
       >
         {f.status === 'running' ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
       </button>
-      <Link to="/Focus" className="flex min-w-0 flex-1 items-baseline gap-2 rounded-full px-2 py-1.5" aria-label="Open the focus timer">
+      <button type="button" onClick={f.openFocus} className="flex min-w-0 flex-1 items-baseline gap-2 rounded-full px-2 py-1.5 text-left" aria-label="Open the focus timer">
         <span className="font-semibold tabular-nums text-foreground">{clock(f.remaining)}</span>
         <span className={cn('truncate text-xs font-medium', isBreak ? 'text-emerald-700 dark:text-emerald-400' : 'text-indigo-700 dark:text-indigo-300')}>
           {f.status === 'paused' ? 'Paused' : wide && f.taskItem ? f.taskItem.title : PHASE_LABEL[f.phase]}
         </span>
-      </Link>
+      </button>
     </div>
   );
 }

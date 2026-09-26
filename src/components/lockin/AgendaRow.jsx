@@ -53,7 +53,7 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
 
   const lockIn = () => {
     focus.lockIn({ type: kind, id: item.id });
-    navigate('/Focus');
+    focus.openFocus();
   };
 
   const breakDown = async () => {

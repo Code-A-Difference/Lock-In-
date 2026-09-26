@@ -67,6 +67,44 @@ test('questions and steps', () => {
   is('what can i say', 'help');
 });
 
+test('adding homework and tests by voice', () => {
+  is('add homework read chapter 4 due friday', 'addHomework', { title: 'read chapter 4', datePhrase: 'friday' });
+  is('add a biology test on october 12', 'addTest', { title: 'biology', datePhrase: 'october 12' });
+  is('schedule an essay assignment for tomorrow', 'addHomework', { title: 'essay', datePhrase: 'tomorrow' });
+  is('remember my chemistry homework', 'addHomework', { title: 'chemistry' });
+});
+
+test("what's due, marking things done, and deleting them", () => {
+  is("what's due", 'agenda');
+  is('what do i have this week', 'agenda');
+  is('read my agenda', 'agenda');
+  is('mark the biology homework done', 'completeItem', { title: 'biology' });
+  is('check off my essay', 'completeItem', { title: 'essay' });
+  is('im done with my essay', 'completeItem', { title: 'essay' });   // norm() strips the apostrophe
+  is('delete the chemistry test', 'deleteItem', { title: 'chemistry', kind: 'test' });
+  is('remove biology homework', 'deleteItem', { title: 'biology', kind: 'homework' });
+  is('cancel my history test', 'deleteItem', { title: 'history', kind: 'test' });
+  is('cancel the quiz', 'stopQuiz');   // not swallowed by the delete pattern
+});
+
+test('quizzes by voice', () => {
+  is('quiz me on photosynthesis', 'createQuiz', { topic: 'photosynthesis' });
+  is('test me on the french revolution', 'createQuiz', { topic: 'the french revolution' });
+  is('a', 'quizAnswer', { answer: 0 });
+  is('option c', 'quizAnswer', { answer: 2 });
+  is('the answer is d', 'quizAnswer', { answer: 3 });
+  is('stop the quiz', 'stopQuiz');
+});
+
+test('getting around by voice', () => {
+  is('open focus', 'openFocus');
+  is('go to the timer', 'openFocus');
+  is('plan my week', 'openPlanner');
+  is('go to classes', 'navigate', { path: '/Classes' });
+  is('take me to settings', 'navigate', { path: '/Settings' });
+  is('open practice', 'navigate', { path: '/Study' });
+});
+
 test('nonsense is unknown, silence is none', () => {
   is('purple elephant', 'unknown');
   is('   ', 'none');

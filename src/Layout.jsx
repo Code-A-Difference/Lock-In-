@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { sync } from '@/api/db';
 import { cn } from '@/lib/utils';
 import TimerPill from '@/components/lockin/TimerPill';
+import { useFocus } from '@/lib/FocusContext';
 import ShortcutsDialog from '@/components/lockin/ShortcutsDialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -16,8 +17,7 @@ import {
  */
 export const NAV = [
   { name: 'Today', icon: CalendarCheck, page: 'Today', key: 't' },
-  { name: 'Focus', icon: Timer, page: 'Focus', key: 'f' },
-  { name: 'Study', icon: Sparkles, page: 'Study', key: 's' },
+  { name: 'Practice', icon: Sparkles, page: 'Study', key: 'p' },
   { name: 'Classes', icon: GraduationCap, page: 'Classes', key: 'c' },
   { name: 'Settings', icon: Settings, page: 'Settings' },
 ];
@@ -69,6 +69,7 @@ function typingIn(el) {
 
 export default function Layout({ children, currentPageName }) {
   const { user, logout } = useAuth();
+  const focus = useFocus();
   const navigate = useNavigate();
   const [showKeys, setShowKeys] = useState(false);
   const active = currentPageName === 'Home' ? 'Today' : currentPageName;
@@ -80,7 +81,10 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typingIn(e.target)) return;
-      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+      if (document.querySelector('[role="menu"]')) return;
+      // A dialog normally blocks every shortcut — except the Focus overlay
+      // itself, which wants F/M/N to keep working while it's open.
+      if ([...document.querySelectorAll('[role="dialog"]')].some(d => d.getAttribute('aria-label') !== 'Focus timer')) return;
       const k = e.key.toLowerCase();
       if (k === 'n' || k === '/') {
         e.preventDefault();
@@ -89,12 +93,14 @@ export default function Layout({ children, currentPageName }) {
         return;
       }
       if (e.key === '?') { e.preventDefault(); setShowKeys(true); return; }
+      if (k === 'f') { e.preventDefault(); focus.openFocus(); return; }
+      if (k === 'm') { e.preventDefault(); window.dispatchEvent(new Event('lockin:talk')); return; }
       const item = NAV.find(n => n.key === k);
       if (item) { e.preventDefault(); navigate(item.page === 'Today' ? '/' : `/${item.page}`); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, navigate]);
+  }, [active, focus.openFocus, navigate]);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -105,7 +111,11 @@ export default function Layout({ children, currentPageName }) {
       {/* ── sidebar (lg+) ─────────────────────────────────────────── */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card px-3 py-4 lg:flex">
         <div className="px-2"><Brand /></div>
-        <nav aria-label="Main" className="mt-6 flex flex-col gap-0.5">
+        <button type="button" onClick={focus.openFocus}
+          className="mt-5 flex h-11 items-center gap-3 rounded-lg bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-3 text-sm font-semibold text-white shadow-sm hover:brightness-105">
+          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Focus mode <kbd className="ml-auto rounded border border-white/30 px-1.5 text-[10px]">F</kbd>
+        </button>
+        <nav aria-label="Main" className="mt-3 flex flex-col gap-0.5">
           {NAV.map(({ name, icon: Icon, page, key }) => {
             const on = active === page;
             return (
@@ -155,6 +165,9 @@ export default function Layout({ children, currentPageName }) {
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card px-4 lg:hidden">
         <Brand compact />
         <div className="flex min-w-0 flex-1 justify-center"><TimerPill /></div>
+        <button type="button" onClick={focus.openFocus} aria-label="Open focus mode" className="grid h-9 w-9 flex-none place-items-center rounded-full border text-indigo-700 hover:bg-accent dark:text-indigo-300">
+          <Timer className="h-4 w-4" />
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Account" className="grid h-9 w-9 flex-none place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white">
@@ -178,7 +191,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* ── bottom tabs (< lg) ───────────────────────────────────── */}
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
+        <div className="mx-auto grid max-w-lg grid-cols-4">
           {NAV.map(({ name, icon: Icon, page }) => {
             const on = active === page;
             return (
