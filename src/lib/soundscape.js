@@ -229,7 +229,7 @@ export function unlockAudio() { audio(); }
 export function chime(kind = 'focusEnd', volume = 0.35) {
   const c = audio();
   if (!c) return;
-  const notes = kind === 'breakEnd' ? [523.25, 783.99] : [783.99, 659.25];   // up to go, down to rest
+  const notes = kind === 'assistantActive' ? [659.25, 880] : kind === 'breakEnd' ? [523.25, 783.99] : [783.99, 659.25];
   notes.forEach((freq, i) => {
     const t = c.currentTime + i * 0.22;
     [1, 2.76, 5.4].forEach((ratio, j) => {

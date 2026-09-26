@@ -5,15 +5,15 @@ const GROUPS = [
   ['Anywhere', [
     ['N or /', 'Add something (homework, test)'],
     ['T', 'Today'],
-    ['F', 'Focus timer'],
-    ['S', 'Study assistant'],
+    ['F', 'Open focus overlay'],
+    ['M', 'Talk (push to talk)'],
+    ['P', 'Practice / quizzes'],
     ['C', 'Classes'],
     ['?', 'This list'],
   ]],
-  ['On the Focus page', [
+  ['With the Focus overlay open', [
     ['Space', 'Start / pause'],
     ['+ / −', 'Five minutes more / less'],
-    ['M', 'Talk (push to talk)'],
   ]],
 ];
 

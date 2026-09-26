@@ -10,7 +10,6 @@ import { relativeDay, daysUntil, parseDay, ymd } from '@/lib/dates';
 import { SOUNDS } from '@/lib/soundscape';
 import TimerRing from '@/components/lockin/TimerRing';
 import StepList from '@/components/lockin/StepList';
-import VoicePanel from '@/components/lockin/VoicePanel';
 import { breakDownToast } from '@/components/lockin/AgendaRow';
 
 const PRESETS = [[25, 5], [50, 10], [90, 20]];
@@ -43,11 +42,12 @@ export default function Focus() {
     const onKey = (e) => {
       const f = fRef.current;
       if (e.ctrlKey || e.metaKey || e.altKey || typingIn(e.target)) return;
-      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+      if (document.querySelector('[role="menu"]')) return;
+      if ([...document.querySelectorAll('[role="dialog"]')].some(d => d.getAttribute('aria-label') !== 'Focus timer')) return;
       if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); f.toggle(); }
       else if (e.key === '+' || e.key === '=') { e.preventDefault(); f.adjust(5); }
       else if (e.key === '-' || e.key === '_') { e.preventDefault(); f.adjust(-5); }
-      else if (e.key.toLowerCase() === 'm') { e.preventDefault(); window.dispatchEvent(new Event('lockin:talk')); }
+      // M (talk) is handled globally in Layout.jsx, so it also works when this overlay is closed.
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -271,10 +271,8 @@ export default function Focus() {
                 onValueChange={([v]) => f.setVolume(v / 100)} aria-label="Volume" disabled={f.prefs.sound === 'off'} />
               <Volume2 className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Plays during focus blocks and fades out for breaks. Made live in your browser — nothing to download.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Loops continuously until you choose Off or say “stop the sound.” Made live in your browser — nothing to download.</p>
           </section>
-
-          <VoicePanel />
         </aside>
       </div>
     </div>
