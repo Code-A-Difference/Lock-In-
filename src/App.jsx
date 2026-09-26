@@ -3,11 +3,14 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import SignIn from '@/pages/SignIn';
-import { FocusProvider } from '@/lib/FocusContext';
+import { FocusProvider, useFocus } from '@/lib/FocusContext';
+import Focus from '@/pages/Focus';
+import VoicePanel from '@/components/lockin/VoicePanel';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -20,6 +23,42 @@ const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || undefin
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
+
+function LegacyFocusRoute() {
+  const focus = useFocus();
+  const navigate = useNavigate();
+  useEffect(() => {
+    focus.openFocus();
+    navigate('/', { replace: true });
+  }, [focus.openFocus, navigate]);
+  return null;
+}
+
+function FocusSurface() {
+  const focus = useFocus();
+  const closeRef = useRef(null);
+  useEffect(() => {
+    if (!focus.overlayOpen) return undefined;
+    const previous = document.activeElement;
+    const onKey = e => { if (e.key === 'Escape') focus.closeFocus(); };
+    document.addEventListener('keydown', onKey);
+    closeRef.current?.focus();
+    return () => { document.removeEventListener('keydown', onKey); previous?.focus?.(); };
+  }, [focus.overlayOpen, focus.closeFocus]);
+  if (!focus.overlayOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/45 p-0 backdrop-blur-sm sm:p-4" onMouseDown={e => { if (e.target === e.currentTarget) focus.closeFocus(); }}>
+      <section role="dialog" aria-modal="true" aria-label="Focus timer" className="relative mx-auto min-h-dvh max-w-7xl bg-background shadow-2xl sm:min-h-[calc(100dvh-2rem)] sm:rounded-2xl">
+        <div className="sticky top-0 z-20 mx-auto flex max-w-6xl justify-end px-4 pt-3 sm:px-6">
+          <button ref={closeRef} type="button" onClick={focus.closeFocus} className="inline-flex h-10 items-center gap-2 rounded-full border bg-card/95 px-4 text-sm font-semibold text-foreground shadow-sm backdrop-blur hover:bg-secondary">
+            <span aria-hidden="true">×</span> Close focus
+          </button>
+        </div>
+        <Focus />
+      </section>
+    </div>
+  );
+}
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isAuthenticated, authError, retryAuth } = useAuth();
@@ -56,13 +95,14 @@ const AuthenticatedApp = () => {
   // inside the sign-in gate so signing out stops it.
   return (
     <FocusProvider>
+    <>
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />
         </LayoutWrapper>
       } />
-      {Object.entries(Pages).map(([path, Page]) => (
+      {Object.entries(Pages).filter(([path]) => path !== 'Focus').map(([path, Page]) => (
         <Route
           key={path}
           path={`/${path}`}
@@ -73,9 +113,13 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
+      <Route path="/Focus" element={<LegacyFocusRoute />} />
       <Route path="/Home" element={<Navigate to="/" replace />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    <FocusSurface />
+    <VoicePanel />
+    </>
     </FocusProvider>
   );
 };

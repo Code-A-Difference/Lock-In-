@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Upload, MessageSquare, Target, Sparkles, Loader2, Mic, Volume2, VolumeX, Paperclip, X, Plus, CalendarClock } from "lucide-react";
+import { Brain, Upload, Target, Sparkles, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,26 +16,15 @@ import ReactMarkdown from 'react-markdown';
 import { format } from "date-fns";
 import { useStudyData } from '@/lib/data';
 import { parseDay, daysUntil } from '@/lib/dates';
-import { speak, stopSpeaking as stopVoice } from '@/lib/voice';
-import { listenOnce, canListen } from '@/lib/listen';
 import StudyHistorySidebar from "../components/study/StudyHistorySidebar";
-import SmartPlanner from "../components/study/SmartPlanner";
 
+// The AI Assistant chat and the Planner tab moved out of here: the planner
+// is inline on the Today page now, and asking Lock In a question works by
+// voice from anywhere (FocusContext.handleVoice), not as a typed chat.
 export default function Study() {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(location.state?.tab || "assistant");
-  const [plannerKey, setPlannerKey] = useState(0);
-  
-  // AI Assistant state
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
-  const [chatFiles, setChatFiles] = useState([]);
-  const [speakingIdx, setSpeakingIdx] = useState(null);   // which answer is being read aloud
-  const [isListening, setIsListening] = useState(false);
-  const [micError, setMicError] = useState('');
-  const isSpeaking = speakingIdx !== null;
-  
+  const [activeTab, setActiveTab] = useState(['quiz', 'grading'].includes(location.state?.tab) ? location.state.tab : 'quiz');
+
   // Homework grading state
   const [selectedFile, setSelectedFile] = useState(null);
   const [homeworkTitle, setHomeworkTitle] = useState('');
@@ -57,7 +46,6 @@ export default function Study() {
   const [customQuizClass, setCustomQuizClass] = useState('');
   const [includeWritten, setIncludeWritten] = useState(false);
   const [isGradingWritten, setIsGradingWritten] = useState(false);
-  const [currentConversationId, setCurrentConversationId] = useState(null);
   const [showHistory, setShowHistory] = useState(true);
 
   const queryClient = useQueryClient();
@@ -79,11 +67,6 @@ export default function Study() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studyHistory'] })
   });
 
-  const updateHistoryMutation = useMutation({
-    mutationFn: ({ id, data }) => db.entities.StudyHistory.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studyHistory'] })
-  });
-
   const deleteHistoryMutation = useMutation({
     mutationFn: (id) => db.entities.StudyHistory.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studyHistory'] })
@@ -92,7 +75,7 @@ export default function Study() {
   // Same data, same filtering as every other page. Tests are sorted soonest
   // first — the old list was sorted latest first, so the "upcoming test"
   // banner named the one furthest away.
-  const { user, homework, tests: myTests } = useStudyData();
+  const { tests: myTests } = useStudyData();
   const tests = myTests
     .filter(t => { const d = parseDay(t.date); return d && daysUntil(d) >= 0; })
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -105,101 +88,7 @@ export default function Study() {
     if (t) setSelectedTest(t);
   }, [location.state, myTests, selectedTest]);
 
-  useEffect(() => () => stopVoice(), []);
-
   const upcomingTest = tests[0];
-
-  // AI Assistant
-  const handleSendMessage = async () => {
-    if (!input.trim() && chatFiles.length === 0) return;
-    
-    const userMessage = { role: 'user', content: input || '[Uploaded files]' };
-    setMessages([...messages, userMessage]);
-    const currentInput = input;
-    const currentFiles = [...chatFiles];
-    setInput('');
-    setChatFiles([]);
-    setIsThinking(true);
-
-    try {
-      let fileUrls = [];
-      for (let file of currentFiles) {
-        const { file_url } = await db.integrations.Core.UploadFile({ file });
-        fileUrls.push(file_url);
-      }
-
-      const testsContext = tests.length > 0 
-        ? `Upcoming tests: ${tests.map(t => `${t.title} (${t.class_name}) on ${format(parseDay(t.date), 'MMM d')}`).join(', ')}` 
-        : '';
-      
-      // The chat used to send only the latest message, so the assistant could
-      // not follow up on anything it had just said. Send the recent turns too,
-      // each trimmed, so the whole thing stays well inside the proxy's limit.
-      const history = messages.slice(-10)
-        .map(m => `${m.role === 'user' ? 'Student' : 'Assistant'}: ${String(m.content).slice(0, 1500)}`)
-        .join('\n\n');
-
-      const response = await db.integrations.Core.InvokeLLM({
-        prompt: `You are a helpful, friendly AI assistant. ${testsContext ? testsContext + '. ' : ''}Answer any questions the student has - whether about studying, homework, tests, or anything else they're curious about. Be conversational, helpful, and concise.\n\n${history ? `Conversation so far:\n${history}\n\n` : ''}Student: ${currentInput}`,
-        add_context_from_internet: true,
-        file_urls: fileUrls.length > 0 ? fileUrls : undefined
-      });
-      
-      const newMessages = [...messages, userMessage, { role: 'assistant', content: response }];
-      setMessages(newMessages);
-      
-      // Save or update conversation history
-      if (currentConversationId) {
-        updateHistoryMutation.mutate({
-          id: currentConversationId,
-          data: { data: { messages: newMessages } }
-        });
-      } else {
-        const saved = await db.entities.StudyHistory.create({
-          type: 'conversation',
-          title: currentInput.slice(0, 50) + (currentInput.length > 50 ? '...' : ''),
-          data: { messages: newMessages }
-        });
-        setCurrentConversationId(saved.id);
-        queryClient.invalidateQueries({ queryKey: ['studyHistory'] });
-      }
-      
-      // Read aloud only if they asked for it (Settings → Voice). It used to
-      // read every answer, robotically, markdown symbols and all.
-      if (user?.voice?.readAloud) readAloud(newMessages.length - 1, response);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Sorry — ${error?.message || 'something went wrong. Please try again.'}` }]);
-    } finally {
-      setIsThinking(false);
-    }
-  };
-
-  function readAloud(idx, text) {
-    setSpeakingIdx(idx);
-    speak(text, { onEnd: () => setSpeakingIdx(cur => (cur === idx ? null : cur)) });
-  }
-
-  const stopSpeaking = () => {
-    stopVoice();
-    setSpeakingIdx(null);
-  };
-
-  // Dictation into the box: the words appear as you say them, and you can
-  // still edit before sending.
-  const startListening = async () => {
-    setMicError('');
-    const before = input ? `${input.trim()} ` : '';
-    const { promise } = listenOnce({ onInterim: (t) => setInput(before + t) });
-    setIsListening(true);
-    try {
-      const text = await promise;
-      setInput(before + text);
-    } catch (e) {
-      setMicError(e.message);
-    } finally {
-      setIsListening(false);
-    }
-  };
 
   // Homework Grading
   const handleFileUpload = (e) => {
@@ -444,12 +333,12 @@ Provide a score out of 10 and brief feedback.`,
             <Brain className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Study</h1>
-            <p className="text-sm text-muted-foreground">Ask anything, plan your week, get feedback on work, and quiz yourself.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Practice</h1>
+            <p className="text-sm text-muted-foreground">Create quizzes and get feedback on homework. Ask Lock In questions by voice anywhere in the app.</p>
           </div>
         </div>
 
-        {upcomingTest && activeTab === "assistant" && messages.length === 0 && (
+        {upcomingTest && activeTab === "quiz" && (
           <Card className="mb-6 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
@@ -476,17 +365,7 @@ Provide a score out of 10 and brief feedback.`,
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6 dark:bg-slate-800 dark:border-slate-700">
-            <TabsTrigger value="assistant" className="dark:text-slate-300 dark:data-[state=active]:bg-indigo-600 dark:data-[state=active]:text-white">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">AI Assistant</span>
-              <span className="sm:hidden">Chat</span>
-            </TabsTrigger>
-            <TabsTrigger value="planner" className="dark:text-slate-300 dark:data-[state=active]:bg-indigo-600 dark:data-[state=active]:text-white">
-              <CalendarClock className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Planner</span>
-              <span className="sm:hidden">Plan</span>
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mb-6 dark:bg-slate-800 dark:border-slate-700">
             <TabsTrigger value="grading" className="dark:text-slate-300 dark:data-[state=active]:bg-purple-600 dark:data-[state=active]:text-white">
               <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Grade HW</span>
@@ -498,160 +377,6 @@ Provide a score out of 10 and brief feedback.`,
               <span className="sm:hidden">Quiz</span>
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="assistant">
-            <Card className="border-2 border-indigo-100 dark:border-indigo-900">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                      <Brain className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      AI Assistant
-                    </CardTitle>
-                    <CardDescription className="text-slate-600 dark:text-slate-400">Ask anything - with web access & voice support</CardDescription>
-                  </div>
-                  {messages.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setMessages([]);
-                        setCurrentConversationId(null);
-                      }}
-                      className="dark:border-slate-600"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      New Chat
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="h-96 overflow-y-auto space-y-4 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600">
-                    {messages.length === 0 && (
-                      <div className="text-center py-16 text-slate-500 dark:text-slate-400">
-                        <Brain className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-                        <p>Ask me anything! I have web access for current info.</p>
-                      </div>
-                    )}
-                    {messages.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                          msg.role === 'user' 
-                            ? 'bg-indigo-500 text-white' 
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600'
-                        }`}>
-                          <ReactMarkdown className={`text-sm prose prose-sm max-w-none ${msg.role !== 'user' ? 'dark:prose-invert' : ''}`}>
-                            {msg.content}
-                          </ReactMarkdown>
-                          {msg.role !== 'user' && (
-                            <button
-                              type="button"
-                              onClick={() => (speakingIdx === idx ? stopSpeaking() : readAloud(idx, msg.content))}
-                              className="mt-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
-                            >
-                              {speakingIdx === idx ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                              {speakingIdx === idx ? 'Stop' : 'Listen'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {isThinking && (
-                      <div className="flex justify-start">
-                        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {chatFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {chatFiles.map((file, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-lg text-sm">
-                          <Paperclip className="w-3 h-3" />
-                          <span className="text-slate-700 dark:text-slate-300">{file.name}</span>
-                          <button onClick={() => setChatFiles(chatFiles.filter((_, i) => i !== idx))}>
-                            <X className="w-3 h-3 text-slate-400 hover:text-slate-600" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {micError && <p className="text-sm text-red-700 dark:text-red-400" role="alert">{micError}</p>}
-                  <div className="flex gap-2">
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => document.getElementById('chat-file-upload').click()}
-                        disabled={isThinking}
-                      >
-                        <Paperclip className="w-4 h-4" />
-                      </Button>
-                      <input
-                        id="chat-file-upload"
-                        type="file"
-                        multiple
-                        accept="image/*,.pdf"
-                        className="hidden"
-                        onChange={(e) => setChatFiles([...chatFiles, ...Array.from(e.target.files)])}
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={isListening ? null : startListening}
-                        disabled={isThinking || !canListen}
-                        aria-label={isListening ? 'Listening' : 'Dictate'}
-                        title={canListen ? 'Dictate' : 'This browser cannot listen'}
-                        className={isListening ? "bg-red-100 text-red-600" : ""}
-                      >
-                        <Mic className={`w-4 h-4 ${isListening ? 'animate-pulse' : ''}`} />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={isSpeaking ? stopSpeaking : null}
-                        disabled={!isSpeaking}
-                        aria-label="Stop reading aloud"
-                        title="Stop reading aloud"
-                      >
-                        {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                    <Textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Ask anything..."
-                      className="resize-none flex-1 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-                      rows={2}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                    />
-                    <Button onClick={handleSendMessage} disabled={isThinking || (!input.trim() && chatFiles.length === 0)} className="dark:bg-indigo-600 dark:hover:bg-indigo-700">
-                      Send
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="planner">
-            <SmartPlanner
-              key={plannerKey}
-              homework={homework}
-              tests={tests}
-              upcomingTest={upcomingTest}
-            />
-          </TabsContent>
 
           <TabsContent value="grading">
             <Card className="border-2 border-purple-100 dark:border-purple-900">
@@ -1083,14 +808,10 @@ Provide a score out of 10 and brief feedback.`,
           <div className="hidden lg:block">
             <StudyHistorySidebar
               history={studyHistory}
-              activeType={activeTab === 'assistant' ? 'conversation' : activeTab === 'grading' ? 'grading' : activeTab === 'quiz' ? 'quiz' : 'all'}
+              activeType={activeTab === 'grading' ? 'grading' : activeTab === 'quiz' ? 'quiz' : 'all'}
               isLoading={historyLoading}
               onSelectItem={(item) => {
-                if (item.type === 'conversation') {
-                  setActiveTab('assistant');
-                  setMessages(item.data?.messages || []);
-                  setCurrentConversationId(item.id);
-                } else if (item.type === 'grading') {
+                if (item.type === 'grading') {
                   setActiveTab('grading');
                   setGradingResult(item.data?.result);
                   setHomeworkTitle(item.title);

@@ -141,8 +141,9 @@ export class HandsFree {
     if (!text) return;
     const cmd = afterWake(text);
     if (cmd !== null) {
+      this.onWake?.({ inline: !!cmd });
       if (cmd) { this.armedUntil = 0; this.onCommand?.(cmd); }
-      else { this.armedUntil = Date.now() + 6000; this.onWake?.(); }
+      else this.armedUntil = Date.now() + 6000;
       return;
     }
     if (Date.now() < this.armedUntil) {

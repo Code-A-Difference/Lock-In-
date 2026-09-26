@@ -22,7 +22,7 @@ import { soundscape, chime, unlockAudio, SOUNDS } from './soundscape.js';
 import { speak, configureVoice } from './voice.js';
 import { parseCommand } from './voiceCommands.js';
 import { clock, spokenTime } from './agenda.js';
-import { ymd } from './dates.js';
+import { ymd, addDays, relativeDay } from './dates.js';
 
 export const DEFAULT_FOCUS = {
   focusMin: 25, breakMin: 5, longMin: 15, longEvery: 4,
@@ -43,10 +43,49 @@ const fresh = (p, phase = 'focus', blocks = 0, task = null) => {
 };
 const clampMin = (m, lo = 1, hi = 180) => Math.max(lo, Math.min(hi, Math.round(Number(m) || 0)));
 
+function spokenDate(phrase) {
+  const text = String(phrase || '').toLowerCase().trim();
+  if (!text) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const today = new Date();
+  if (text === 'today') return ymd(today);
+  if (text === 'tomorrow') return ymd(addDays(today, 1));
+  const weekday = /(?:(next|this)\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/.exec(text);
+  if (weekday) {
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const target = days.indexOf(weekday[2]);
+    const gap = (target - today.getDay() + 7) % 7;
+    return ymd(addDays(today, gap || 7));
+  }
+  const withYear = /\b\d{4}\b/.test(text) ? text : `${text} ${today.getFullYear()}`;
+  const parsed = new Date(withYear);
+  if (Number.isNaN(parsed.getTime())) return '';
+  if (!/\b\d{4}\b/.test(text) && parsed < new Date(today.getFullYear(), today.getMonth(), today.getDate())) parsed.setFullYear(parsed.getFullYear() + 1);
+  return ymd(parsed);
+}
+
+function quizPrompt(question, index, total) {
+  const options = (question?.options || []).map((option, i) => `${String.fromCharCode(65 + i)}: ${option}`).join('. ');
+  return `Question ${index + 1} of ${total}. ${question?.question || ''} ${options ? `Your choices are: ${options}.` : ''} Say A, B, C, or D.`;
+}
+
+/** The best title match for a spoken phrase — exact, then "starts with", then "contains". */
+function findByTitle(list, spoken) {
+  const q = String(spoken || '').toLowerCase().trim();
+  if (!q) return { matches: [] };
+  const norm = s => String(s || '').toLowerCase().trim();
+  const exact = list.filter(x => norm(x.title) === q);
+  if (exact.length) return { matches: exact };
+  const starts = list.filter(x => norm(x.title).startsWith(q) || q.startsWith(norm(x.title)));
+  if (starts.length) return { matches: starts };
+  const contains = list.filter(x => norm(x.title).includes(q) || q.includes(norm(x.title)));
+  return { matches: contains };
+}
+
 export function FocusProvider({ children }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { homework, tests } = useStudyData();
+  const { homework, tests, classes } = useStudyData();
   const actions = useActions();
   const snapKey = `lockin.focus.${user?.username}`;
 
@@ -55,7 +94,10 @@ export function FocusProvider({ children }) {
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
   const saveTimer = useRef(null);
-  const previewTimer = useRef(null);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [voiceQuiz, setVoiceQuiz] = useState(null);
+  const openFocus = useCallback(() => setOverlayOpen(true), []);
+  const closeFocus = useCallback(() => setOverlayOpen(false), []);
   const updatePrefs = useCallback((patch) => {
     setPrefs(p => {
       const next = { ...p, ...patch };
@@ -106,12 +148,8 @@ export function FocusProvider({ children }) {
   taskRef.current = taskItem;
 
   /* ---------------------------------------------------------------- sound */
-  const applySound = useCallback((state = tRef.current, p = prefsRef.current) => {
-    const shouldPlay = state.status === 'running' && state.phase === 'focus' && p.sound !== 'off';
-    if (!shouldPlay) {
-      if (p.sound === 'off') soundscape.stop(); else soundscape.pause();
-      return;
-    }
+  const applySound = useCallback((_state = tRef.current, p = prefsRef.current) => {
+    if (p.sound === 'off') { soundscape.stop(); return; }
     if (soundscape.kind === p.sound && soundscape.parts.length) { soundscape.setVolume(p.volume); soundscape.resume(); }
     else soundscape.play(p.sound, p.volume);
   }, []);
@@ -295,11 +333,6 @@ export function FocusProvider({ children }) {
     // what you chose. It follows the timer from then on.
     if (kind === 'off') soundscape.stop();
     else soundscape.play(kind, p.volume);
-    const cur = tRef.current;
-    if (kind !== 'off' && !(cur.status === 'running' && cur.phase === 'focus')) {
-      clearTimeout(previewTimer.current);
-      previewTimer.current = setTimeout(() => applySound(), 4000);
-    }
   }, [applySound, updatePrefs]);
 
   const setVolume = useCallback((v) => {
@@ -368,14 +401,114 @@ export function FocusProvider({ children }) {
           : (item.steps || []).length ? 'All the steps are done.' : `You're on ${item.title}. It has no steps yet.`;
         break;
       }
-      case 'help': reply = 'Try: pause, five more minutes, how long is left, what\'s next, done, or play rain.'; break;
+      case 'addHomework':
+      case 'addTest': {
+        const isTest = cmd.action === 'addTest';
+        let title = String(cmd.title || '').trim() || (isTest ? 'Test' : 'Homework');
+        const classItem = classes.find(c => c.name && cmd.source?.includes(c.name.toLowerCase()));
+        if (classItem && title.toLowerCase() === classItem.name.toLowerCase()) title = `${classItem.name} ${isTest ? 'test' : 'homework'}`;
+        const dueDate = spokenDate(cmd.datePhrase);
+        if (isTest && !dueDate) {
+          reply = `What day is ${title} on? Say something like "add a biology test on Friday".`;
+          break;
+        }
+        if (isTest) await actions.addTest({ title, date: dueDate, class_name: classItem?.name || '' });
+        else await actions.addHomework({ title, due_date: dueDate, class_name: classItem?.name || '', priority: 'medium' });
+        reply = `${isTest ? 'Added test' : 'Added homework'}: ${title}${classItem ? ` for ${classItem.name}` : ''}${dueDate ? `, due ${dueDate}` : ''}.`;
+        break;
+      }
+      case 'agenda': {
+        const pending = homework.filter(h => !h.is_completed).slice().sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
+        const upcoming = tests.filter(x => !x.date || x.date >= ymd(new Date())).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        if (!pending.length && !upcoming.length) { reply = 'Nothing on your list right now. Nice.'; break; }
+        const say3 = (list, dateKey) => list.slice(0, 3).map(x => `${x.title}${x[dateKey] ? `, ${relativeDay(x[dateKey])}` : ''}`).join('; ');
+        const parts = [];
+        if (pending.length) parts.push(`${pending.length} homework item${pending.length === 1 ? '' : 's'}: ${say3(pending, 'due_date')}${pending.length > 3 ? ', and more' : ''}`);
+        if (upcoming.length) parts.push(`${upcoming.length} test${upcoming.length === 1 ? '' : 's'}: ${say3(upcoming, 'date')}${upcoming.length > 3 ? ', and more' : ''}`);
+        reply = `You have ${parts.join('. ')}.`;
+        break;
+      }
+      case 'completeItem': {
+        const { matches } = findByTitle(homework.filter(h => !h.is_completed), cmd.title);
+        if (!matches.length) reply = `I don't see any open homework called "${cmd.title}".`;
+        else if (matches.length > 1) reply = `A few match "${cmd.title}": ${matches.slice(0, 3).map(m => m.title).join(', ')}. Which one?`;
+        else { await actions.toggleHomework(matches[0]); reply = `Marked "${matches[0].title}" done. Nice work.`; }
+        break;
+      }
+      case 'deleteItem': {
+        const pool = cmd.kind === 'test' ? tests : cmd.kind === 'homework' ? homework : [...homework, ...tests];
+        const { matches } = findByTitle(pool, cmd.title);
+        if (!matches.length) reply = `I don't see anything called "${cmd.title}".`;
+        else if (matches.length > 1) reply = `A few match "${cmd.title}": ${matches.slice(0, 3).map(m => m.title).join(', ')}. Which one?`;
+        else {
+          const match = matches[0];
+          const isTest = tests.some(x => x.id === match.id);
+          if (isTest) await actions.deleteTest(match); else await actions.deleteHomework(match);
+          reply = `Deleted "${match.title}". Say undo on the notification if that was a mistake.`;
+        }
+        break;
+      }
+      case 'createQuiz': {
+        const topic = String(cmd.topic || '').trim();
+        if (!topic) { reply = 'What topic should I quiz you on?'; break; }
+        const result = await db.integrations.Core.InvokeLLM({
+          prompt: `Create a short spoken multiple-choice practice quiz for a student on "${topic}". Create 5 clear questions, each with exactly four short options and one correct answer. Return JSON only.`,
+          response_json_schema: {
+            type: 'object', properties: { questions: { type: 'array', items: { type: 'object', properties: {
+              question: { type: 'string' }, options: { type: 'array', items: { type: 'string' } },
+              correct: { type: 'number' }, explanation: { type: 'string' },
+            } } } },
+          },
+        });
+        const questions = (result?.questions || []).filter(q => q.question && Array.isArray(q.options) && q.options.length >= 2);
+        if (!questions.length) { reply = 'I could not make a quiz for that topic just now. Try again in a moment.'; break; }
+        const quiz = { topic, questions, index: 0, score: 0 };
+        setVoiceQuiz(quiz);
+        reply = `Here's your quiz on ${topic}. ${quizPrompt(questions[0], 0, questions.length)}`;
+        break;
+      }
+      case 'quizAnswer': {
+        if (!voiceQuiz) { reply = 'There is no quiz running. Say "quiz me on" and a topic to start one.'; break; }
+        const q = voiceQuiz.questions[voiceQuiz.index];
+        const correct = Number(q.correct) === cmd.answer;
+        const score = voiceQuiz.score + (correct ? 1 : 0);
+        const nextIndex = voiceQuiz.index + 1;
+        if (nextIndex >= voiceQuiz.questions.length) {
+          setVoiceQuiz(null);
+          reply = `${correct ? 'That is right.' : `Not quite. The correct answer was ${q.options[Number(q.correct)]}.`} ${q.explanation || ''} Quiz complete: ${score} out of ${voiceQuiz.questions.length}.`;
+        } else {
+          const next = { ...voiceQuiz, index: nextIndex, score };
+          setVoiceQuiz(next);
+          reply = `${correct ? 'Correct.' : `Not quite. The answer was ${q.options[Number(q.correct)]}.`} ${q.explanation || ''} ${quizPrompt(next.questions[nextIndex], nextIndex, next.questions.length)}`;
+        }
+        break;
+      }
+      case 'stopQuiz': setVoiceQuiz(null); reply = 'Quiz stopped.'; break;
+      case 'help': reply = 'Try adding homework or a test, asking what\'s due, marking something done, deleting an item, asking a study question, "quiz me on photosynthesis", controlling the focus timer, or "plan my week".'; break;
       case 'none': return { reply: '', action: 'none' };
-      default: reply = 'Sorry, I didn\'t get that. Say "help" to hear what I can do.';
+      default: {
+        if (voiceQuiz) {
+          reply = 'Say A, B, C, or D to answer, or say "stop quiz" to end it.';
+          break;
+        }
+        try {
+          const context = [
+            homework.filter(h => !h.is_completed).slice(0, 8).map(h => `Homework: ${h.title}${h.due_date ? ` (due ${h.due_date})` : ''}`).join('\n'),
+            tests.slice(0, 6).map(test => `Test: ${test.title} (${test.date})`).join('\n'),
+          ].filter(Boolean).join('\n');
+          const answer = await db.integrations.Core.InvokeLLM({
+            prompt: `You are Lock In, a concise, supportive study assistant. Answer the student's spoken question in a few short sentences, suitable to read aloud. Do not claim to change their agenda unless the request was an explicit add/update command. ${context ? `Their upcoming work:\n${context}\n` : ''}\nStudent: ${String(text).slice(0, 1800)}`,
+          });
+          reply = typeof answer === 'string' ? answer : (answer?.text || answer?.response || 'I could not get an answer just now.');
+        } catch (error) {
+          reply = `I could not reach the study assistant right now. ${error?.message || 'Please try again.'}`;
+        }
+      }
     }
     reply = reply.charAt(0).toUpperCase() + reply.slice(1);   // "about 15 minutes…" opens a sentence
     say(reply, true);
     return { reply, action: cmd.action };
-  }, [adjust, completeStep, pause, reset, say, setDurations, setSound, setVolume, skip, start, startBreak]);
+  }, [actions, adjust, classes, completeStep, homework, pause, reset, say, setDurations, setSound, setVolume, skip, start, startBreak, tests, voiceQuiz]);
 
   /* ------------------------------------------------------------- chrome */
   useEffect(() => {
@@ -388,7 +521,6 @@ export function FocusProvider({ children }) {
     soundscape.stop();
     document.title = 'LOCK IN!';
     clearTimeout(saveTimer.current);
-    clearTimeout(previewTimer.current);
   }, []);
 
   const value = {
@@ -399,6 +531,7 @@ export function FocusProvider({ children }) {
     taskItem,
     start, pause, toggle, reset, skip, startBreak, adjust, setDurations, setTask, lockIn,
     setSound, setVolume, completeStep, handleVoice, updatePrefs,
+    overlayOpen, openFocus, closeFocus,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

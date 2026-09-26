@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Lock, ChevronDown, List, CalendarDays, GraduationCap, Sparkles, PartyPopper, Play } from 'lucide-react';
+import { Lock, ChevronDown, List, CalendarDays, GraduationCap, PartyPopper, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudyData, useActions } from '@/lib/data';
 import { useFocus } from '@/lib/FocusContext';
@@ -13,6 +13,7 @@ import StatsCard from '@/components/lockin/StatsCard';
 import CalendarView from '@/components/calendar/CalendarView';
 import EditHomeworkDialog from '@/components/homework/EditHomeworkDialog';
 import EditTestDialog from '@/components/tests/EditTestDialog';
+import SmartPlanner from '@/components/study/SmartPlanner';
 
 function inDays(day) {
   const n = daysUntil(parseDay(day));
@@ -41,6 +42,7 @@ export default function Today() {
   const navigate = useNavigate();
   const location = useLocation();
   const quickAdd = useRef(null);
+  const plannerRef = useRef(null);
   const [view, setView] = useState(() => { try { return localStorage.getItem('lockin.todayView') || 'list'; } catch (_) { return 'list'; } });
   const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -52,8 +54,15 @@ export default function Today() {
   useEffect(() => {
     const go = () => quickAdd.current?.focus();
     window.addEventListener('lockin:quickadd', go);
-    if (location.state?.quickAdd) { setTimeout(go, 50); navigate('.', { replace: true, state: null }); }
-    return () => window.removeEventListener('lockin:quickadd', go);
+    if (location.state?.quickAdd) setTimeout(go, 50);
+    if (location.state?.openPlanner) setTimeout(() => plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    if (location.state?.quickAdd || location.state?.openPlanner) navigate('.', { replace: true, state: null });
+    const openPlanner = () => plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.addEventListener('lockin:planner', openPlanner);
+    return () => {
+      window.removeEventListener('lockin:quickadd', go);
+      window.removeEventListener('lockin:planner', openPlanner);
+    };
   }, [location.state, navigate]);
 
   const agenda = useMemo(() => buildAgenda(homework, tests), [homework, tests]);
@@ -73,7 +82,7 @@ export default function Today() {
   const inBlock = focus.phase === 'focus' && focus.status !== 'idle';
   const lockIn = () => {
     if (!inBlock) focus.lockIn(next ? { type: next.kind, id: next.item.id } : null);
-    navigate('/Focus');
+    focus.openFocus();
   };
 
   const dayEntries = useMemo(() => {
@@ -235,7 +244,7 @@ export default function Today() {
                         <p className="truncate text-sm font-medium text-foreground">{t.title}</p>
                         <p className="truncate text-xs text-muted-foreground">{t.class_name || 'No class'} · {relativeDay(t.date)}{t.focus_minutes ? ` · ${formatMinutes(t.focus_minutes)} studied` : ''}</p>
                       </div>
-                      <button type="button" onClick={() => { focus.lockIn({ type: 'test', id: t.id }); navigate('/Focus'); }}
+                      <button type="button" onClick={() => { focus.lockIn({ type: 'test', id: t.id }); focus.openFocus(); }}
                         className="h-8 rounded-lg px-2.5 text-xs font-semibold text-indigo-700 hover:bg-accent dark:text-indigo-300"
                         aria-label={`Study for ${t.title}`}>Study</button>
                     </li>
@@ -247,16 +256,12 @@ export default function Today() {
             )}
           </section>
 
-          <Link to="/Study" state={{ tab: 'planner' }}
-            className="flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors duration-150 hover:border-indigo-300 hover:bg-accent">
-            <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent text-accent-foreground"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-foreground">Plan my week</span>
-              <span className="block text-xs text-muted-foreground">The AI spreads your work and test prep across the days you have.</span>
-            </span>
-          </Link>
         </aside>
       </div>
+
+      <section ref={plannerRef} id="study-planner" className="mt-8 scroll-mt-20">
+        <SmartPlanner homework={homework} tests={tests.filter(t => { const d = parseDay(t.date); return d && daysUntil(d) >= 0; })} upcomingTest={upcomingTests[0]} />
+      </section>
 
       <EditHomeworkDialog
         open={editing?.kind === 'homework'}
