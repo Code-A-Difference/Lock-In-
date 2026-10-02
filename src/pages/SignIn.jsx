@@ -8,6 +8,7 @@ import { ArrowLeft, Cloud, Eye, EyeOff, Lock, UserRound, Loader2 } from 'lucide-
 import { cn } from '@/lib/utils';
 
 // The Code A Difference home page. LOCK IN! is served from /lockin/ inside it.
+import { isNativeApp } from '@/lib/native';
 const SITE_URL = import.meta.env.VITE_SITE_URL || '/';
 
 /**
@@ -84,9 +85,11 @@ export default function SignIn() {
             </span>
             <span className="text-lg font-black tracking-tight">LOCK IN<span className="text-amber-300">!</span></span>
           </div>
-          <a href={SITE_URL} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />Code A Difference
-          </a>
+          {!isNativeApp && (
+            <a href={SITE_URL} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />Code A Difference
+            </a>
+          )}
         </div>
 
         <div className="relative mt-10 lg:mt-0">
@@ -100,7 +103,7 @@ export default function SignIn() {
         </div>
 
         <ul className="relative mt-10 hidden space-y-3 text-sm text-white/85 lg:block">
-          <li className="flex gap-3"><Cloud className="mt-0.5 h-4 w-4 flex-none" />Saved to your account. Sign in from any computer and it's all there.</li>
+          <li className="flex gap-3"><Cloud className="mt-0.5 h-4 w-4 flex-none" />Saved to your account. Sign in on any phone or computer and it's all there.</li>
           <li className="flex gap-3"><UserRound className="mt-0.5 h-4 w-4 flex-none" />No email needed. Just a username and a password.</li>
         </ul>
       </aside>
@@ -130,7 +133,7 @@ export default function SignIn() {
             {isSignup ? 'Make your account' : 'Welcome back'}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {isSignup ? 'No email needed. Sign in from any computer.' : 'Pick up where you left off, on any computer.'}
+            {isSignup ? 'No email needed. Sign in on any device.' : 'Pick up where you left off, on any device.'}
           </p>
 
           {legacy.length > 0 && (

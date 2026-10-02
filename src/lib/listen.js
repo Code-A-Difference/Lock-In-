@@ -14,10 +14,11 @@
  * it; Safari does it on the device. Settings says so where the switch is.
  */
 import { afterWake } from './voiceCommands.js';
+import { nativeSpeech } from './native.js';
 
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
-export const canListen = !!SR;
+export const canListen = !!SR || !!nativeSpeech;
 
 const lang = () => (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
 
@@ -39,6 +40,7 @@ function friendly(err) {
  * Returns { promise, stop }.
  */
 export function listenOnce({ onInterim } = {}) {
+  if (nativeSpeech) return nativeListenOnce({ onInterim });
   if (!SR) {
     return { promise: Promise.reject(new Error('This browser cannot listen. Chrome, Edge and Safari can.')), stop() {} };
   }
@@ -86,7 +88,7 @@ export class HandsFree {
   }
 
   start() {
-    if (!SR || this.running) return false;
+    if ((!SR && !nativeSpeech) || this.running) return false;
     this.running = true;
     this.restarts = 0;
     this._open();
@@ -96,6 +98,7 @@ export class HandsFree {
 
   stop() {
     this.running = false;
+    if (nativeSpeech) nativeSpeech.stop().catch(() => {});
     this.armedUntil = 0;
     const r = this.rec;
     this.rec = null;
@@ -104,6 +107,7 @@ export class HandsFree {
   }
 
   _open() {
+    if (nativeSpeech) { this._openNative(); return; }
     const rec = new SR();
     rec.lang = lang();
     rec.continuous = true;
@@ -136,6 +140,20 @@ export class HandsFree {
     rec.start();
   }
 
+  /** In the app: one utterance at a time from the phone's recogniser, reopened as it ends. */
+  async _openNative() {
+    try {
+      const said = await nativeListenOnce({}).promise;
+      if (said) this._heard(said);
+      this.restarts = 0;
+    } catch (e) {
+      if (/not allowed|denied|permission/i.test(e.message)) { this.onError?.(e.message); this.stop(); return; }
+      this.restarts++;
+    }
+    if (!this.running) return;
+    setTimeout(() => { if (this.running) this._openNative(); }, this.restarts > 5 ? 5000 : 300);
+  }
+
   _heard(transcript) {
     const text = String(transcript || '').trim();
     if (!text) return;
@@ -151,4 +169,41 @@ export class HandsFree {
       this.onCommand?.(text);
     }
   }
+}
+
+/* ------------------------------------------------------- the app's recogniser */
+
+let nativeAllowed = null;
+
+/** listenOnce, through @capacitor-community/speech-recognition. */
+function nativeListenOnce({ onInterim } = {}) {
+  let latest = '';
+  let handles = [];
+  let settle;
+  const cleanup = () => { handles.forEach(h => h?.remove?.()); handles = []; };
+  const promise = new Promise((resolve, reject) => {
+    settle = (err) => { cleanup(); err ? reject(err) : resolve(latest.trim()); };
+    (async () => {
+      try {
+        if (nativeAllowed !== true) {
+          const p = await nativeSpeech.requestPermissions();
+          nativeAllowed = p?.speechRecognition === 'granted';
+          if (!nativeAllowed) throw new Error(friendly('not-allowed'));
+        }
+        handles.push(await nativeSpeech.addListener('partialResults', (r) => {
+          latest = r?.matches?.[0] || latest;
+          onInterim?.(latest.trim());
+        }));
+        handles.push(await nativeSpeech.addListener('listeningState', (r) => {
+          if (r?.status === 'stopped') settle();
+        }));
+        const r = await nativeSpeech.start({ language: lang(), partialResults: true, popup: false, maxResults: 1 });
+        // iOS (and some Android versions) hand the result back from start() itself.
+        if (r?.matches?.[0]) { latest = r.matches[0]; settle(); }
+      } catch (e) {
+        settle(e instanceof Error ? e : new Error(String(e?.message || e)));
+      }
+    })();
+  });
+  return { promise, stop: () => { nativeSpeech.stop().catch(() => {}); } };
 }

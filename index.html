@@ -2,11 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the app draw under the notch; the bars pad
+         themselves with env(safe-area-inset-*). Zoom stays allowed. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>LOCK IN!</title>
-    <meta name="description" content="Track your classes, homework and tests, and let the AI planner build your study time. Saved to your account, so it's there on any computer." />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="description" content="Track your classes, homework and tests, record lectures into notes, and let the AI planner build your study time. Saved to your account, so it's there on any device." />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LOCK IN!" />
+    <meta name="format-detection" content="telephone=no" />
   </head>
   <body>
     <div id="root"></div>

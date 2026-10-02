@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>LOCK IN! — offline</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f8fafc; color: #0f172a; }
+    @media (prefers-color-scheme: dark) { body { background: #0f172a; color: #e2e8f0; } p { color: #94a3b8 !important; } }
+    main { padding: 2rem 1.5rem calc(2rem + env(safe-area-inset-bottom)); text-align: center; max-width: 22rem; }
+    .tile { width: 72px; height: 72px; margin: 0 auto 1.25rem; border-radius: 18px; background: linear-gradient(135deg, #4f46e5, #c026d3); display: grid; place-items: center; }
+    h1 { font-size: 1.35rem; margin: 0 0 .5rem; }
+    p { margin: 0 0 1.5rem; line-height: 1.5; color: #475569; }
+    button { appearance: none; border: 0; border-radius: 14px; height: 48px; padding: 0 1.5rem; font: inherit; font-weight: 700; color: #fff; background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="tile" aria-hidden="true">
+      <svg width="34" height="34" viewBox="0 0 64 64"><rect x="17" y="29" width="30" height="22" rx="5" fill="#fff"/><path d="M23 29v-6a9 9 0 0 1 18 0v6" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg>
+    </div>
+    <h1>You're offline</h1>
+    <p>LOCK IN! keeps your work in your account, so it needs a connection. Check Wi-Fi or data, then try again.</p>
+    <button type="button" onclick="location.href='https://codeadifference.ct.ws/lockin/'">Try again</button>
+  </main>
+</body>
+</html>

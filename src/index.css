@@ -92,6 +92,57 @@
   }
 }
 
+/* ---- phones: feel like an app, not a shrunken web page ------------------ */
+
+/* Top bar clears the notch / status bar; its 3.5rem is the bar itself. */
+.app-topbar {
+  height: calc(3.5rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
+@media (pointer: coarse) {
+  html { -webkit-tap-highlight-color: transparent; }
+  /* No rubber-band bounce revealing a blank page behind the app bars. */
+  body { overscroll-behavior-y: none; }
+  /* iOS zooms the page into any field under 16px; keep every field at 16. */
+  input:not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]),
+  textarea:not([class*="text-lg"]), select { font-size: 16px !important; }
+  /* Keyboard-shortcut hints mean nothing without a keyboard. */
+  kbd, .kbd-hint { display: none !important; }
+}
+
+/* Inside the Android/iPhone app: no text-selection loupe or long-press
+   previews on the app's own chrome. */
+.native-app nav, .native-app header, .native-app button {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* On phones, dialogs rise from the bottom as sheets, in thumb reach. */
+@media (max-width: 639px) {
+  [role="dialog"].sheet-on-mobile,
+  [role="alertdialog"].sheet-on-mobile {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    --tw-translate-x: 0 !important;
+    --tw-translate-y: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    max-height: 90dvh;
+    overflow-y: auto;
+    border-radius: 1.5rem 1.5rem 0 0 !important;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important;
+  }
+  [role="dialog"].sheet-on-mobile[data-state="open"],
+  [role="alertdialog"].sheet-on-mobile[data-state="open"] {
+    animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
 /* Motion is decoration here, never information — honour the OS setting. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

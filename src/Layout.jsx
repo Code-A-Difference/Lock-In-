@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff } from 'lucide-react';
+import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { sync } from '@/api/db';
 import { cn } from '@/lib/utils';
 import TimerPill from '@/components/lockin/TimerPill';
 import { useFocus } from '@/lib/FocusContext';
+import { useLecture } from '@/lib/LectureContext';
+import { clock } from '@/lib/lectureNotes';
+import { isNativeApp, syncStatusBar } from '@/lib/native';
 import ShortcutsDialog from '@/components/lockin/ShortcutsDialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -17,6 +20,7 @@ import {
  */
 export const NAV = [
   { name: 'Today', icon: CalendarCheck, page: 'Today', key: 't' },
+  { name: 'Notes', icon: NotebookPen, page: 'Notes', key: 'l' },
   { name: 'Practice', icon: Sparkles, page: 'Study', key: 'p' },
   { name: 'Classes', icon: GraduationCap, page: 'Classes', key: 'c' },
   { name: 'Settings', icon: Settings, page: 'Settings' },
@@ -49,10 +53,24 @@ function SaveStatus() {
   useEffect(() => sync.onChange(setSt), []);
   if (!st.offline || !st.pending) return null;
   return (
-    <div role="status" className="fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-lg lg:bottom-4 lg:left-[calc(50%+7.5rem)]">
+    <div role="status" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-lg lg:bottom-4 lg:left-[calc(50%+7.5rem)]">
       <CloudOff className="h-4 w-4 text-amber-600" aria-hidden="true" />
       Not saved yet. Trying again…
     </div>
+  );
+}
+
+/** A lecture is recording: always one tap from its live transcript. */
+function RecordingPill({ className }) {
+  const { active } = useLecture();
+  const navigate = useNavigate();
+  if (!active) return null;
+  return (
+    <button type="button" onClick={() => navigate(`/Notes?id=${active.id}`)} aria-label={`Recording, ${clock(active.elapsed)}. Open the lecture`}
+      className={cn('inline-flex h-9 items-center gap-2 rounded-full bg-red-600 px-3 text-sm font-semibold tabular-nums text-white shadow-sm active:scale-95', className)}>
+      <span className={cn('h-2 w-2 rounded-full bg-white', active.state === 'recording' && 'animate-pulse motion-reduce:animate-none')} aria-hidden="true" />
+      <Mic className="h-4 w-4" aria-hidden="true" />{clock(active.elapsed)}
+    </button>
   );
 }
 
@@ -76,6 +94,9 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', !!user?.dark_mode);
+    // The phone's status bar and browser chrome follow the theme too.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', user?.dark_mode ? '#0f172a' : '#ffffff');
+    syncStatusBar(!!user?.dark_mode);
   }, [user?.dark_mode]);
 
   useEffect(() => {
@@ -139,10 +160,11 @@ export default function Layout({ children, currentPageName }) {
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
+          <RecordingPill className="w-full justify-center" />
           <TimerPill wide />
-          <a href={SITE_URL} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground">
+          {!isNativeApp && <a href={SITE_URL} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Code A Difference
-          </a>
+          </a>}
           <div className="flex items-center gap-2 rounded-lg border p-2">
             <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white">{initial(user)}</span>
             <div className="min-w-0 flex-1">
@@ -162,36 +184,37 @@ export default function Layout({ children, currentPageName }) {
       </aside>
 
       {/* ── top bar (< lg) ────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card px-4 lg:hidden">
+      <header className="app-topbar sticky top-0 z-30 flex items-center gap-2 border-b bg-card/95 px-3 backdrop-blur lg:hidden">
         <Brand compact />
-        <div className="flex min-w-0 flex-1 justify-center"><TimerPill /></div>
-        <button type="button" onClick={focus.openFocus} aria-label="Open focus mode" className="grid h-9 w-9 flex-none place-items-center rounded-full border text-indigo-700 hover:bg-accent dark:text-indigo-300">
-          <Timer className="h-4 w-4" />
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-2"><RecordingPill /><TimerPill /></div>
+        <button type="button" onClick={focus.openFocus} aria-label="Open focus mode" className="grid h-11 w-11 flex-none place-items-center rounded-full text-indigo-700 hover:bg-accent active:bg-accent dark:text-indigo-300">
+          <Timer className="h-5 w-5" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="Account" className="grid h-9 w-9 flex-none place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white">
-              {initial(user)}
+            <button type="button" aria-label="Account" className="grid h-11 w-11 flex-none place-items-center rounded-full">
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white">
+              {initial(user)}</span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel className="truncate">@{user?.username}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate('/Settings')}><Settings className="mr-2 h-4 w-4" />Settings</DropdownMenuItem>
-            <DropdownMenuItem asChild><a href={SITE_URL}><ArrowLeft className="mr-2 h-4 w-4" />Code A Difference</a></DropdownMenuItem>
+            {!isNativeApp && <DropdownMenuItem asChild><a href={SITE_URL}><ArrowLeft className="mr-2 h-4 w-4" />Code A Difference</a></DropdownMenuItem>}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={logout}><LogOut className="mr-2 h-4 w-4" />Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
 
-      <main id="main" tabIndex={-1} className="pb-24 outline-none lg:pb-0 lg:pl-60">
+      <main id="main" tabIndex={-1} className="pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none lg:pb-0 lg:pl-60">
         {children}
       </main>
 
       {/* ── bottom tabs (< lg) ───────────────────────────────────── */}
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-4">
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
           {NAV.map(({ name, icon: Icon, page }) => {
             const on = active === page;
             return (
@@ -199,7 +222,7 @@ export default function Layout({ children, currentPageName }) {
                 key={page}
                 to={page === 'Today' ? '/' : `/${page}`}
                 aria-current={on ? 'page' : undefined}
-                className={cn('flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-150',
+                className={cn('flex min-h-[56px] select-none flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-150 active:scale-95',
                   on ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground hover:text-foreground')}
               >
                 <span className={cn('grid h-7 w-12 place-items-center rounded-full transition-colors duration-150', on && 'bg-accent')}>

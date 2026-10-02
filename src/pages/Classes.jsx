@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Share2, MoreHorizontal, Pencil, Trash2, User, Clock, BookOpen, Calculator, Atom, Landmark, Palette, Music, Code, Languages, Dumbbell, GraduationCap, ClipboardList } from 'lucide-react';
+import { Plus, Share2, MoreHorizontal, Pencil, Trash2, User, Clock, BookOpen, Calculator, Atom, Landmark, Palette, Music, Code, Languages, Dumbbell, GraduationCap, ClipboardList, NotebookPen } from 'lucide-react';
 import { db, sharing } from '@/api/db';
 import { cn } from '@/lib/utils';
 import { useStudyData, KEYS } from '@/lib/data';
@@ -26,12 +27,13 @@ const ICONS = { Calculator, Atom, BookOpen, Landmark, Palette, Music, Code, Lang
  */
 export default function Classes() {
   const qc = useQueryClient();
-  const { user, classes, allClasses, allHomework, allTests, isLoading } = useStudyData();
+  const navigate = useNavigate();
+  const { user, classes, allClasses, allHomework, allTests, lectures, isLoading } = useStudyData();
   const [dialog, setDialog] = useState(null);     // 'add' | 'join' | 'share' | 'edit' | 'delete'
   const [target, setTarget] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const refresh = () => ['classes', 'homework', 'tests'].forEach(k => qc.invalidateQueries({ queryKey: [k] }));
+  const refresh = () => ['classes', 'homework', 'tests', 'lectures'].forEach(k => qc.invalidateQueries({ queryKey: [k] }));
   const open = (name, cls = null) => { setTarget(cls); setDialog(name); };
   const close = () => setDialog(null);
 
@@ -65,6 +67,7 @@ export default function Classes() {
     if (data.name && data.name !== old) {
       for (const h of allHomework.filter(x => x.class_name === old)) await db.entities.Homework.update(h.id, { class_name: data.name });
       for (const t of allTests.filter(x => x.class_name === old)) await db.entities.Test.update(t.id, { class_name: data.name });
+      for (const l of lectures.filter(x => x.class_name === old)) await db.entities.Lecture.update(l.id, { class_name: data.name });
     }
     refresh();
     close();
@@ -74,6 +77,8 @@ export default function Classes() {
     const cls = target;
     for (const h of allHomework.filter(x => x.class_name === cls.name)) await db.entities.Homework.delete(h.id);
     for (const t of allTests.filter(x => x.class_name === cls.name)) await db.entities.Test.delete(t.id);
+    // Recordings are worth more than a class label: keep them, just unfiled.
+    for (const l of lectures.filter(x => x.class_name === cls.name)) await db.entities.Lecture.update(l.id, { class_name: '', class_id: '' });
     await db.entities.Class.delete(cls.id);
     refresh();
     close();
@@ -83,8 +88,9 @@ export default function Classes() {
   const counts = (name) => ({
     hw: allHomework.filter(h => h.class_name === name && !h.is_completed).length,
     tests: allTests.filter(t => t.class_name === name && t.date >= ymd(new Date())).length,
+    lectures: lectures.filter(l => l.class_name === name).length,
   });
-  const delCounts = target ? counts(target.name) : { hw: 0, tests: 0 };
+  const delCounts = target ? counts(target.name) : { hw: 0, tests: 0, lectures: 0 };
   const delAll = target ? allHomework.filter(h => h.class_name === target.name).length + allTests.filter(t => t.class_name === target.name).length : 0;
 
   return (
@@ -155,10 +161,16 @@ export default function Classes() {
                   <span className="inline-flex items-center gap-1.5"><ClipboardList className="h-4 w-4" aria-hidden="true" />{c.hw} to do</span>
                   <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-4 w-4" aria-hidden="true" />{c.tests} test{c.tests === 1 ? '' : 's'}</span>
                 </div>
-                <button type="button" onClick={() => open('share', cls)}
-                  className="mt-4 inline-flex h-9 items-center justify-center gap-2 rounded-lg border text-sm font-medium text-foreground hover:bg-secondary">
-                  <Share2 className="h-4 w-4" />Share with a classmate
-                </button>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => navigate('/Notes', { state: { className: cls.name } })}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
+                    <NotebookPen className="h-4 w-4" />{c.lectures ? `${c.lectures} lecture${c.lectures === 1 ? '' : 's'}` : 'Lectures'}
+                  </button>
+                  <button type="button" onClick={() => open('share', cls)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
+                    <Share2 className="h-4 w-4" />Share
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -183,6 +195,7 @@ export default function Classes() {
               {delAll
                 ? `Its ${delAll} homework and test item${delAll === 1 ? '' : 's'} go with it (${delCounts.hw} still to do, ${delCounts.tests} upcoming test${delCounts.tests === 1 ? '' : 's'}). This can't be undone.`
                 : 'It has no homework or tests. This can\'t be undone.'}
+              {delCounts.lectures > 0 && ` Its ${delCounts.lectures} recorded lecture${delCounts.lectures === 1 ? '' : 's'} stay in Notes, without a class.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

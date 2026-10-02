@@ -12,7 +12,7 @@ import { toast } from '@/components/ui/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { breakdownRequest, stepsFromAi, stepsFromTemplate, detectTemplate } from './shredder.js';
 
-export const KEYS = { classes: ['classes'], homework: ['homework'], tests: ['tests'], sessions: ['focus-sessions'] };
+export const KEYS = { classes: ['classes'], homework: ['homework'], tests: ['tests'], sessions: ['focus-sessions'], lectures: ['lectures'] };
 
 const strip = ({ id, created_date, updated_date, created_by, ...rest }) => rest;
 
@@ -22,6 +22,7 @@ export function useStudyData() {
   const h = useQuery({ queryKey: KEYS.homework, queryFn: () => db.entities.Homework.list('due_date') });
   const t = useQuery({ queryKey: KEYS.tests, queryFn: () => db.entities.Test.list('date') });
   const s = useQuery({ queryKey: KEYS.sessions, queryFn: () => db.entities.FocusSession.list('-ended_at', 500) });
+  const l = useQuery({ queryKey: KEYS.lectures, queryFn: () => db.entities.Lecture.list('-started_at') });
 
   const allClasses = c.data || [];
   // A class you left keeps its record (so a re-import can find it) but drops
@@ -39,6 +40,7 @@ export function useStudyData() {
     tests: (t.data || []).filter(visible),
     allTests: t.data || [],
     sessions: s.data || [],
+    lectures: (l.data || []).filter(visible),
     isLoading: c.isLoading || h.isLoading || t.isLoading,
   };
 }
@@ -138,6 +140,22 @@ export function useActions() {
       await optimistic(KEYS.tests, list => list.filter(x => x.id !== t.id), () => db.entities.Test.delete(t.id))
         .catch(fail('Could not delete that test'));
       withUndo(t.title, () => db.entities.Test.create(strip(t)).then(() => qc.invalidateQueries({ queryKey: KEYS.tests })));
+    },
+
+    /* ---------------------------------------------------------- lectures */
+    addLecture: (data) =>
+      db.entities.Lecture.create(data)
+        .then((rec) => { qc.invalidateQueries({ queryKey: KEYS.lectures }); return rec; }, fail('Could not start that lecture')),
+
+    updateLecture: (id, patch) =>
+      optimistic(KEYS.lectures,
+        list => list.map(x => (x.id === id ? { ...x, ...patch } : x)),
+        () => db.entities.Lecture.update(id, patch)).catch(fail('Could not save that lecture')),
+
+    deleteLecture: async (lec) => {
+      await optimistic(KEYS.lectures, list => list.filter(x => x.id !== lec.id), () => db.entities.Lecture.delete(lec.id))
+        .catch(fail('Could not delete that lecture'));
+      withUndo(lec.title || 'lecture', () => db.entities.Lecture.create(strip(lec)).then(() => qc.invalidateQueries({ queryKey: KEYS.lectures })));
     },
 
     /* ------------------------------------------------------------- focus */

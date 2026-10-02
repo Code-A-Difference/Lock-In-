@@ -105,6 +105,16 @@ test('getting around by voice', () => {
   is('open practice', 'navigate', { path: '/Study' });
 });
 
+test('recording lectures by voice', () => {
+  is('record the lecture', 'recordLecture', { className: '' });
+  is('record the biology lecture', 'recordLecture', { className: 'biology' });
+  is('start recording', 'recordLecture');
+  is('stop recording', 'stopRecording');
+  is('end the lecture', 'stopRecording');
+  is('open my notes', 'navigate', { path: '/Notes' });
+  is('stop', 'pause');                      // plain stop is still the timer
+});
+
 test('nonsense is unknown, silence is none', () => {
   is('purple elephant', 'unknown');
   is('   ', 'none');

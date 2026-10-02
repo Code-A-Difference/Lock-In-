@@ -9,6 +9,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import SignIn from '@/pages/SignIn';
 import { FocusProvider, useFocus } from '@/lib/FocusContext';
+import { LectureProvider } from '@/lib/LectureContext';
 import Focus from '@/pages/Focus';
 import VoicePanel from '@/components/lockin/VoicePanel';
 
@@ -49,7 +50,7 @@ function FocusSurface() {
   return (
     <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/45 p-0 backdrop-blur-sm sm:p-4" onMouseDown={e => { if (e.target === e.currentTarget) focus.closeFocus(); }}>
       <section role="dialog" aria-modal="true" aria-label="Focus timer" className="relative mx-auto min-h-dvh max-w-7xl bg-background shadow-2xl sm:min-h-[calc(100dvh-2rem)] sm:rounded-2xl">
-        <div className="sticky top-0 z-20 mx-auto flex max-w-6xl justify-end px-4 pt-3 sm:px-6">
+        <div className="sticky top-0 z-20 mx-auto flex max-w-6xl justify-end px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6">
           <button ref={closeRef} type="button" onClick={focus.closeFocus} className="inline-flex h-10 items-center gap-2 rounded-full border bg-card/95 px-4 text-sm font-semibold text-foreground shadow-sm backdrop-blur hover:bg-secondary">
             <span aria-hidden="true">×</span> Close focus
           </button>
@@ -95,7 +96,7 @@ const AuthenticatedApp = () => {
   // inside the sign-in gate so signing out stops it.
   return (
     <FocusProvider>
-    <>
+    <LectureProvider>
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
@@ -119,7 +120,7 @@ const AuthenticatedApp = () => {
     </Routes>
     <FocusSurface />
     <VoicePanel />
-    </>
+    </LectureProvider>
     </FocusProvider>
   );
 };
