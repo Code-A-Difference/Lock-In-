@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LOCK IN!</string>
+    <string name="title_activity_main">LOCK IN!</string>
+    <string name="package_name">org.codeadifference.lockin</string>
+    <string name="custom_url_scheme">org.codeadifference.lockin</string>
+</resources>

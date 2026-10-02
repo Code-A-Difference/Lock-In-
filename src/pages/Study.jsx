@@ -42,7 +42,9 @@ export default function Study() {
   const [quizResults, setQuizResults] = useState(null);
   const [quizDescription, setQuizDescription] = useState('');
   const [quizFiles, setQuizFiles] = useState([]);
-  const [customQuizTopic, setCustomQuizTopic] = useState('');
+  const [customQuizTopic, setCustomQuizTopic] = useState(location.state?.topic || '');
+  // "Quiz me" from a lecture's notes: the notes are the source material.
+  const lectureNotes = location.state?.notes || '';
   const [customQuizClass, setCustomQuizClass] = useState('');
   const [includeWritten, setIncludeWritten] = useState(false);
   const [isGradingWritten, setIsGradingWritten] = useState(false);
@@ -346,15 +348,15 @@ Provide a score out of 10 and brief feedback.`,
                 <div className="flex-1">
                   <p className="text-sm font-medium text-purple-900 dark:text-purple-300">Upcoming Test Alert</p>
                   <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
-                    You have <strong>{upcomingTest.title}</strong> ({upcomingTest.class_name}) on {format(parseDay(upcomingTest.date), 'MMMM d')}. 
+                    You have <strong>{upcomingTest.title}</strong>{upcomingTest.class_name ? ` (${upcomingTest.class_name})` : ''} on {format(parseDay(upcomingTest.date), 'MMMM d')}. 
                     Want to practice with an AI-generated quiz?
                   </p>
                   <Button 
                     size="sm" 
                     className="mt-3 bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800"
-                    onClick={() => setActiveTab("quiz")}
+                    onClick={() => setSelectedTest(upcomingTest)}
                   >
-                    Go to Practice Quiz
+                    Practise for it
                   </Button>
                 </div>
               </div>
@@ -365,13 +367,13 @@ Provide a score out of 10 and brief feedback.`,
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 mb-6 dark:bg-slate-800 dark:border-slate-700">
-            <TabsTrigger value="grading" className="dark:text-slate-300 dark:data-[state=active]:bg-purple-600 dark:data-[state=active]:text-white">
+          <TabsList className="mb-4 grid h-12 w-full grid-cols-2 sm:mb-6 dark:bg-slate-800 dark:border-slate-700">
+            <TabsTrigger value="grading" className="h-10 dark:text-slate-300 dark:data-[state=active]:bg-purple-600 dark:data-[state=active]:text-white">
               <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Grade HW</span>
               <span className="sm:hidden">Grade</span>
             </TabsTrigger>
-            <TabsTrigger value="quiz" className="dark:text-slate-300 dark:data-[state=active]:bg-indigo-600 dark:data-[state=active]:text-white">
+            <TabsTrigger value="quiz" className="h-10 dark:text-slate-300 dark:data-[state=active]:bg-indigo-600 dark:data-[state=active]:text-white">
               <Target className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Quiz</span>
               <span className="sm:hidden">Quiz</span>
@@ -379,15 +381,15 @@ Provide a score out of 10 and brief feedback.`,
           </TabsList>
 
           <TabsContent value="grading">
-            <Card className="border-2 border-purple-100 dark:border-purple-900">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+            <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-purple-100 dark:border-purple-900">
+              <CardHeader className="hidden sm:flex bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
                 <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
                   <Upload className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   AI Homework Grading
                 </CardTitle>
                 <CardDescription className="text-slate-600 dark:text-slate-400">Get instant feedback on your work</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6 pt-6">
+              <CardContent className="space-y-6 px-0 pt-4 sm:px-6 sm:pt-6">
                 <div className="space-y-2">
                   <Label htmlFor="homework-title" className="text-base font-semibold text-slate-700 dark:text-slate-300">Assignment Title</Label>
                   <Input
@@ -487,12 +489,12 @@ Provide a score out of 10 and brief feedback.`,
           </TabsContent>
 
           <TabsContent value="quiz">
-            <Card className="border-2 border-indigo-100 dark:border-indigo-900">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+            <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-indigo-100 dark:border-indigo-900">
+              <CardHeader className="hidden sm:flex bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
                 <CardTitle className="text-slate-800 dark:text-slate-200">Practice Quizzes</CardTitle>
                 <CardDescription className="text-slate-600 dark:text-slate-400">Test your knowledge with AI-generated questions</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 pt-6">
+              <CardContent className="space-y-4 px-0 pt-4 sm:px-6 sm:pt-6">
                 {!quiz && !isGeneratingQuiz && !selectedTest && (
                   <>
                     <div className="space-y-4">
@@ -530,7 +532,7 @@ Provide a score out of 10 and brief feedback.`,
                             </Label>
                           </div>
                           <Button 
-                            onClick={() => handleGenerateQuiz(null, '', [], includeWritten)}
+                            onClick={() => handleGenerateQuiz(null, lectureNotes.slice(0, 12000), [], includeWritten)}
                             disabled={!customQuizTopic.trim()}
                             className="w-full bg-indigo-600 hover:bg-indigo-700"
                           >

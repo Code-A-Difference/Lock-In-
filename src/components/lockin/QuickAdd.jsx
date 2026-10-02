@@ -147,7 +147,7 @@ const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
         </div>
       ) : (
         <p className="px-3 pb-1 pt-1.5 text-xs text-muted-foreground">
-          Dates like <em>fri</em>, <em>tmr</em>, <em>sep 30</em> · <em>!</em> for high priority, <em>!!!</em> for ASAP · the word <em>test</em> makes it a test · press <kbd className="rounded border px-1">N</kbd> from anywhere
+          Dates like <em>fri</em>, <em>tmr</em>, <em>sep 30</em> · <em>!</em> for high priority, <em>!!!</em> for ASAP · the word <em>test</em> makes it a test<span className="kbd-hint"> · press <kbd className="rounded border px-1">N</kbd> from anywhere</span>
         </p>
       )}
     </form>

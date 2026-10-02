@@ -23,7 +23,7 @@
 
 import { store, deriveKey, openJson, KDF_ITERATIONS, b64url } from './vault';
 
-const ENTITY_NAMES = ['Class', 'ClassGroup', 'Homework', 'Test', 'FocusSession', 'StudyHistory'];
+const ENTITY_NAMES = ['Class', 'ClassGroup', 'Homework', 'Test', 'FocusSession', 'StudyHistory', 'Lecture'];
 export const LOCKIN_API = import.meta.env.VITE_LOCKIN_API || '/api/lockin.php';
 export const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai.php';
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;

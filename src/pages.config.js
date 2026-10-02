@@ -9,6 +9,7 @@ import Today from './pages/Today';
 import Focus from './pages/Focus';
 import Study from './pages/Study';
 import Classes from './pages/Classes';
+import Notes from './pages/Notes';
 import Settings from './pages/Settings';
 import __Layout from './Layout.jsx';
 
@@ -16,6 +17,7 @@ export const PAGES = {
     "Today": Today,
     "Focus": Focus,
     "Study": Study,
+    "Notes": Notes,
     "Classes": Classes,
     "Settings": Settings,
 }

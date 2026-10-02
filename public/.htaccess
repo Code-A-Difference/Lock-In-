@@ -19,3 +19,13 @@
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
 </IfModule>
+
+# The Android app (app/LOCKIN-android.apk): served as an app package, so
+# phones offer to install it rather than showing a page of bytes.
+AddType application/vnd.android.package-archive .apk
+<IfModule mod_headers.c>
+  <FilesMatch "\.(webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+AddType application/manifest+json .webmanifest

@@ -123,6 +123,14 @@ export function parseCommand(raw) {
     }
   }
 
+  // Lectures. Checked before the timer's own "stop" so "stop recording"
+  // ends the recording rather than pausing a focus block.
+  if (/\b(stop|end|finish) (the )?(recording|lecture)\b|\bstop recording\b/.test(t)) return { action: 'stopRecording' };
+  {
+    const rec = /\b(?:record|start recording|transcribe)(?: (?:the|this|my))?(?: (.+?))? (?:lecture|class|lesson)\b|\b(?:record|start recording)(?: (?:the|this|my) (?:lecture|class|lesson))?\s*$/.exec(t);
+    if (rec) return { action: 'recordLecture', className: (rec[1] || '').trim() };
+  }
+
   // Navigation and home-page tools are handled by the persistent assistant
   // component, while timer/data actions remain in FocusContext.
   if (/\b(open|show|go to|take me to) (the )?(focus|timer)\b/.test(t)) return { action: 'openFocus' };
@@ -131,6 +139,7 @@ export function parseCommand(raw) {
   if (/\b(go|take me|open) (to )?(classes|my classes)\b/.test(t)) return { action: 'navigate', path: '/Classes' };
   if (/\b(go|take me|open) (to )?(settings|my settings)\b/.test(t)) return { action: 'navigate', path: '/Settings' };
   if (/\b(go|take me|open) (to )?(practice|quizzes|quiz page)\b/.test(t)) return { action: 'navigate', path: '/Study' };
+  if (/\b(go|take me|open) (to )?(my )?(notes|lectures)\b/.test(t)) return { action: 'navigate', path: '/Notes' };
 
   // ---- sound, before plain "stop" so "stop the music" isn't "stop the timer"
   if (/\b(stop|silence|mute|kill|pause|no|turn off|switch off|cut)( the)? (music|sound|sounds|noise|ambient|rain|audio)\b|\b(music|sound|noise|audio) off\b|\bmute\b/.test(t)) {
@@ -203,5 +212,6 @@ export const VOICE_HELP = [
   ['"How much time is left?"', 'hear the time remaining'],
   ['"What\'s next?" / "Done"', 'hear or tick off your next step'],
   ['"Play rain" / "Stop the music"', 'change the background sound'],
+  ['"Record the biology lecture" / "Stop recording"', 'transcribe a class into notes'],
   ['"Plan my week" / "Open focus" / "Go to classes"', 'move around the app'],
 ];

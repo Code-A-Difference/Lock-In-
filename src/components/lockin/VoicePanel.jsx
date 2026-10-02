@@ -4,6 +4,8 @@ import { Mic, MicOff, Radio, Square, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { useFocus } from '@/lib/FocusContext';
+import { useLecture } from '@/lib/LectureContext';
+import { useStudyData } from '@/lib/data';
 import { listenOnce, HandsFree, canListen } from '@/lib/listen';
 import { parseCommand, VOICE_HELP } from '@/lib/voiceCommands';
 import { speak, stopSpeaking } from '@/lib/voice';
@@ -12,6 +14,8 @@ import { chime, unlockAudio } from '@/lib/soundscape';
 /** Persistent voice assistant dock. It stays mounted across every app route. */
 export default function VoicePanel() {
   const f = useFocus();
+  const lecture = useLecture();
+  const { classes } = useStudyData();
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [listening, setListening] = useState(false);
@@ -37,6 +41,22 @@ export default function VoicePanel() {
       navigate('/', { state: { openPlanner: true } });
       setTimeout(() => window.dispatchEvent(new Event('lockin:planner')), 120);
       result = { reply: 'Opening your AI Study Planner on the home page.' };
+    } else if (cmd.action === 'recordLecture') {
+      if (lecture.active) {
+        result = { reply: 'Already recording.' };
+      } else {
+        const want = cmd.className.toLowerCase();
+        const cls = want ? classes.find(c => c.name.toLowerCase().includes(want) || want.includes(c.name.toLowerCase())) : null;
+        try {
+          await lecture.start({ className: cls?.name || '', classId: cls?.id || '' });
+          result = { reply: `Recording${cls ? ` ${cls.name}` : ''}. I'll write the notes when you say stop.` };
+        } catch (e) {
+          result = { reply: e.message || 'I couldn’t start recording.' };
+        }
+      }
+    } else if (cmd.action === 'stopRecording') {
+      if (!lecture.active) result = { reply: 'Nothing is recording.' };
+      else { lecture.stop(); result = { reply: 'Stopped. Writing your notes now.' }; }
     } else if (cmd.action === 'navigate') {
       navigate(cmd.path);
       result = { reply: cmd.path === '/' ? 'Going to today.' : `Opening ${cmd.path.slice(1)}.` };
@@ -44,8 +64,8 @@ export default function VoicePanel() {
       result = await handle.current(text);
     }
     setReply(result.reply);
-    if (['openFocus', 'openPlanner', 'navigate'].includes(cmd.action)) speak(result.reply);
-  }, [f.openFocus, navigate]);
+    if (['openFocus', 'openPlanner', 'navigate', 'recordLecture', 'stopRecording'].includes(cmd.action)) speak(result.reply);
+  }, [f.openFocus, navigate, lecture, classes]);
 
   const startHandsFree = useCallback(() => {
     unlockAudio();

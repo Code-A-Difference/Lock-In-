@@ -1,0 +1,78 @@
+# Builds the LOCK IN! phone apps.
+#
+#  android  a debug APK, to prove the Android project builds. (Release APKs
+#           are signed with a key that never leaves the maintainer's machine:
+#           see MOBILE.md.)
+#  ios      the iPhone app, on one of GitHub's Macs: an unsigned .ipa, plus a
+#           Simulator build. Installing on a real iPhone needs it signed with
+#           an Apple Developer account — MOBILE.md has the steps.
+#
+# Runs on pushes that touch the app, by hand, and on app-v* tags, which also
+# attach the build to a GitHub release.
+
+name: Mobile apps
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', 'ios/**', 'capacitor.config.json', 'native-shell/**', 'package.json', 'package-lock.json', '.github/workflows/mobile.yml']
+    tags: ['app-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v5
+        with:
+          name: lockin-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx cap sync ios
+      - name: Build for the iOS Simulator
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO build
+          (cd build/sim/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/LOCKIN-simulator.zip" App.app)
+      - name: Build the device app (unsigned)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -archivePath build/LOCKIN.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" archive
+          mkdir -p Payload
+          cp -R build/LOCKIN.xcarchive/Products/Applications/App.app Payload/
+          zip -qry LOCKIN-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v5
+        with:
+          name: lockin-ios
+          path: |
+            LOCKIN-unsigned.ipa
+            LOCKIN-simulator.zip
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/app-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "LOCK IN! app ${GITHUB_REF_NAME#app-v}" --notes "See MOBILE.md for how to install."
+          gh release upload "$GITHUB_REF_NAME" LOCKIN-unsigned.ipa LOCKIN-simulator.zip --clobber

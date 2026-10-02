@@ -1,0 +1,32 @@
+{
+  "appId": "org.codeadifference.lockin",
+  "appName": "LOCK IN!",
+  "webDir": "native-shell",
+  "server": {
+    "url": "https://codeadifference.ct.ws/lockin/",
+    "allowNavigation": ["codeadifference.ct.ws"],
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#f8fafc"
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#f8fafc",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#ffffff",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT"
+    }
+  }
+}
