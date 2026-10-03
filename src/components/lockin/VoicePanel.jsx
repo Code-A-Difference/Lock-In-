@@ -6,7 +6,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useAssistant } from '@/lib/AssistantContext';
 import { useLecture } from '@/lib/LectureContext';
 import { useStudyData } from '@/lib/data';
-import { listenOnce, HandsFree, canListen } from '@/lib/listen';
+import { listenOnce, HandsFree, canListen, canHandsFree } from '@/lib/listen';
 import { isNativeApp } from '@/lib/native';
 import { chime, unlockAudio } from '@/lib/soundscape';
 import { stopSpeaking } from '@/lib/voice';
@@ -40,6 +40,7 @@ export default function VoicePanel() {
   const [handsFree, setHandsFree] = useState(false);
   const [armed, setArmed] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [note, setNote] = useState('');
   const hf = useRef(null);
   const stopRef = useRef(null);
   const loopRef = useRef(false);
@@ -63,7 +64,7 @@ export default function VoicePanel() {
 
   /* ------------------------------------------------------------ hands-free */
   const startHandsFree = useCallback(() => {
-    if (!canListen || isNativeApp) return;
+    if (!canHandsFree) return;
     unlockAudio();
     if (!hf.current) {
       hf.current = new HandsFree({
@@ -75,6 +76,8 @@ export default function VoicePanel() {
           chime('wake', 0.3);                       // "I'm listening", like saying "Hey Google"
         },
         onHeard: setHeard,
+        onNote: (s) => setNote(s?.state === 'downloading' ? `Getting the wake-word model… ${Math.round((s.progress || 0) * 100)}% (one time, about 40 MB)`
+          : s?.state === 'unpacking' ? 'Unpacking the wake-word model…' : s?.state === 'loading' ? 'Starting up…' : ''),
         onState: setHandsFree,
         onError: (message) => { setError(message); setPref('off'); writePref('off'); },
       });
@@ -112,6 +115,9 @@ export default function VoicePanel() {
     if (listening) { loopRef.current = false; stopRef.current?.(); return; }
     stopSpeaking();
     setError('');
+    // On Android the wake-word model holds the mic, so it steps aside for a tapped conversation.
+    const resume = isNativeApp && !!hf.current?.running;
+    if (resume) hf.current.stop();
     if (hf.current?.running) {
       // the wake-word recogniser is already open; arm it rather than opening a second one
       hf.current.extend(15000);
@@ -137,7 +143,8 @@ export default function VoicePanel() {
     }
     loopRef.current = false;
     setHeard('');
-  }, [listening]);
+    if (resume) startHandsFree();
+  }, [listening, startHandsFree]);
 
   useEffect(() => {
     const onTalk = () => { setExpanded(true); talk(); };
@@ -183,11 +190,11 @@ export default function VoicePanel() {
 
   return (
     <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-2 lg:bottom-5">
-      {pref === null && canListen && !isNativeApp && !expanded && (
+      {pref === null && canHandsFree && !expanded && (
         <div role="dialog" aria-label="Hands-free" className="w-[min(20rem,calc(100vw-2rem))] rounded-2xl border bg-card p-4 shadow-2xl">
           <p className="text-sm font-semibold text-foreground">Go hands-free?</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. I’ll ask your browser for the microphone once and remember your answer.
+            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : 'I’ll ask your browser for the microphone once and remember your answer.'}
           </p>
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={() => choose(true)} className="h-10 flex-1 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700">Turn on</button>
@@ -279,6 +286,7 @@ export default function VoicePanel() {
             </div>
           )}
 
+          {note && <p className="border-t px-4 py-2 text-xs text-muted-foreground">{note}</p>}
           {error && <p className="border-t px-4 py-2 text-xs text-red-700 dark:text-red-400" role="alert">{error}</p>}
 
           <form className="flex items-end gap-1.5 border-t p-2.5" onSubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -303,9 +311,9 @@ export default function VoicePanel() {
                 : <span className="grid h-9 w-9 flex-none place-items-center text-muted-foreground" title="Voice needs Chrome, Edge or Safari"><MicOff className="h-4 w-4" /></span>}
           </form>
 
-          {canListen && !isNativeApp && (
+          {canHandsFree && (
             <label className="flex items-center justify-between gap-2 border-t bg-secondary/40 px-4 py-2 text-xs text-muted-foreground">
-              <span>Hands-free “Hey Lock In” <span className="opacity-70">— your browser may send speech to its recognition service</span></span>
+              <span>Hands-free “Hey Lock In” <span className="opacity-70">{isNativeApp ? '— listens on your phone while the app is open' : '— your browser may send speech to its recognition service'}</span></span>
               <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} aria-label="Listen for Hey Lock In" />
             </label>
           )}
