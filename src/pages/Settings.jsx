@@ -8,16 +8,44 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
-import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square } from "lucide-react";
+import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
 import { AI_VOICES, configureVoice, listBrowserVoices, onVoicesReady, speak, stopSpeaking, voiceStatus } from '@/lib/voice';
 import { cn } from '@/lib/utils';
 import { formatMinutes } from '@/lib/agenda';
+import { isNativeApp } from '@/lib/native';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
 const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline — let's lock in.";
+
+const APK_URL = `${import.meta.env.BASE_URL}app/LOCKIN-android.apk`;
+
+/** Get LOCK IN! as a phone app — only shown in a browser, never inside the app. */
+function PhoneApp() {
+  const [apk, setApk] = useState(false);
+  useEffect(() => {
+    if (isNativeApp) return;
+    fetch(APK_URL, { method: 'HEAD' }).then(r => setApk(r.ok)).catch(() => {});
+  }, []);
+  if (isNativeApp) return null;
+  return (
+    <Section icon={Smartphone} title="Get the phone app" description="Same account, same work — quicker to open, and the voice assistant works in it.">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {apk && (
+          <a href={APK_URL} download className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            <Download className="h-4 w-4" aria-hidden="true" />Download for Android
+          </a>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {apk && <>Open the file when it finishes; Android asks once to allow installs from your browser. </>}
+          <strong className="font-semibold text-foreground">iPhone:</strong> in Safari tap Share, then Add to Home Screen.
+        </p>
+      </div>
+    </Section>
+  );
+}
 
 function Section({ icon: Icon, title, description, children, className }) {
   return (
@@ -162,6 +190,8 @@ export default function Settings() {
             <p className="text-xs text-muted-foreground">Your username, <strong>{user.username}</strong>, is how you sign in, so it can't change.</p>
           </div>
         </Section>
+
+        <PhoneApp />
 
         <Section icon={Palette} title="Appearance">
           <Row id="darkMode" label="Dark mode" hint="Easier on the eyes at night.">
