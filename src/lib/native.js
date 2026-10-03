@@ -5,7 +5,7 @@
  * Capacitor's native bridge, so these plugins talk to the phone there. In a
  * normal browser `isNativeApp` is false and every helper does nothing.
  */
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
@@ -32,6 +32,13 @@ export function syncStatusBar(dark) {
  * listens through this instead (lib/listen.js).
  */
 export const nativeSpeech = isNativeApp ? SpeechRecognition : null;
+
+/**
+ * "Hey Lock In" on Android: a small on-device speech model (android/.../WakeWordPlugin.java)
+ * that listens silently for the wake phrase. Android's own recogniser beeps on every
+ * start, so it can't be used for always-on listening. There is no iPhone version yet.
+ */
+export const wakeWord = isNativeApp && platform === 'android' ? registerPlugin('WakeWord') : null;
 
 if (isNativeApp && typeof document !== 'undefined') {
   document.documentElement.classList.add('native-app', `native-${platform}`);

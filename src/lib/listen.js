@@ -15,11 +15,14 @@
  * it; Safari does it on the device. Settings says so where the switch is.
  */
 import { afterWake } from './wake.js';
-import { nativeSpeech } from './native.js';
+import { nativeSpeech, wakeWord } from './native.js';
 
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
 export const canListen = !!SR || !!nativeSpeech;
+
+/** Hands-free "Hey Lock In": the browser's recogniser on the web, the on-device wake-word model on Android. */
+export const canHandsFree = !!wakeWord || (!!SR && !nativeSpeech);
 
 const lang = () => (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
 
@@ -89,8 +92,11 @@ export function listenOnce({ onInterim } = {}) {
  *    chime comes the moment you say it.
  */
 export class HandsFree {
-  constructor({ onCommand, onWake, onState, onError, onHeard, recognition } = {}) {
-    this.SR = recognition || SR;
+  constructor({ onCommand, onWake, onState, onError, onHeard, onNote, recognition } = {}) {
+    // In the Android app the web view may expose a speech API that doesn't really work; the
+    // on-device model is what hands-free uses there.
+    this.SR = recognition || (wakeWord ? null : SR);
+    this.onNote = onNote;                    // progress of the wake-word model's first download
     this.onCommand = onCommand;
     this.onWake = onWake;
     this.onState = onState;
@@ -109,7 +115,7 @@ export class HandsFree {
   get armed() { return Date.now() < this.armedUntil; }
 
   start() {
-    if ((!this.SR && !nativeSpeech) || this.running) return false;
+    if ((!this.SR && !wakeWord) || this.running) return false;
     this.running = true;
     this.rapid = 0;
     this._open();
@@ -120,6 +126,8 @@ export class HandsFree {
   stop() {
     this.running = false;
     clearTimeout(this.timer);
+    this._wakeOutcome?.('stopped');
+    if (wakeWord && !this.SR) wakeWord.stop().catch(() => {});
     if (nativeSpeech) nativeSpeech.stop().catch(() => {});
     this.armedUntil = 0;
     const r = this.rec;
@@ -140,7 +148,7 @@ export class HandsFree {
   _deaf() { return this.muted || Date.now() < this.mutedUntil; }
 
   _open() {
-    if (nativeSpeech && !this.SR) { this._openNative(); return; }
+    if (!this.SR && wakeWord) { this._runNative(); return; }
     const rec = new this.SR();
     rec.lang = lang();
     rec.continuous = true;
@@ -185,18 +193,51 @@ export class HandsFree {
     rec.start();
   }
 
-  /** In the app: one utterance at a time from the phone's recogniser, reopened as it ends. */
-  async _openNative() {
+  /**
+   * Android: the on-device model waits silently for the wake phrase and stops
+   * itself when it hears it. Then the phone's own recogniser (which beeps, once,
+   * which is fine now) takes the command, the answer is spoken, and the
+   * conversation carries on until two quiet turns, when it goes back to waiting.
+   */
+  async _runNative() {
+    const handles = [];
     try {
-      const said = await nativeListenOnce({}).promise;
-      if (said && !this._deaf()) this._final(0, said, new Set());
-      this.rapid = 0;
+      handles.push(await wakeWord.addListener('wake', () => this._wakeOutcome?.('wake')));
+      handles.push(await wakeWord.addListener('error', (e) => this._wakeOutcome?.({ error: e?.message || 'Wake-word listening failed.' })));
+      handles.push(await wakeWord.addListener('state', (s) => this.onNote?.(s)));
+      let failures = 0;
+      while (this.running) {
+        const outcome = new Promise((resolve) => { this._wakeOutcome = resolve; });
+        try { await wakeWord.start(); } catch (e) { this.onError?.(e?.message || String(e)); this.stop(); break; }
+        const r = await outcome;
+        this._wakeOutcome = null;
+        if (!this.running) break;
+        if (r && r.error) {
+          if (++failures >= 3) { this.onError?.(r.error); this.stop(); break; }
+          await new Promise(res => setTimeout(res, 1500 * failures));
+          continue;
+        }
+        failures = 0;
+        this.onWake?.({ inline: false });
+        await new Promise(res => setTimeout(res, 200));        // the mic is released; the blip plays
+        let quiet = 0;
+        while (this.running && quiet < 2) {
+          let said = '';
+          try { said = await nativeListenOnce({ onInterim: (t) => this.onHeard?.(t) }).promise; }
+          catch (e) { this.onError?.(e?.message || String(e)); this.stop(); break; }
+          if (!this.running) break;
+          if (!said) { quiet++; continue; }
+          quiet = 0;
+          await this.onCommand?.(said);                         // answered and spoken before it returns
+        }
+      }
     } catch (e) {
-      if (/not allowed|denied|permission/i.test(e.message)) { this.onError?.(e.message); this.stop(); return; }
-      this.rapid++;
+      this.onError?.(`Hands-free couldn't start: ${e?.message || e}`);
+      this.stop();
+    } finally {
+      handles.forEach(h => h?.remove?.());
+      this._wakeOutcome = null;
     }
-    if (!this.running) return;
-    this.timer = setTimeout(() => { if (this.running) this._openNative(); }, this.rapid > 3 ? 5000 : 300);
   }
 
   _interim(i, text, woken) {
