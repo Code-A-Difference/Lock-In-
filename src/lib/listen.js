@@ -7,13 +7,14 @@
  *
  * Ambient Voice Study listened continuously from the moment you pressed start
  * and acted on anything that matched — so a classmate saying "stop" across the
- * room stopped your timer. Here hands-free is off until you turn it on, and
- * even then nothing happens without the wake phrase.
+ * room stopped your timer. Here nothing happens without the wake phrase (or, for
+ * a few seconds after the assistant has answered you, a follow-up). Hands-free is
+ * asked about once, then stays on.
  *
  * Chrome and Edge send the audio to their own speech service to transcribe
  * it; Safari does it on the device. Settings says so where the switch is.
  */
-import { afterWake } from './voiceCommands.js';
+import { afterWake } from './wake.js';
 import { nativeSpeech } from './native.js';
 
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -71,26 +72,46 @@ export function listenOnce({ onInterim } = {}) {
 
 /**
  * Hands-free: listens until stopped, and calls onCommand(text) for whatever
- * follows the wake phrase. "Hey Lock In" on its own arms it for a few seconds,
- * so "Hey Lock In … pause" works with a pause in between, the way people
- * actually talk to assistants.
+ * follows the wake phrase — or, for a few seconds after the assistant has
+ * woken or answered, for anything said at all, so a conversation doesn't need
+ * "Hey Lock In" before every sentence.
+ *
+ * What changed, and why the old one glitched:
+ *  - It tore the recogniser down and rebuilt it whenever you tapped the mic or
+ *    the assistant spoke. Each rebuild is a mic-on / mic-off blip (a beep, on
+ *    some devices). Now one recogniser stays open and results are simply
+ *    ignored while the assistant is talking, so it never hears itself.
+ *  - When the browser kept ending the session straight away it reopened it
+ *    every quarter-second, forever: on, off, on, off. Now it backs off, and
+ *    after a handful of instant failures it stops and says so.
+ *  - It waited for the recogniser to finish a sentence before noticing the
+ *    wake phrase. Now it reacts to the interim words, so the "I'm listening"
+ *    chime comes the moment you say it.
  */
 export class HandsFree {
-  constructor({ onCommand, onWake, onState, onError } = {}) {
+  constructor({ onCommand, onWake, onState, onError, onHeard, recognition } = {}) {
+    this.SR = recognition || SR;
     this.onCommand = onCommand;
     this.onWake = onWake;
     this.onState = onState;
     this.onError = onError;
+    this.onHeard = onHeard;
     this.running = false;
     this.armedUntil = 0;
+    this.muted = false;
+    this.mutedUntil = 0;
     this.rec = null;
-    this.restarts = 0;
+    this.rapid = 0;
+    this.openedAt = 0;
+    this.timer = null;
   }
 
+  get armed() { return Date.now() < this.armedUntil; }
+
   start() {
-    if ((!SR && !nativeSpeech) || this.running) return false;
+    if ((!this.SR && !nativeSpeech) || this.running) return false;
     this.running = true;
-    this.restarts = 0;
+    this.rapid = 0;
     this._open();
     this.onState?.(true);
     return true;
@@ -98,6 +119,7 @@ export class HandsFree {
 
   stop() {
     this.running = false;
+    clearTimeout(this.timer);
     if (nativeSpeech) nativeSpeech.stop().catch(() => {});
     this.armedUntil = 0;
     const r = this.rec;
@@ -106,16 +128,32 @@ export class HandsFree {
     this.onState?.(false);
   }
 
+  /** While the assistant speaks, listen without hearing: results are dropped, the mic stays open. */
+  setMuted(on) {
+    this.muted = !!on;
+    if (!on) this.mutedUntil = Date.now() + 700;   // its own voice echoes for a moment
+  }
+
+  /** Keep accepting plain speech (no wake phrase) for `ms` more. */
+  extend(ms = 10000) { this.armedUntil = Math.max(this.armedUntil, Date.now() + ms); }
+
+  _deaf() { return this.muted || Date.now() < this.mutedUntil; }
+
   _open() {
-    if (nativeSpeech) { this._openNative(); return; }
-    const rec = new SR();
+    if (nativeSpeech && !this.SR) { this._openNative(); return; }
+    const rec = new this.SR();
     rec.lang = lang();
     rec.continuous = true;
-    rec.interimResults = false;
+    rec.interimResults = true;
+    const woken = new Set();                       // results the wake phrase was already announced for
     rec.onresult = (e) => {
+      if (this._deaf()) return;
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (!e.results[i].isFinal) continue;
-        this._heard(e.results[i][0].transcript);
+        const r = e.results[i];
+        const text = String(r[0].transcript || '').trim();
+        if (!text) continue;
+        if (r.isFinal) { this._final(i, text, woken); woken.delete(i); }
+        else this._interim(i, text, woken);
       }
     };
     rec.onerror = (e) => {
@@ -124,19 +162,26 @@ export class HandsFree {
         this.stop();
       }
     };
-    // Browsers end "continuous" recognition after a minute or so of quiet.
-    // Reopen it, but back off if it keeps dying straight away (no network).
+    // Browsers end "continuous" recognition after a minute or so of quiet, or
+    // when the connection drops. Reopen it — but a session that dies at once,
+    // again and again, is a fault, not a pause, so back off and then stop.
     rec.onend = () => {
       if (!this.running) return;
-      this.restarts++;
-      const wait = this.restarts > 5 ? 5000 : 250;
-      setTimeout(() => {
+      const lived = Date.now() - this.openedAt;
+      this.rapid = lived < 3000 ? this.rapid + 1 : 0;
+      if (this.rapid >= 8) {
+        this.onError?.('Voice recognition keeps cutting out in this browser, so hands-free is off. You can still tap the mic.');
+        this.stop();
+        return;
+      }
+      const wait = this.rapid === 0 ? 120 : Math.min(15000, 400 * 2 ** this.rapid);
+      this.timer = setTimeout(() => {
         if (!this.running) return;
-        try { this._open(); } catch (_) { this.stop(); }
+        try { this._open(); } catch (_) { this.rapid++; this.timer = setTimeout(() => this.running && this._open(), 2000); }
       }, wait);
     };
-    rec.onaudiostart = () => { this.restarts = 0; };
     this.rec = rec;
+    this.openedAt = Date.now();   // when it was asked to start: a session that never gets going counts as a short one
     rec.start();
   }
 
@@ -144,27 +189,39 @@ export class HandsFree {
   async _openNative() {
     try {
       const said = await nativeListenOnce({}).promise;
-      if (said) this._heard(said);
-      this.restarts = 0;
+      if (said && !this._deaf()) this._final(0, said, new Set());
+      this.rapid = 0;
     } catch (e) {
       if (/not allowed|denied|permission/i.test(e.message)) { this.onError?.(e.message); this.stop(); return; }
-      this.restarts++;
+      this.rapid++;
     }
     if (!this.running) return;
-    setTimeout(() => { if (this.running) this._openNative(); }, this.restarts > 5 ? 5000 : 300);
+    this.timer = setTimeout(() => { if (this.running) this._openNative(); }, this.rapid > 3 ? 5000 : 300);
   }
 
-  _heard(transcript) {
-    const text = String(transcript || '').trim();
-    if (!text) return;
+  _interim(i, text, woken) {
     const cmd = afterWake(text);
     if (cmd !== null) {
-      this.onWake?.({ inline: !!cmd });
+      if (!woken.has(i)) {
+        woken.add(i);
+        this.armedUntil = Date.now() + 8000;
+        this.onWake?.({ inline: !!cmd });          // the chime plays now, not after the sentence ends
+      }
+      if (cmd) this.onHeard?.(cmd);
+    } else if (this.armed) {
+      this.onHeard?.(text);
+    }
+  }
+
+  _final(i, text, woken) {
+    const cmd = afterWake(text);
+    if (cmd !== null) {
+      if (!woken.has(i)) this.onWake?.({ inline: !!cmd });
       if (cmd) { this.armedUntil = 0; this.onCommand?.(cmd); }
-      else this.armedUntil = Date.now() + 6000;
+      else this.armedUntil = Date.now() + 8000;
       return;
     }
-    if (Date.now() < this.armedUntil) {
+    if (this.armed) {
       this.armedUntil = 0;
       this.onCommand?.(text);
     }

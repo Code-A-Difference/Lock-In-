@@ -229,18 +229,19 @@ export function unlockAudio() { audio(); }
 export function chime(kind = 'focusEnd', volume = 0.35) {
   const c = audio();
   if (!c) return;
-  const notes = kind === 'assistantActive' ? [659.25, 880] : kind === 'breakEnd' ? [523.25, 783.99] : [783.99, 659.25];
+  const quick = kind === 'wake';   // the "I'm listening" blip: short, so it's over before you speak
+  const notes = kind === 'wake' ? [784, 1175] : kind === 'assistantActive' ? [659.25, 880] : kind === 'breakEnd' ? [523.25, 783.99] : [783.99, 659.25];
   notes.forEach((freq, i) => {
-    const t = c.currentTime + i * 0.22;
+    const t = c.currentTime + i * (quick ? 0.1 : 0.22);
     [1, 2.76, 5.4].forEach((ratio, j) => {
       const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = freq * ratio;
       const g = c.createGain();
       const peak = volume * [0.5, 0.18, 0.06][j];
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(peak, t + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6 - j * 0.4);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (quick ? 0.4 : 1.6) - j * (quick ? 0.1 : 0.4));
       o.connect(g); g.connect(c.destination);
-      o.start(t); o.stop(t + 1.7);
+      o.start(t); o.stop(t + (quick ? 0.5 : 1.7));
     });
   });
 }

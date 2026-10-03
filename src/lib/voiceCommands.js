@@ -54,7 +54,7 @@ const SOUNDS = [
 
 /**
  * @returns {{action: string, minutes?: number, kind?: string, delta?: number}}
- * actions: start, pause, skip, reset, startBreak, setFocus, setBreak, adjust,
+ * actions: start, startFocus, pause, skip, reset, startBreak, setFocus, setBreak, adjust,
  * timeLeft, sound, volume, completeStep, readStep, help, unknown, none
  */
 export function parseCommand(raw) {
@@ -164,6 +164,20 @@ export function parseCommand(raw) {
     return { action: 'completeStep' };
   }
 
+  // ---- "start a focus session for 50 minutes" runs a block of that length now.
+  // Only "set / change / make the focus blocks 50" changes the default length.
+  if (mins != null) {
+    const startsIt = /\b(start|begin|lets|let us|do|run|kick off|go for|give me|i want|i need|set up|lock in for|focus for|work for|study for)\b/.test(t)
+      || /^\s*(focus|work|study|studying)\b|\bof (focus|work|studying)\b/.test(t);
+    const changesDefault = /\b(set|change|make|update|switch)\b.*\b(blocks?|default|from now on|always)\b|\b(blocks?|default)\b.*\b(to|are|be)\b/.test(t)
+      || /\b(set|change|make|update|switch) (the )?(focus|timer|work)( length| time| blocks?)? (to|for)\b/.test(t);
+    const isFocus = /\b(focus|work|study|studying|session|block|pomodoro|lock in|timer)\b/.test(t);
+    const isBreak = /\b(break|rest)\b/.test(t);
+    const adjusts = /\b(add|another|plus|extend|more|extra|remove|subtract|minus|take off|cut|reduce|less|shorter)\b/.test(t);
+    if (startsIt && isFocus && !isBreak && !changesDefault && !adjusts) return { action: 'startFocus', minutes: mins };
+    if (startsIt && isBreak && !changesDefault && !adjusts && /\b(start|begin|take|lets|let us|go|give me)\b/.test(t)) return { action: 'startBreak', minutes: mins };
+  }
+
   // ---- lengths
   if (mins != null) {
     if (/\b(add|give me|another|plus|extend|more|extra)\b/.test(t) && !/\b(focus|break) (for|to)\b/.test(t)) {
@@ -186,16 +200,8 @@ export function parseCommand(raw) {
   return { action: 'unknown' };
 }
 
-/** Wake phrases for hands-free mode. "companion" is Ambient Voice Study's. */
-export const WAKE_RE = /\b(hey|ok|okay) (lock|log) in\b|\bcompanion\b/;
-
-/** Split a transcript at the wake phrase; returns the command after it, or null. */
-export function afterWake(transcript) {
-  const t = String(transcript || '').toLowerCase();
-  const m = WAKE_RE.exec(t);
-  if (!m) return null;
-  return t.slice(m.index + m[0].length).trim();
-}
+// Wake phrase matching lives in wake.js (it has to cope with how recognisers mishear "lock in").
+export { WAKE_RE, afterWake, findWake } from './wake.js';
 
 export const VOICE_HELP = [
   ['"Add homework: read chapter 4 due Friday"', 'save an assignment to your agenda'],

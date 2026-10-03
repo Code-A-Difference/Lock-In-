@@ -12,6 +12,7 @@ import { FocusProvider, useFocus } from '@/lib/FocusContext';
 import { LectureProvider } from '@/lib/LectureContext';
 import Focus from '@/pages/Focus';
 import VoicePanel from '@/components/lockin/VoicePanel';
+import { AssistantProvider } from '@/lib/AssistantContext';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -97,6 +98,7 @@ const AuthenticatedApp = () => {
   return (
     <FocusProvider>
     <LectureProvider>
+    <AssistantProvider>
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
@@ -120,6 +122,7 @@ const AuthenticatedApp = () => {
     </Routes>
     <FocusSurface />
     <VoicePanel />
+    </AssistantProvider>
     </LectureProvider>
     </FocusProvider>
   );

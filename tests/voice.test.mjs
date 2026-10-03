@@ -35,9 +35,12 @@ test('timer control', () => {
 });
 
 test('lengths', () => {
-  is('focus for 45 minutes', 'setFocus', { minutes: 45 });
+  is('focus for 45 minutes', 'startFocus', { minutes: 45 });
+  is('lets start a focus session for 50 min', 'startFocus', { minutes: 50 });
+  is('start a 25 minute study block', 'startFocus', { minutes: 25 });
+  is('make the focus blocks 50 minutes', 'setFocus', { minutes: 50 });
   is('set the timer to thirty', 'setFocus', { minutes: 30 });
-  is('an hour and a half of focus', 'setFocus', { minutes: 90 });
+  is('an hour and a half of focus', 'startFocus', { minutes: 90 });
   is('break for 10', 'setBreak', { minutes: 10 });
   is('rest time fifteen minutes', 'setBreak', { minutes: 15 });
   is('twenty five minutes', 'setFocus', { minutes: 25 });
