@@ -30,6 +30,8 @@ export const AI_VOICES = [
 let settings = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1 };
 let aiUnavailable = false;        // this session, the proxy said it can't do speech
 let playToken = 0;
+let speaking = 0;                 // speak() calls that haven't finished
+const pending = new Map();        // token -> its finish(), so stopping resolves the promise
 let currentAudio = null;
 const cache = new Map();          // "voice|text" -> object URL, for repeated cues
 
@@ -155,7 +157,9 @@ function playUrl(url, token) {
  * starting the answer over.
  */
 async function speakAi(text, token, onStart, onEnd) {
-  const parts = chunks(text, 600);
+  // A short first piece starts playing sooner; the rest is fetched while it plays.
+  const small = chunks(text, 200);
+  const parts = small.length > 1 ? [small[0], ...chunks(small.slice(1).join(' '), 600)] : small;
   const fetchPart = (i) => { const p = aiAudioUrl(parts[i]); p.catch(() => {}); return p; };
   let next = fetchPart(0);
   for (let i = 0; i < parts.length; i++) {
@@ -187,30 +191,51 @@ async function speakAi(text, token, onStart, onEnd) {
  * Speak `text` in the most natural voice available.
  * onStart(engine, voiceName) tells the caller which one it got.
  */
-export async function speak(text, { onStart, onEnd } = {}) {
+export function speak(text, { onStart, onEnd } = {}) {
   stopSpeaking();
   const token = ++playToken;
   const clean = speakable(text);
-  if (!clean) { onEnd?.(); return; }
-
-  const tryAi = settings.engine === 'ai' || (settings.engine === 'auto' && !aiUnavailable);
-  if (tryAi && typeof fetch !== 'undefined') {
-    try {
-      await speakAi(clean, token, onStart, onEnd);
-      return;
-    } catch (e) {
-      if (e.permanent) aiUnavailable = true;
-      if (token !== playToken) return;
-    }
-  }
-  speakBrowser(clean, token, onStart, onEnd);
+  if (!clean) { onEnd?.(); return Promise.resolve(); }
+  // Resolves when the last word has been said — or when something else cut it off.
+  return new Promise((resolve) => {
+    speaking++;
+    let over = false;
+    const finish = () => {
+      if (over) return;
+      over = true;
+      speaking = Math.max(0, speaking - 1);
+      onEnd?.();
+      resolve();
+    };
+    pending.set(token, finish);
+    // Some browsers never fire the "ended" event (a cancelled utterance, a voice that fails to load).
+    // Without this the assistant would stay "speaking" — and deaf — for good.
+    setTimeout(finish, Math.max(10000, clean.length * 120));
+    (async () => {
+      const tryAi = settings.engine === 'ai' || (settings.engine === 'auto' && !aiUnavailable);
+      if (tryAi && typeof fetch !== 'undefined') {
+        try {
+          await speakAi(clean, token, onStart, finish);
+          return;
+        } catch (e) {
+          if (e.permanent) aiUnavailable = true;
+          if (token !== playToken) return;
+        }
+      }
+      speakBrowser(clean, token, onStart, finish);
+    })();
+  });
 }
 
 export function stopSpeaking() {
   playToken++;
+  for (const [t, done] of [...pending]) { if (t !== playToken) { pending.delete(t); done(); } }
   if (currentAudio) { try { currentAudio.pause(); } catch (_) {} currentAudio = null; }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
+
+/** True from the moment speak() is called until its last word (or until it's stopped). */
+export const isSpeaking = () => speaking > 0;
 
 /** Which voice the next `speak()` will use, for Settings to show. */
 export function voiceStatus() {

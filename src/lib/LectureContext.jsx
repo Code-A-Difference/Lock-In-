@@ -11,7 +11,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useNavigate } from 'react-router-dom';
 import { useActions, useStudyData } from './data.js';
 import { ymd } from './dates.js';
-import { LectureRecorder, canRecord } from './recorder.js';
+import { LectureRecorder, canRecord, downsample, encodeWav, isSilent, SAMPLE_RATE, CHUNK_SECONDS } from './recorder.js';
 import { transcribeChunk, transcriptText, generateNotes } from './lectures.js';
 import { chime, unlockAudio } from './soundscape.js';
 
@@ -33,6 +33,7 @@ export function LectureProvider({ children }) {
 
   const [active, setActive] = useState(null);     // { id, state, elapsed, level, queued, failed }
   const [error, setError] = useState('');
+  const [importing, setImporting] = useState(null);   // { id, title, done, total } while a video or audio file is transcribed
   const [writing, setWriting] = useState({});     // id -> progress text while notes are written
   const rec = useRef(null);
   const queue = useRef(Promise.resolve());
@@ -146,6 +147,66 @@ export function LectureProvider({ children }) {
     writeNotes({ ...latest, ...lec }).catch(() => {});
   }, [save, writeNotes]);
 
+  /**
+   * A video or audio file the student already has (a recorded class, a
+   * lesson video) becomes a lecture: the sound is decoded in the browser,
+   * cut into the same 30-second pieces a live recording makes, transcribed,
+   * and turned into notes — after which the assistant can answer questions
+   * about it like any other lecture.
+   */
+  const MAX_IMPORT_BYTES = 150 * 1024 * 1024;
+  const importMedia = useCallback(async (file, { className = '', classId = '' } = {}) => {
+    if (!file) return null;
+    if (file.size > MAX_IMPORT_BYTES) throw new Error('That file is over 150 MB. Trim it, or export just the audio, and try again.');
+    unlockAudio();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error('This browser can’t read audio files.');
+    const ac = new AC();
+    let decoded;
+    try {
+      decoded = await ac.decodeAudioData(await file.arrayBuffer());
+    } catch (_) {
+      throw new Error('I couldn’t read sound from that file. MP4, MP3, M4A, WAV and WebM usually work; try another format.');
+    } finally { ac.close?.().catch?.(() => {}); }
+
+    const a = decoded.getChannelData(0);
+    const b = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : null;
+    const mono = b ? a.map((v, i) => (v + b[i]) / 2) : a;
+    const pcm = downsample(mono, decoded.sampleRate);
+    const now = new Date();
+    const title = file.name.replace(/\.[^.]+$/, '').slice(0, 80) || 'Imported video';
+    const lec = await actionsRef.current.addLecture({
+      title, auto_title: false, class_name: className, class_id: classId,
+      date: ymd(now), started_at: now.toISOString(), status: 'transcribing',
+      duration: Math.round(pcm.length / SAMPLE_RATE), segments: [], my_notes: '', source: 'import',
+    });
+    const piece = CHUNK_SECONDS * SAMPLE_RATE;
+    const total = Math.ceil(pcm.length / piece);
+    const out = [];
+    setImporting({ id: lec.id, title, done: 0, total });
+    try {
+      for (let i = 0; i < total; i++) {
+        const samples = pcm.subarray(i * piece, Math.min(pcm.length, (i + 1) * piece));
+        let seg = { start: i * CHUNK_SECONDS, duration: samples.length / SAMPLE_RATE, text: '' };
+        if (!isSilent(samples)) {
+          try {
+            seg.text = await transcribeChunk(encodeWav(samples), [className, transcriptText(out).slice(-300)].filter(Boolean).join(' — '));
+          } catch (e) { seg.error = e.message; }
+        }
+        out.push(seg);
+        await save(lec.id, { segments: out });
+        setImporting({ id: lec.id, title, done: i + 1, total });
+      }
+      if (!transcriptText(out)) {
+        await save(lec.id, { status: 'transcribed', notes_error: 'Nothing was heard clearly enough to transcribe.' });
+        return lec;
+      }
+      await save(lec.id, { status: 'transcribed' });
+    } finally { setImporting(null); }
+    writeNotes({ ...lec, segments: out, class_name: className }).catch(() => {});
+    return lec;
+  }, [save, writeNotes]);
+
   /** Try the pieces that failed again (only while the app has them in memory). */
   const retryFailed = useCallback(async () => {
     const pending = [...failedChunks.current.entries()];
@@ -165,7 +226,7 @@ export function LectureProvider({ children }) {
   }, [!!active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = {
-    canRecord, active, error, writing, start, pause, resume, stop, retryFailed, writeNotes,
+    canRecord, active, error, writing, importing, importMedia, start, pause, resume, stop, retryFailed, writeNotes,
     hasFailed: (active?.failed || 0) > 0 || failedChunks.current.size > 0,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

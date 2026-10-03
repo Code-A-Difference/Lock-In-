@@ -20,7 +20,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useStudyData, useActions, KEYS } from './data.js';
 import { soundscape, chime, unlockAudio, SOUNDS } from './soundscape.js';
 import { speak, configureVoice } from './voice.js';
-import { parseCommand } from './voiceCommands.js';
 import { clock, spokenTime } from './agenda.js';
 import { ymd, addDays, relativeDay } from './dates.js';
 
@@ -270,14 +269,34 @@ export function FocusProvider({ children }) {
 
   const skip = useCallback(() => finishPhase(true), [finishPhase]);
 
-  const startBreak = useCallback(() => {
+  const startBreak = useCallback((minutes) => {
     unlockAudio();
     const cur = tRef.current;
     if (cur.phase === 'focus' && cur.status !== 'idle') logFocus(cur.total - leftOf(cur, Date.now()));
     const next = fresh(prefsRef.current, 'break', cur.blocks, cur.task);
+    if (minutes) { next.total = next.remaining = clampMin(minutes, 1, 60) * 60; }
     next.status = 'running'; next.endsAt = Date.now() + next.total * 1000; next.startedAt = Date.now();
     commit(next);
     applySound(next);
+    setNow(Date.now());
+  }, [applySound, commit, logFocus]);
+
+  /**
+   * "Start a focus session for 50 minutes": a new block of exactly that long,
+   * running now. It does not touch the default length (that is setDurations),
+   * and it does not carry on from whatever block was open before — time already
+   * spent in that one is logged, then this one starts clean.
+   */
+  const startFocus = useCallback((minutes, task) => {
+    unlockAudio();
+    const cur = tRef.current;
+    if (cur.phase === 'focus' && cur.status !== 'idle') logFocus(cur.total - leftOf(cur, Date.now()));
+    const secs = clampMin(minutes || prefsRef.current.focusMin) * 60;
+    const base = fresh(prefsRef.current, 'focus', cur.blocks, task ? { type: task.type, id: task.id } : cur.task);
+    const next = { ...base, remaining: secs, total: secs, status: 'running', endsAt: Date.now() + secs * 1000, startedAt: Date.now() };
+    commit(next);
+    applySound(next);
+    setNow(Date.now());
   }, [applySound, commit, logFocus]);
 
   const adjust = useCallback((minutes) => {
@@ -353,9 +372,12 @@ export function FocusProvider({ children }) {
   }, [actions]);
 
   /* --------------------------------------------------------------- voice */
-  /** Act on something said. Returns what was said back, for the UI too. */
-  const handleVoice = useCallback(async (text) => {
-    const cmd = parseCommand(text);
+  /**
+   * Carry out one command (the shape parseCommand and the assistant's actions
+   * both produce). Returns { reply, ok } — what happened, in words. Speaking
+   * and conversation are the assistant's job (AssistantContext).
+   */
+  const perform = useCallback(async (cmd) => {
     const cur = tRef.current;
     const p = prefsRef.current;
     const item = taskRef.current;
@@ -368,7 +390,19 @@ export function FocusProvider({ children }) {
       case 'pause': pause(); reply = 'Paused.'; break;
       case 'skip': reply = cur.phase === 'focus' ? 'Skipping to your break.' : 'Break skipped. Back to it.'; skip(); break;
       case 'reset': reset(); reply = 'Timer reset.'; break;
-      case 'startBreak': startBreak(); reply = `Break time. ${p.breakMin} minutes.`; break;
+      case 'startFocus': {
+        const task = cmd.taskTitle ? findByTitle(homework.filter(h => !h.is_completed), cmd.taskTitle).matches[0] : null;
+        const minutes = clampMin(cmd.minutes || p.focusMin);
+        startFocus(minutes, task ? { type: 'homework', id: task.id } : null);
+        reply = `Focus started: ${minutes} minutes${task ? ` on ${task.title}` : ''}. Go.`;
+        break;
+      }
+      case 'startBreak': {
+        const minutes = cmd.minutes ? clampMin(cmd.minutes, 1, 60) : p.breakMin;
+        startBreak(cmd.minutes ? minutes : undefined);
+        reply = `Break time. ${minutes} minutes.`;
+        break;
+      }
       case 'setFocus': setDurations({ focusMin: cmd.minutes }); reply = `Focus blocks are now ${clampMin(cmd.minutes)} minutes.`; break;
       case 'setBreak': setDurations({ breakMin: cmd.minutes }); reply = `Breaks are now ${clampMin(cmd.minutes, 1, 60)} minutes.`; break;
       case 'adjust':
@@ -405,7 +439,8 @@ export function FocusProvider({ children }) {
       case 'addTest': {
         const isTest = cmd.action === 'addTest';
         let title = String(cmd.title || '').trim() || (isTest ? 'Test' : 'Homework');
-        const classItem = classes.find(c => c.name && cmd.source?.includes(c.name.toLowerCase()));
+        const classItem = classes.find(c => c.name && cmd.className && c.name.toLowerCase() === String(cmd.className).toLowerCase())
+          || classes.find(c => c.name && cmd.source?.includes(c.name.toLowerCase()));
         if (classItem && title.toLowerCase() === classItem.name.toLowerCase()) title = `${classItem.name} ${isTest ? 'test' : 'homework'}`;
         const dueDate = spokenDate(cmd.datePhrase);
         if (isTest && !dueDate) {
@@ -486,29 +521,11 @@ export function FocusProvider({ children }) {
       case 'stopQuiz': setVoiceQuiz(null); reply = 'Quiz stopped.'; break;
       case 'help': reply = 'Try adding homework or a test, asking what\'s due, marking something done, deleting an item, asking a study question, "quiz me on photosynthesis", controlling the focus timer, or "plan my week".'; break;
       case 'none': return { reply: '', action: 'none' };
-      default: {
-        if (voiceQuiz) {
-          reply = 'Say A, B, C, or D to answer, or say "stop quiz" to end it.';
-          break;
-        }
-        try {
-          const context = [
-            homework.filter(h => !h.is_completed).slice(0, 8).map(h => `Homework: ${h.title}${h.due_date ? ` (due ${h.due_date})` : ''}`).join('\n'),
-            tests.slice(0, 6).map(test => `Test: ${test.title} (${test.date})`).join('\n'),
-          ].filter(Boolean).join('\n');
-          const answer = await db.integrations.Core.InvokeLLM({
-            prompt: `You are Lock In, a concise, supportive study assistant. Answer the student's spoken question in a few short sentences, suitable to read aloud. Do not claim to change their agenda unless the request was an explicit add/update command. ${context ? `Their upcoming work:\n${context}\n` : ''}\nStudent: ${String(text).slice(0, 1800)}`,
-          });
-          reply = typeof answer === 'string' ? answer : (answer?.text || answer?.response || 'I could not get an answer just now.');
-        } catch (error) {
-          reply = `I could not reach the study assistant right now. ${error?.message || 'Please try again.'}`;
-        }
-      }
+      default: reply = '';
     }
     reply = reply.charAt(0).toUpperCase() + reply.slice(1);   // "about 15 minutes…" opens a sentence
-    say(reply, true);
     return { reply, action: cmd.action };
-  }, [actions, adjust, classes, completeStep, homework, pause, reset, say, setDurations, setSound, setVolume, skip, start, startBreak, tests, voiceQuiz]);
+  }, [actions, adjust, classes, completeStep, homework, pause, reset, setDurations, setSound, setVolume, skip, start, startBreak, startFocus, tests, voiceQuiz]);
 
   /* ------------------------------------------------------------- chrome */
   useEffect(() => {
@@ -529,8 +546,8 @@ export function FocusProvider({ children }) {
     progress: t.total ? 1 - remaining / t.total : 0,
     prefs,
     taskItem,
-    start, pause, toggle, reset, skip, startBreak, adjust, setDurations, setTask, lockIn,
-    setSound, setVolume, completeStep, handleVoice, updatePrefs,
+    start, startFocus, pause, toggle, reset, skip, startBreak, adjust, setDurations, setTask, lockIn,
+    setSound, setVolume, completeStep, perform, voiceQuiz, updatePrefs,
     overlayOpen, openFocus, closeFocus,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
