@@ -10,7 +10,7 @@ import { useAssistant } from '@/lib/AssistantContext';
 import { useLecture } from '@/lib/LectureContext';
 import { useStudyData } from '@/lib/data';
 import { listenOnce, HandsFree, canListen, canHandsFree } from '@/lib/listen';
-import { isNativeApp } from '@/lib/native';
+import { isNativeApp, appNeedsUpdate, APK_URL } from '@/lib/native';
 import { chime, unlockAudio } from '@/lib/soundscape';
 import { stopSpeaking } from '@/lib/voice';
 
@@ -371,6 +371,13 @@ export default function VoicePanel() {
               <span>Hands-free “Hey Lock In” <span className="opacity-70">{isNativeApp ? '— listens on your phone while the app is open' : '— your browser may send speech to its recognition service'}</span></span>
               <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} aria-label="Listen for Hey Lock In" />
             </label>
+          )}
+          {appNeedsUpdate && (
+            <p className="border-t bg-secondary/40 px-4 py-2 text-xs text-muted-foreground">
+              Hands-free “Hey Lock In” needs the newest version of the app.{' '}
+              <a href={APK_URL} className="font-semibold text-indigo-700 underline dark:text-indigo-300">Download the update</a>
+              {' '}— it installs over this one and keeps your account.
+            </p>
           )}
         </section>
       )}

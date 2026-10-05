@@ -38,7 +38,14 @@ export const nativeSpeech = isNativeApp ? SpeechRecognition : null;
  * that listens silently for the wake phrase. Android's own recogniser beeps on every
  * start, so it can't be used for always-on listening. There is no iPhone version yet.
  */
-export const wakeWord = isNativeApp && platform === 'android' ? registerPlugin('WakeWord') : null;
+// The app loads this web code from the site, so an older install (1.0, 1.1 before
+// the plugin shipped) runs it too. Only offer hands-free if the app really has it.
+const hasWakePlugin = isNativeApp && platform === 'android' && Capacitor.isPluginAvailable('WakeWord');
+export const wakeWord = hasWakePlugin ? registerPlugin('WakeWord') : null;
+
+/** An Android app too old for hands-free: say so and offer the update instead of failing. */
+export const appNeedsUpdate = isNativeApp && platform === 'android' && !hasWakePlugin;
+export const APK_URL = 'https://github.com/Code-A-Difference/Lock-In-/releases/latest/download/LOCKIN-android.apk';
 
 if (isNativeApp && typeof document !== 'undefined') {
   document.documentElement.classList.add('native-app', `native-${platform}`);
