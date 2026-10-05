@@ -20,15 +20,12 @@ import { isNativeApp } from '@/lib/native';
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
 const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline — let's lock in.";
 
-const APK_URL = `${import.meta.env.BASE_URL}app/LOCKIN-android.apk`;
+// The newest Android build, from the app's GitHub Releases (the web host deletes large .apk files).
+const APK_URL = 'https://github.com/Code-A-Difference/Lock-In-/releases/latest/download/LOCKIN-android.apk';
 
 /** Get LOCK IN! as a phone app — only shown in a browser, never inside the app. */
 function PhoneApp() {
-  const [apk, setApk] = useState(false);
-  useEffect(() => {
-    if (isNativeApp) return;
-    fetch(APK_URL, { method: 'HEAD' }).then(r => setApk(r.ok)).catch(() => {});
-  }, []);
+  const apk = true;
   if (isNativeApp) return null;
   return (
     <Section icon={Smartphone} title="Get the phone app" description="Same account, same work — quicker to open, and the voice assistant works in it.">
