@@ -35,6 +35,9 @@
     <!-- Recording lectures, and the "Hey Lock In" voice assistant -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- The in-app camera for photographing homework (asked the first time it opens) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Lets the app ask Android's own speech-recognition service to listen -->
     <queries>

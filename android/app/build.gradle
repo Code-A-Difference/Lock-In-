@@ -17,8 +17,8 @@ android {
         applicationId "org.codeadifference.lockin"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1.0"
+        versionCode 3
+        versionName "1.2.0"
         // The speech engine's native code is the bulk of the app. Phones are arm64; add
         // x86_64 for the emulator with -Pabis=arm64-v8a,x86_64.
         ndk { abiFilters((project.findProperty('abis') ?: 'arm64-v8a').split(',') as String[]) }

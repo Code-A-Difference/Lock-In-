@@ -43,34 +43,56 @@ function friendly(err) {
  * `onInterim` gets the words as they come, so the UI can show them live.
  * Returns { promise, stop }.
  */
-export function listenOnce({ onInterim } = {}) {
-  if (nativeSpeech) return nativeListenOnce({ onInterim });
-  if (!SR) {
+export function listenOnce({ onInterim, onSpeech, recognition, pauseMs = 1600, quietMs = 8000 } = {}) {
+  const Rec = recognition || SR;
+  if (nativeSpeech && !recognition) return nativeListenOnce({ onInterim, onSpeech });
+  if (!Rec) {
     return { promise: Promise.reject(new Error('This browser cannot listen. Chrome, Edge and Safari can.')), stop() {} };
   }
-  const rec = new SR();
+  // Non-continuous recognition ends at the first breath, and whatever was still
+  // "interim" at that moment was thrown away: you'd see your whole sentence on
+  // screen and only half of it was sent. Now it keeps listening until you've
+  // been quiet for `pauseMs`, and everything it showed you is what it sends.
+  const rec = new Rec();
   rec.lang = lang();
   rec.interimResults = true;
-  rec.continuous = false;
+  rec.continuous = true;
   rec.maxAlternatives = 1;
 
-  let finalText = '';
+  const finals = new Map();        // result index -> text, so a revised result replaces rather than repeats
+  let interim = '';
   let failed = null;
+  let timer = null;
+  let ended = false;
+  const text = () => [...finals.values(), interim].join(' ').replace(/\s+/g, ' ').trim();
+  const finish = () => { if (!ended) { ended = true; clearTimeout(timer); try { rec.stop(); } catch (_) {} } };
+  const arm = (ms) => { clearTimeout(timer); timer = setTimeout(finish, ms); };
+
   const promise = new Promise((resolve, reject) => {
     rec.onresult = (e) => {
-      let interim = '';
+      interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) finalText += r[0].transcript;
-        else interim += r[0].transcript;
+        if (r.isFinal) finals.set(i, r[0].transcript.trim());
+        else interim += ` ${r[0].transcript}`;
       }
-      onInterim?.((finalText + interim).trim());
+      onInterim?.(text());
+      arm(pauseMs);
     };
+    rec.onspeechstart = () => { onSpeech?.(true); arm(pauseMs * 3); };
     rec.onerror = (e) => { if (e.error !== 'aborted' && e.error !== 'no-speech') failed = e.error; };
-    rec.onend = () => (failed ? reject(new Error(friendly(failed))) : resolve(finalText.trim()));
+    rec.onend = () => {
+      clearTimeout(timer);
+      ended = true;
+      onSpeech?.(false);
+      const said = text();
+      if (failed && !said) reject(new Error(friendly(failed)));
+      else resolve(said);                    // the interim words count too: they were on screen
+    };
   });
   try { rec.start(); } catch (e) { return { promise: Promise.reject(e), stop() {} }; }
-  return { promise, stop: () => { try { rec.stop(); } catch (_) {} } };
+  arm(quietMs);                              // nobody said anything at all
+  return { promise, stop: finish };
 }
 
 /**
@@ -126,6 +148,9 @@ export class HandsFree {
   stop() {
     this.running = false;
     clearTimeout(this.timer);
+    clearTimeout(this.flushTimer);
+    this.buffer = '';
+    this.collecting = false;
     this._wakeOutcome?.('stopped');
     if (wakeWord && !this.SR) wakeWord.stop().catch(() => {});
     if (nativeSpeech) nativeSpeech.stop().catch(() => {});
@@ -240,32 +265,56 @@ export class HandsFree {
     }
   }
 
+  /*
+   * A long sentence reaches us as several "final" pieces. The old code sent the
+   * first piece as the command and dropped the rest, which is why it showed
+   * everything you said but acted on half of it. Now every piece after the wake
+   * phrase is collected, and the whole thing is sent once you pause.
+   */
+  _collect(piece, interim = '') {
+    if (piece) this.buffer = `${this.buffer || ''} ${piece}`.replace(/\s+/g, ' ').trim();
+    this.collecting = true;
+    const live = `${this.buffer || ''} ${interim}`.trim();
+    if (live) this.onHeard?.(live);
+    clearTimeout(this.flushTimer);
+    this.flushTimer = setTimeout(() => this._flush(), interim ? this.pauseMs * 2 : this.pauseMs);
+  }
+
+  _flush() {
+    clearTimeout(this.flushTimer);
+    const said = (this.buffer || '').trim();
+    this.buffer = '';
+    this.collecting = false;
+    if (said) { this.armedUntil = 0; this.onCommand?.(said); }
+    else this.armedUntil = Date.now() + 8000;        // the wake phrase alone: wait for the request
+  }
+
+  get pauseMs() { return this._pauseMs || 1300; }
+  set pauseMs(v) { this._pauseMs = v; }
+
   _interim(i, text, woken) {
     const cmd = afterWake(text);
     if (cmd !== null) {
-      if (!woken.has(i)) {
+      if (!woken.has(i) && !this.collecting) {
         woken.add(i);
         this.armedUntil = Date.now() + 8000;
         this.onWake?.({ inline: !!cmd });          // the chime plays now, not after the sentence ends
       }
-      if (cmd) this.onHeard?.(cmd);
-    } else if (this.armed) {
-      this.onHeard?.(text);
+      woken.add(i);
+      this._collect('', cmd);
+    } else if (this.collecting || this.armed) {
+      this._collect('', text);
     }
   }
 
   _final(i, text, woken) {
     const cmd = afterWake(text);
     if (cmd !== null) {
-      if (!woken.has(i)) this.onWake?.({ inline: !!cmd });
-      if (cmd) { this.armedUntil = 0; this.onCommand?.(cmd); }
-      else this.armedUntil = Date.now() + 8000;
+      if (!woken.has(i) && !this.collecting) this.onWake?.({ inline: !!cmd });
+      this._collect(cmd);
       return;
     }
-    if (this.armed) {
-      this.armedUntil = 0;
-      this.onCommand?.(text);
-    }
+    if (this.collecting || this.armed) this._collect(text);
   }
 }
 
@@ -274,7 +323,7 @@ export class HandsFree {
 let nativeAllowed = null;
 
 /** listenOnce, through @capacitor-community/speech-recognition. */
-function nativeListenOnce({ onInterim } = {}) {
+function nativeListenOnce({ onInterim, onSpeech } = {}) {
   let latest = '';
   let handles = [];
   let settle;
@@ -289,6 +338,7 @@ function nativeListenOnce({ onInterim } = {}) {
           if (!nativeAllowed) throw new Error(friendly('not-allowed'));
         }
         handles.push(await nativeSpeech.addListener('partialResults', (r) => {
+          if (!latest) onSpeech?.(true);
           latest = r?.matches?.[0] || latest;
           onInterim?.(latest.trim());
         }));

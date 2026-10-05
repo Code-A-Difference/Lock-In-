@@ -3,9 +3,14 @@
  * voice.js so they can be tested in Node (tests/speakable.test.mjs).
  */
 
-/** Turn markdown and chat formatting into something that reads aloud well. */
+import { speakMath, SYMBOL_WORDS } from './mathText.js';
+
+const SYMBOLS_RE = new RegExp(`[${Object.keys(SYMBOL_WORDS).join('')}]`, 'g');
+
+/** Turn markdown, maths and chat formatting into something that reads aloud well. */
 export function speakable(text) {
-  return String(text || '')
+  return speakMath(String(text || ''))
+    .replace(SYMBOLS_RE, (c) => SYMBOL_WORDS[c])
     .replace(/```[\s\S]*?```/g, ' (code omitted) ')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/!\[[^\]]*]\([^)]*\)/g, ' ')
