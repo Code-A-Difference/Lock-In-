@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Lock, ChevronDown, List, CalendarDays, GraduationCap, PartyPopper, Play } from 'lucide-react';
+import { Lock, ChevronDown, List, CalendarDays, GraduationCap, PartyPopper, Play, CalendarClock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudyData, useActions } from '@/lib/data';
 import { useFocus } from '@/lib/FocusContext';
@@ -13,7 +13,8 @@ import StatsCard from '@/components/lockin/StatsCard';
 import CalendarView from '@/components/calendar/CalendarView';
 import EditHomeworkDialog from '@/components/homework/EditHomeworkDialog';
 import EditTestDialog from '@/components/tests/EditTestDialog';
-import SmartPlanner from '@/components/study/SmartPlanner';
+import { usePlanner } from '@/lib/PlannerContext';
+import { niceTime } from '@/lib/planner';
 
 function inDays(day) {
   const n = daysUntil(parseDay(day));
@@ -42,7 +43,7 @@ export default function Today() {
   const navigate = useNavigate();
   const location = useLocation();
   const quickAdd = useRef(null);
-  const plannerRef = useRef(null);
+  const planner = usePlanner();
   const [view, setView] = useState(() => { try { return localStorage.getItem('lockin.todayView') || 'list'; } catch (_) { return 'list'; } });
   const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -55,15 +56,10 @@ export default function Today() {
     const go = () => quickAdd.current?.focus();
     window.addEventListener('lockin:quickadd', go);
     if (location.state?.quickAdd) setTimeout(go, 50);
-    if (location.state?.openPlanner) setTimeout(() => plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    if (location.state?.openPlanner) planner.setOpen(true);
     if (location.state?.quickAdd || location.state?.openPlanner) navigate('.', { replace: true, state: null });
-    const openPlanner = () => plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.addEventListener('lockin:planner', openPlanner);
-    return () => {
-      window.removeEventListener('lockin:quickadd', go);
-      window.removeEventListener('lockin:planner', openPlanner);
-    };
-  }, [location.state, navigate]);
+    return () => window.removeEventListener('lockin:quickadd', go);
+  }, [location.state, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const agenda = useMemo(() => buildAgenda(homework, tests), [homework, tests]);
   const next = useMemo(() => pickNext(homework, tests), [homework, tests]);
@@ -75,6 +71,7 @@ export default function Today() {
   const dueToday = agenda.overdue.length + agenda.today.filter(e => e.kind === 'homework').length;
   const weekCount = agenda.overdue.length + agenda.today.length + agenda.tomorrow.length + agenda.week.length;
   const firstName = (user?.full_name || '').split(' ')[0];
+  const focusToday = useMemo(() => sessions.filter(s => s.day === ymd(new Date())).reduce((n, s) => n + (s.minutes || 0), 0), [sessions]);
   const empty = !isLoading && homework.length === 0 && tests.length === 0;
 
   // Mid-block, the button goes back to that block — it never swaps the task
@@ -107,6 +104,7 @@ export default function Today() {
             {dueToday ? `${dueToday} due today${agenda.overdue.length ? ` (${agenda.overdue.length} overdue)` : ''}` : 'Nothing due today'}
             {' · '}{weekCount} this week
             {upcomingTests[0] && <> · <span className="font-medium text-foreground">{upcomingTests[0].title}</span> {inDays(upcomingTests[0].date)}</>}
+            <span className="lg:hidden"> · {formatMinutes(focusToday) || '0m'} focused</span>
           </p>
         )}
       </header>
@@ -140,6 +138,8 @@ export default function Today() {
               <span className="hidden text-sm font-semibold text-white/90 sm:block">{inBlock ? 'Open →' : `${focus.prefs.focusMin} min →`}</span>
             </button>
           )}
+
+          {!isLoading && <PlanCard planner={planner} />}
 
           <section aria-labelledby="agenda-h">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -219,7 +219,9 @@ export default function Today() {
           </section>
         </div>
 
-        <aside className="space-y-5" aria-label="Your week">
+        {/* On a phone this column is clutter: the agenda already lists the tests, and
+            the focus minutes are in the line under the greeting. */}
+        <aside className="hidden space-y-5 lg:block" aria-label="Your week">
           <StatsCard sessions={sessions} goal={focus.prefs.dailyGoal} />
 
           <section className="rounded-2xl border bg-card p-4" aria-labelledby="tests-h">
@@ -259,10 +261,6 @@ export default function Today() {
         </aside>
       </div>
 
-      <section ref={plannerRef} id="study-planner" className="mt-8 scroll-mt-20">
-        <SmartPlanner homework={homework} tests={tests.filter(t => { const d = parseDay(t.date); return d && daysUntil(d) >= 0; })} upcomingTest={upcomingTests[0]} />
-      </section>
-
       <EditHomeworkDialog
         open={editing?.kind === 'homework'}
         onOpenChange={(o) => !o && setEditing(null)}
@@ -278,6 +276,29 @@ export default function Today() {
         isLoading={false}
       />
     </div>
+  );
+}
+
+/** Today's plan in one line, or the way to make one. The full planner is a sheet. */
+function PlanCard({ planner }) {
+  const next = planner.today.filter(b => b.type !== 'break').slice(0, 2);
+  const open = () => planner.setOpen(true);
+  return (
+    <button type="button" onClick={open}
+      className="flex w-full items-center gap-3 rounded-2xl border bg-card p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-accent/40">
+      <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
+        <CalendarClock className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-foreground">{next.length ? 'Today’s plan' : 'Plan your day'}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {next.length
+            ? next.map(b => `${niceTime(b.start)} ${b.title}`).join(' · ')
+            : planner.slots.length ? `${planner.slots.length} free block${planner.slots.length === 1 ? '' : 's'} added — tap to make the plan` : 'Add when you’re free and I’ll fit your work in'}
+        </span>
+      </span>
+      <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
+    </button>
   );
 }
 

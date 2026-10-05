@@ -1,4 +1,5 @@
 import { db } from '@/api/db';
+import RichText, { MathLine } from '@/components/lockin/RichText';
 
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -12,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import ReactMarkdown from 'react-markdown';
 import { format } from "date-fns";
 import { useStudyData } from '@/lib/data';
 import { parseDay, daysUntil } from '@/lib/dates';
@@ -478,9 +478,7 @@ Provide a score out of 10 and brief feedback.`,
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
-                        {gradingResult}
-                      </ReactMarkdown>
+                      <RichText text={gradingResult} />
                     </CardContent>
                   </Card>
                 )}
@@ -651,7 +649,7 @@ Provide a score out of 10 and brief feedback.`,
                               {q.type === 'written' ? 'Written' : 'Multiple Choice'}
                             </Badge>
                           </div>
-                          <p className="font-medium mb-3 text-slate-800 dark:text-slate-200">{idx + 1}. {q.question}</p>
+                          <p className="font-medium mb-3 text-slate-800 dark:text-slate-200">{idx + 1}. <MathLine text={q.question} /></p>
                           
                           {(q.type === 'multiple_choice' || !q.type) && (
                             <div className="space-y-2">
@@ -664,7 +662,7 @@ Provide a score out of 10 and brief feedback.`,
                                     onChange={() => setAnswers({...answers, [idx]: optIdx})}
                                     className="w-4 h-4"
                                   />
-                                  <span className="text-sm text-slate-700 dark:text-slate-300">{option}</span>
+                                  <span className="text-sm text-slate-700 dark:text-slate-300"><MathLine text={option} /></span>
                                 </label>
                               ))}
                             </div>
@@ -739,7 +737,7 @@ Provide a score out of 10 and brief feedback.`,
                                 {result.type === 'multiple_choice' || !result.type ? (
                                   <>
                                     <p className="text-sm text-slate-700 dark:text-slate-300">
-                                      <strong>Correct answer:</strong> {result.explanation}
+                                      <strong>Correct answer:</strong> <MathLine text={result.explanation} />
                                     </p>
                                     {!result.isCorrect && result.wrongExplanation && (
                                       <p className="text-sm text-red-600 dark:text-red-400">

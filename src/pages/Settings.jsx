@@ -244,8 +244,9 @@ export default function Settings() {
           <fieldset className="space-y-2">
             <legend className="mb-1 text-sm font-medium text-foreground">Engine</legend>
             {[
-              ['auto', 'Most natural available', 'A human-sounding AI voice through the shared key; this browser\'s best voice if that isn\'t available.'],
-              ['browser', "This browser's voice only", 'Works offline and uses no AI requests. Quality depends on your device.'],
+              ['auto', 'Fast and natural (recommended)', 'Answers out loud instantly with this device\'s best natural voice; uses the AI voice only if the device has none.'],
+              ['ai', 'AI voice', 'The most human-sounding, but each answer starts a second or two later.'],
+              ['browser', "This device's voice only", 'Works offline and uses no AI requests. Quality depends on your device.'],
             ].map(([id, label, hint]) => (
               <label key={id} className={cn('flex cursor-pointer gap-3 rounded-xl border p-3', voice.engine === id ? 'border-indigo-300 bg-accent dark:border-indigo-700' : 'hover:bg-secondary')}>
                 <input type="radio" name="engine" value={id} checked={voice.engine === id} onChange={() => saveVoice({ engine: id })} className="mt-1 accent-indigo-600" />

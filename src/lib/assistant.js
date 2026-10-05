@@ -34,6 +34,13 @@ export const PLAN_SCHEMA = {
           topic: { type: 'string' },
           path: { type: 'string' },
           answer: { type: 'string' },
+          newTitle: { type: 'string' },
+          priority: { type: 'string' },
+          start: { type: 'string' },
+          end: { type: 'string' },
+          on: { type: 'boolean' },
+          notes: { type: 'string' },
+          expressions: { type: 'array', items: { type: 'string' } },
         },
         required: ['name'],
       },
@@ -71,6 +78,26 @@ export function actionToCommand(a) {
       return i >= 0 ? { action: 'quizAnswer', answer: i } : null;
     }
     case 'openPlanner': return { action: 'openPlanner' };
+    // the planner
+    case 'addFreeTime': return a.start && a.end ? { action: 'addFreeTime', date: a.date || 'today', start: a.start, end: a.end } : null;
+    case 'removeFreeTime': return { action: 'removeFreeTime', date: a.date || '', start: a.start || '' };
+    case 'clearFreeTime': return { action: 'clearFreeTime', date: a.date || '' };
+    case 'makePlan': return { action: 'makePlan', notes: a.notes || '' };
+    case 'clearPlan': return { action: 'clearPlan' };
+    // editing what's there
+    case 'updateHomework': return a.title ? { action: 'updateHomework', title: a.title, newTitle: a.newTitle || '', date: a.date || '', priority: a.priority || '', className: a.className || '' } : null;
+    case 'updateTest': return a.title ? { action: 'updateTest', title: a.title, newTitle: a.newTitle || '', date: a.date || '', className: a.className || '' } : null;
+    case 'breakDown': return a.title ? { action: 'breakDown', title: a.title } : null;
+    case 'addClass': return (a.title || a.className) ? { action: 'addClass', name: a.title || a.className } : null;
+    case 'renameClass': return a.title && a.newTitle ? { action: 'renameClass', name: a.title, newName: a.newTitle } : null;
+    case 'deleteClass': return (a.title || a.className) ? { action: 'deleteClass', name: a.title || a.className } : null;
+    // settings and tools
+    case 'setGoal': return mins ? { action: 'setGoal', minutes: mins } : null;
+    case 'setDarkMode': return { action: 'setDarkMode', on: a.on !== false };
+    case 'setAutoBreak': return { action: 'setAutoBreak', on: a.on !== false };
+    case 'graph': return { action: 'graph', expressions: (Array.isArray(a.expressions) ? a.expressions : [a.title]).filter(Boolean).map(String).slice(0, 10) };
+    case 'openPractice': return { action: 'openPractice', topic: a.topic || '', tab: a.kind === 'grading' ? 'grading' : 'quiz' };
+    case 'pauseRecording': case 'resumeRecording': case 'openCamera': return { action: name };
     case 'openFocus': return { action: 'openFocus' };
     case 'openPage': {
       const path = PAGES[String(a.path || a.title || '').toLowerCase().replace(/^\//, '').trim()];
@@ -210,11 +237,21 @@ Actions (name and fields; use only these):
 - completeHomework {title}   deleteItem {title, kind: homework|test}
 - recordLecture {className?}   stopRecording
 - createQuiz {topic}   quizAnswer {answer: a|b|c|d}   stopQuiz
-- openPage {path: today|classes|study|notes|settings}   openPlanner   openFocus
+- openPage {path: today|classes|study|notes|settings}   openPlanner   openFocus   openCamera (to photograph homework)
+- updateHomework {title, newTitle?, date?, priority? (low|medium|high|asap), className?}   updateTest {title, newTitle?, date?, className?}
+- breakDown {title} — split a homework item into small steps
+- addClass {title}   renameClass {title, newTitle}   deleteClass {title}
+- Planner: addFreeTime {date, start, end} (24-hour HH:MM; "after school" ≈ 15:30)   removeFreeTime {date, start}   clearFreeTime {date?}   makePlan {notes?}   clearPlan
+  When they tell you when they're free, add it AND, if they want a plan, also makePlan in the same turn.
+- graph {expressions: ["y=x^2-4", "y=2x+1"]} — opens Desmos with these (Desmos LaTeX, one equation per item). Use it whenever a graph helps.
+- openPractice {topic?, kind?: quiz|grading}   setGoal {minutes} (daily focus goal)   setDarkMode {on}   setAutoBreak {on}
+- pauseRecording   resumeRecording
+Write maths in LaTeX between $…$ (inline) or $$…$$ (display), chemistry with \\ce{…} inside $…$ (e.g. $\\ce{2H2 + O2 -> 2H2O}$), never bare LaTeX. In "spoken", say maths in words ("x squared over two"), no symbols.
 Resolve dates yourself from today's date ("Friday", "next week", "the 12th") into YYYY-MM-DD. Match titles to the student's real items below.
 
-Timer: ${timer}. Defaults: focus ${p.focusMin || 25} min, break ${p.breakMin || 5} min. Sound: ${p.sound || 'off'}.${s.recording ? ' A lecture is being recorded right now.' : ''}${s.quiz ? ` A spoken quiz on "${s.quiz.topic}" is running (question ${s.quiz.index + 1} of ${s.quiz.total}).` : ''}
-Classes: ${(s.classes || []).map(c => c.name).join(', ') || 'none yet'}
+${s.plan ? `Free time: ${s.plan.slots || 'none added'}. ${s.plan.today ? `Today's plan: ${s.plan.today}.` : 'No plan made yet.'}
+` : ''}Timer: ${timer}. Defaults: focus ${p.focusMin || 25} min, break ${p.breakMin || 5} min. Sound: ${p.sound || 'off'}.${s.recording ? ' A lecture is being recorded right now.' : ''}${s.quiz ? ` A spoken quiz on "${s.quiz.topic}" is running (question ${s.quiz.index + 1} of ${s.quiz.total}).` : ''}
+Classes: ${(s.classes || []).map(c => c.name).join(', ') || 'none yet'}. Daily focus goal: ${p.dailyGoal || 120} min. Dark mode: ${s.dark ? 'on' : 'off'}.
 Open homework:
 ${open || '(none)'}
 Tests:

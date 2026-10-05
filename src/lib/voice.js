@@ -62,6 +62,12 @@ export function onVoicesReady(cb) {
   return () => speechSynthesis.removeEventListener?.('voiceschanged', h);
 }
 
+/** Edge's "Natural" voices, Apple's enhanced ones, Chrome's Google voices: good enough to skip the AI voice. */
+export function hasNaturalBrowserVoice() {
+  const best = listBrowserVoices()[0];
+  return !!best && voiceScore(best, lang()) >= 8;
+}
+
 function pickBrowserVoice() {
   const list = listBrowserVoices();
   return list.find(v => v.name === settings.browserVoice) || list[0] || null;
@@ -212,7 +218,9 @@ export function speak(text, { onStart, onEnd } = {}) {
     // Without this the assistant would stay "speaking" — and deaf — for good.
     setTimeout(finish, Math.max(10000, clean.length * 120));
     (async () => {
-      const tryAi = settings.engine === 'ai' || (settings.engine === 'auto' && !aiUnavailable);
+      // "auto" means fastest-good: a device voice that already sounds natural speaks
+      // instantly, where the AI voice costs a network round trip per sentence.
+      const tryAi = settings.engine === 'ai' || (settings.engine === 'auto' && !aiUnavailable && !hasNaturalBrowserVoice());
       if (tryAi && typeof fetch !== 'undefined') {
         try {
           await speakAi(clean, token, onStart, finish);
@@ -242,7 +250,7 @@ export function voiceStatus() {
   const b = pickBrowserVoice();
   return {
     aiAvailable: !aiUnavailable,
-    engine: settings.engine === 'browser' || aiUnavailable ? 'browser' : 'ai',
+    engine: settings.engine === 'browser' || aiUnavailable || (settings.engine === 'auto' && hasNaturalBrowserVoice()) ? 'browser' : 'ai',
     browserVoice: b ? b.name : null,
   };
 }

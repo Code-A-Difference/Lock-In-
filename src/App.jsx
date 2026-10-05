@@ -13,6 +13,9 @@ import { LectureProvider } from '@/lib/LectureContext';
 import Focus from '@/pages/Focus';
 import VoicePanel from '@/components/lockin/VoicePanel';
 import { AssistantProvider } from '@/lib/AssistantContext';
+import { PlannerProvider } from '@/lib/PlannerContext';
+import PlannerSheet from '@/components/lockin/PlannerSheet';
+import GraphPanel from '@/components/lockin/GraphPanel';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -98,6 +101,7 @@ const AuthenticatedApp = () => {
   return (
     <FocusProvider>
     <LectureProvider>
+    <PlannerProvider>
     <AssistantProvider>
     <Routes>
       <Route path="/" element={
@@ -122,7 +126,10 @@ const AuthenticatedApp = () => {
     </Routes>
     <FocusSurface />
     <VoicePanel />
+    <PlannerSheet />
+    <GraphPanel />
     </AssistantProvider>
+    </PlannerProvider>
     </LectureProvider>
     </FocusProvider>
   );

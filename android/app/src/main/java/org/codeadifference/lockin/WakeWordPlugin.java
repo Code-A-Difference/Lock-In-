@@ -54,8 +54,8 @@ public class WakeWordPlugin extends Plugin {
     private static final int RATE = 16000;
     // What people say, and how recognisers hear "lock in". Anything else is [unk].
     private static final String GRAMMAR = "[\"hey lock in\", \"hey locking\", \"hey look in\", \"hey log in\", \"hey luck in\", "
-        + "\"hay lock in\", \"hi lock in\", \"okay lock in\", \"ok lock in\", \"okay locking\", \"hello lock in\", \"[unk]\"]";
-    private static final double MIN_CONF = 0.6;
+        + "\"hay lock in\", \"hi lock in\", \"okay lock in\", \"ok lock in\", \"okay locking\", \"hello lock in\", \"hey locked in\", \"hey lock it\", \"hey lockin\", \"[unk]\"]";
+    private static final double MIN_CONF = 0.5;   // 0.6 missed real, slightly mumbled wake phrases
 
     private volatile Thread worker;
     private volatile boolean running;
@@ -172,7 +172,7 @@ public class WakeWordPlugin extends Plugin {
             JSONObject r = new JSONObject(json);
             String text = r.optString("text", "").replace("[unk]", "").trim();
             // a greeting, then the name: "the lock is in the door" is not a wake phrase
-            if (!text.matches("^(hey|hay|hi|hello|okay|ok)\\s+(lock in|locking|look in|log in|luck in)\\b.*")) return false;
+            if (!text.matches("^(hey|hay|hi|hello|okay|ok)\\s+(lock in|locking|look in|log in|luck in|locked in|lock it|lockin)\\b.*")) return false;
             JSONArray words = r.optJSONArray("result");
             if (words == null || words.length() == 0) return false;
             double sum = 0;

@@ -567,7 +567,7 @@ const integrations = {
      * server-side. Returns a string, or a parsed object when the caller
      * asked for JSON — the same contract the pages were written against.
      */
-    async InvokeLLM({ prompt, system, response_json_schema, add_context_from_internet, file_urls } = {}) {
+    async InvokeLLM({ prompt, system, response_json_schema, add_context_from_internet, file_urls, maxTokens } = {}) {
       const files = (file_urls || []).map(dataUrlToPart).filter(Boolean);
       const wantJson = !!response_json_schema;
       const body = {
@@ -575,6 +575,7 @@ const integrations = {
           ? `${prompt}\n\nReply with JSON only — no prose, no code fences — matching this JSON Schema:\n${JSON.stringify(response_json_schema)}`
           : prompt,
         system: system || '',
+        ...(maxTokens ? { maxTokens } : {}),
         json: wantJson,
         search: !!add_context_from_internet && !wantJson,
         files,

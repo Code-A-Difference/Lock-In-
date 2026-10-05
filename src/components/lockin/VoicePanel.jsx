@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { BookOpen, Film, Loader2, Mic, MicOff, Paperclip, Radio, Send, Square, Trash2, Volume2, VolumeX, X } from 'lucide-react';
+import { BookOpen, Camera, Film, LineChart, Loader2, Mic, MicOff, Paperclip, Radio, Send, Sigma, Square, Trash2, Volume2, VolumeX, X } from 'lucide-react';
+import RichText from '@/components/lockin/RichText';
+import CameraCapture from '@/components/lockin/CameraCapture';
+import SymbolPad from '@/components/lockin/SymbolPad';
+import { openGraph } from '@/components/lockin/GraphPanel';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { useAssistant } from '@/lib/AssistantContext';
@@ -19,7 +22,8 @@ const IDEAS = [
   'Start a focus session for 50 minutes',
   'What’s due this week?',
   'Help me with my homework',
-  'Quiz me on photosynthesis',
+  'I’m free 4 to 6 today — plan my day',
+  'Graph y = x² − 4',
 ];
 
 /**
@@ -41,6 +45,11 @@ export default function VoicePanel() {
   const [armed, setArmed] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [note, setNote] = useState('');
+  const [hearing, setHearing] = useState(false);       // words are actually coming in
+  const [camera, setCamera] = useState(false);
+  const [symbols, setSymbols] = useState(false);
+  const box = useRef(null);
+  const wasOpen = useRef(false);
   const hf = useRef(null);
   const stopRef = useRef(null);
   const loopRef = useRef(false);
@@ -49,6 +58,18 @@ export default function VoicePanel() {
   const mediaRef = useRef(null);
   const sendRef = useRef(a.send);
   sendRef.current = a.send;
+
+  // Every time the assistant opens it's a new conversation.
+  useEffect(() => {
+    if (expanded && !wasOpen.current) { a.clear(); setShowSources(false); setSymbols(false); setError(''); }
+    wasOpen.current = expanded;
+  }, [expanded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const open = () => { setExpanded(true); setCamera(true); };
+    window.addEventListener('lockin:camera', open);
+    return () => window.removeEventListener('lockin:camera', open);
+  }, []);
 
   /* ---------------------------------------------------- sending, by voice */
   const sendVoice = useCallback(async (text) => {
@@ -129,11 +150,12 @@ export default function VoicePanel() {
     let silent = 0;
     while (loopRef.current) {
       setListening(true);
+      setHearing(false);
       setHeard('');
-      const { promise, stop } = listenOnce({ onInterim: setHeard });
+      const { promise, stop } = listenOnce({ onInterim: (t) => { setHeard(t); if (t) setHearing(true); }, onSpeech: setHearing });
       stopRef.current = stop;
       let text = '';
-      try { text = await promise; } catch (e) { setError(e.message); break; } finally { setListening(false); }
+      try { text = await promise; } catch (e) { setError(e.message); break; } finally { setListening(false); setHearing(false); }
       if (!loopRef.current) break;
       if (!text) { if (++silent >= 2) break; continue; }   // two quiet turns end the conversation
       silent = 0;
@@ -153,6 +175,14 @@ export default function VoicePanel() {
   }, [talk]);
 
   /* -------------------------------------------------------------- typing */
+  const insert = (sym) => {
+    const el = box.current;
+    const at = el ? el.selectionStart : input.length;
+    const end = el ? el.selectionEnd : input.length;
+    const next = input.slice(0, at) + sym + input.slice(end);
+    setInput(next);
+    requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(at + sym.length, at + sym.length); } });
+  };
   const submit = (text = input) => {
     const t = text.trim();
     if (!t) return;
@@ -245,11 +275,24 @@ export default function VoicePanel() {
                   m.role === 'user' ? 'rounded-br-md bg-indigo-600 text-white' : 'rounded-bl-md bg-secondary text-foreground')}>
                   {m.role === 'user'
                     ? <span className="whitespace-pre-wrap">{m.text}</span>
-                    : <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-headings:my-2 prose-pre:text-xs [&_ol]:list-decimal [&_ul]:list-disc [&_ol]:pl-5 [&_ul]:pl-5"><ReactMarkdown>{m.text}</ReactMarkdown></div>}
+                    : <RichText text={m.text} />}
                 </div>
               </div>
             ))}
-            {heard && <div className="flex justify-end"><div className="max-w-[88%] rounded-2xl rounded-br-md border border-dashed border-indigo-300 px-3.5 py-2 text-sm italic text-muted-foreground">{heard}…</div></div>}
+            {(heard || listening || (armed && !a.busy && !a.speaking)) && (
+              <div className="flex justify-end">
+                <div className="max-w-[88%] rounded-2xl rounded-br-md border border-dashed border-indigo-300 px-3.5 py-2 text-sm text-muted-foreground" aria-live="polite">
+                  {heard || (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
+                        {[0, 1, 2, 3].map(i => <span key={i} className={cn('w-1 rounded-full bg-indigo-500', hearing ? 'animate-[voicebar_0.9s_ease-in-out_infinite]' : 'h-1 opacity-50')} style={hearing ? { animationDelay: `${i * 0.12}s`, height: '100%' } : undefined} />)}
+                      </span>
+                      {hearing ? 'Hearing you…' : 'Listening — go ahead'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             {a.busy && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-secondary px-3.5 py-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Thinking…</div></div>}
             {a.speaking && <div className="flex justify-start">
               <button type="button" onClick={a.stop} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-accent"><Square className="h-3 w-3 fill-current" />Stop talking</button>
@@ -289,26 +332,38 @@ export default function VoicePanel() {
           {note && <p className="border-t px-4 py-2 text-xs text-muted-foreground">{note}</p>}
           {error && <p className="border-t px-4 py-2 text-xs text-red-700 dark:text-red-400" role="alert">{error}</p>}
 
-          <form className="flex items-end gap-1.5 border-t p-2.5" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+          {symbols && <SymbolPad onInsert={insert} />}
+
+          <div className="flex items-center gap-0.5 border-t px-2 pt-1.5" role="toolbar" aria-label="Add to your message">
             <input ref={fileRef} type="file" hidden multiple accept="image/*,application/pdf,text/plain" onChange={onFiles} />
             <input ref={mediaRef} type="file" hidden accept="video/*,audio/*" onChange={onMedia} />
-            <button type="button" onClick={() => fileRef.current?.click()} aria-label="Attach a photo, PDF or text file" title="Attach a photo, PDF or text file"
-              className="grid h-9 w-9 flex-none place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"><Paperclip className="h-4 w-4" /></button>
-            <button type="button" onClick={() => mediaRef.current?.click()} disabled={!!lecture.importing} aria-label="Add a video or audio file" title="Add a video or audio file — I’ll transcribe it so you can ask about it"
-              className="grid h-9 w-9 flex-none place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40"><Film className="h-4 w-4" /></button>
-            <button type="button" onClick={() => setShowSources(s => !s)} aria-pressed={showSources} aria-label="Choose lecture notes to ask about" title="Choose lecture notes to ask about"
-              className={cn('grid h-9 w-9 flex-none place-items-center rounded-lg hover:bg-secondary hover:text-foreground', showSources || a.pinned.length ? 'text-indigo-600' : 'text-muted-foreground')}><BookOpen className="h-4 w-4" /></button>
-            <textarea value={input} onChange={e => setInput(e.target.value)} rows={1} placeholder={listening ? 'Listening…' : 'Message Lock In'}
+            {[
+              [Camera, 'Take a photo of your homework', () => setCamera(true), false],
+              [Paperclip, 'Attach a photo, PDF or text file', () => fileRef.current?.click(), false],
+              [Film, 'Add a video or audio file — I’ll transcribe it so you can ask about it', () => mediaRef.current?.click(), !!lecture.importing],
+              [Sigma, 'Maths, science and chemistry symbols', () => setSymbols(v => !v), false, symbols],
+              [LineChart, 'Open the graphing calculator', () => openGraph([]), false],
+              [BookOpen, 'Choose lecture notes to ask about', () => setShowSources(v => !v), false, showSources || a.pinned.length > 0],
+            ].map(([Icon, label, onClick, disabled, on]) => (
+              <button key={label} type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label} aria-pressed={on === undefined ? undefined : !!on}
+                className={cn('grid h-9 w-9 place-items-center rounded-lg hover:bg-secondary hover:text-foreground disabled:opacity-40', on ? 'text-indigo-600' : 'text-muted-foreground')}>
+                <Icon className="h-4 w-4" />
+              </button>
+            ))}
+          </div>
+
+          <form className="flex items-end gap-1.5 p-2.5 pt-1.5" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+            <textarea ref={box} value={input} onChange={e => setInput(e.target.value)} rows={1} placeholder={listening ? 'Listening…' : 'Message Lock In'}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
               aria-label="Message Lock In"
-              className="max-h-28 min-h-9 min-w-0 flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400" />
+              className="max-h-28 min-h-10 min-w-0 flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400" />
             {input.trim()
-              ? <button type="submit" aria-label="Send" className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"><Send className="h-4 w-4" /></button>
+              ? <button type="submit" aria-label="Send" className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"><Send className="h-4 w-4" /></button>
               : canListen
-                ? <button type="button" onClick={talk} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Talk to Lock In'}
-                    className={cn('grid h-9 w-9 flex-none place-items-center rounded-lg text-white', listening ? 'animate-pulse bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700')}>
-                    {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}</button>
-                : <span className="grid h-9 w-9 flex-none place-items-center text-muted-foreground" title="Voice needs Chrome, Edge or Safari"><MicOff className="h-4 w-4" /></span>}
+                ? <button type="button" onClick={talk} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Talk to Lock In'} title={listening ? 'Stop listening' : 'Talk'}
+                    className={cn('grid h-10 w-10 flex-none place-items-center rounded-xl text-white', listening ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700')}>
+                    {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}</button>
+                : <span className="grid h-10 w-10 flex-none place-items-center text-muted-foreground" title="Voice needs Chrome, Edge or Safari"><MicOff className="h-4 w-4" /></span>}
           </form>
 
           {canHandsFree && (
@@ -319,6 +374,8 @@ export default function VoicePanel() {
           )}
         </section>
       )}
+
+      <CameraCapture open={camera} onClose={() => setCamera(false)} onPhoto={(url) => a.addPhoto(url)} />
 
       <button type="button" onClick={() => { setExpanded(open => !open); unlockAudio(); }} aria-expanded={expanded} aria-label={expanded ? 'Close the Lock In assistant' : 'Open the Lock In assistant'}
         className={cn('relative grid h-14 w-14 place-items-center rounded-full text-white shadow-lg ring-4 ring-background transition-transform hover:scale-105 active:scale-95',

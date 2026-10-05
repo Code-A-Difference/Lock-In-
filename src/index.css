@@ -152,3 +152,9 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* the assistant's "hearing you" bars */
+@keyframes voicebar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
