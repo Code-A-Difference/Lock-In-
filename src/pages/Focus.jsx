@@ -109,7 +109,7 @@ export default function Focus() {
               </button>
               <button type="button" onClick={onMain}
                 className={cn('inline-flex h-14 min-w-[10rem] items-center justify-center gap-2 rounded-full px-8 text-base font-bold text-white shadow-md transition-transform duration-150 active:scale-[0.98]',
-                  f.status === 'idle' && !isBreak ? 'bg-gradient-to-r from-indigo-600 to-fuchsia-600 shadow-indigo-600/25'
+                  f.status === 'idle' && !isBreak ? 'bg-primary text-primary-foreground shadow-primary/25'
                     : isBreak ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white')}>
                 {running ? <Pause className="h-5 w-5" /> : f.status === 'idle' && !isBreak ? <Lock className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 {running ? 'Pause' : f.status === 'paused' ? 'Resume' : isBreak ? 'Start break' : 'Lock in'}

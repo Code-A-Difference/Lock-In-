@@ -192,7 +192,7 @@ export default function Settings() {
 
         <Section icon={Palette} title="Appearance">
           <Row id="darkMode" label="Dark mode" hint="Easier on the eyes at night.">
-            <Switch id="darkMode" checked={!!user.dark_mode} onCheckedChange={(on) => db.auth.updateMe({ dark_mode: on }).catch(() => {})} />
+            <Switch id="darkMode" checked={user.theme !== 'light'} onCheckedChange={(on) => db.auth.updateMe({ theme: on ? 'dark' : 'light' }).catch(() => {})} />
           </Row>
         </Section>
 

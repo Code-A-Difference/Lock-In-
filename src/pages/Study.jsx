@@ -382,7 +382,7 @@ Provide a score out of 10 and brief feedback.`,
 
           <TabsContent value="grading">
             <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-purple-100 dark:border-purple-900">
-              <CardHeader className="hidden sm:flex bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+              <CardHeader className="hidden sm:flex bg-card">
                 <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
                   <Upload className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   AI Homework Grading
@@ -454,7 +454,7 @@ Provide a score out of 10 and brief feedback.`,
                 <Button 
                   onClick={handleGradeHomework} 
                   disabled={(useTextInput ? !pastedWork : !selectedFile) || !homeworkTitle || isGrading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-lg py-6"
+                  className="w-full text-lg py-6"
                 >
                   {isGrading ? (
                     <>
@@ -470,7 +470,7 @@ Provide a score out of 10 and brief feedback.`,
                 </Button>
                 
                 {gradingResult && (
-                  <Card className="mt-6 border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                  <Card className="mt-6 border-2 border-green-200 dark:border-green-800 bg-card">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2 text-slate-800 dark:text-slate-200">
                         <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -488,7 +488,7 @@ Provide a score out of 10 and brief feedback.`,
 
           <TabsContent value="quiz">
             <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-indigo-100 dark:border-indigo-900">
-              <CardHeader className="hidden sm:flex bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+              <CardHeader className="hidden sm:flex bg-card">
                 <CardTitle className="text-slate-800 dark:text-slate-200">Practice Quizzes</CardTitle>
                 <CardDescription className="text-slate-600 dark:text-slate-400">Test your knowledge with AI-generated questions</CardDescription>
               </CardHeader>
@@ -703,7 +703,7 @@ Provide a score out of 10 and brief feedback.`,
                 
                 {quizResults && !isGradingWritten && (
                   <div className="space-y-4">
-                    <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-200 dark:border-indigo-800">
+                    <Card className=" bg-card border-indigo-200 dark:border-indigo-800">
                       <CardContent className="pt-6">
                         <div className="text-center">
                           <p className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">

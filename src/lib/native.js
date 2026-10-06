@@ -23,7 +23,7 @@ export function haptic(style = 'Light') {
 export function syncStatusBar(dark) {
   if (!isNativeApp) return;
   StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }).catch(() => {});
-  if (platform === 'android') StatusBar.setBackgroundColor({ color: dark ? '#0f172a' : '#ffffff' }).catch(() => {});
+  if (platform === 'android') StatusBar.setBackgroundColor({ color: dark ? '#0a0b0f' : '#f3efe7' }).catch(() => {});
 }
 
 /**

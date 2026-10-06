@@ -6,7 +6,7 @@ module.exports = {
   	extend: {
   		fontFamily: {
   			// self-hosted via @fontsource (src/main.jsx), so no request to Google
-  			sans: ['"Plus Jakarta Sans Variable"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			sans: ['"Space Grotesk Variable"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
@@ -14,6 +14,30 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
+  			// Code A Difference's ember. The app used indigo/violet/fuchsia everywhere; the same
+  			// class names now resolve to the site's orange, so no purple is left anywhere.
+  			indigo: {
+  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
+  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  		},
+  			violet: {
+  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
+  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  		},
+  			purple: {
+  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
+  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  		},
+  			fuchsia: {
+  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
+  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  		},
+  			mint: '#4fd6c4',
+  			// Code A Difference's ink scale instead of Tailwind's blue-grey slate
+  			slate: {
+  				50: '#f6f3ec', 100: '#ece8df', 200: '#d9d4c8', 300: '#b9b6ae', 400: '#8a8d99', 500: '#6b6f7d',
+  				600: '#4d505c', 700: '#2f323d', 800: '#161922', 900: '#101219', 950: '#0a0b0f',
+  			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {

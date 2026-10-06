@@ -113,21 +113,21 @@ export default function Today() {
         <div className="min-w-0 space-y-5">
           <QuickAdd ref={quickAdd} classes={classes} />
 
-          {/* The one gradient on the screen: start on the most urgent thing. */}
+          {/* The one filled control on the screen: start on the most urgent thing. */}
           {!isLoading && (
             <button
               type="button"
               onClick={lockIn}
-              className="group flex w-full items-center gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 p-4 text-left text-white shadow-md shadow-indigo-600/20 transition-transform duration-150 hover:shadow-lg active:scale-[0.99]"
+              className="group flex w-full items-center gap-4 rounded-2xl bg-primary p-4 text-left text-primary-foreground shadow-md shadow-primary/20 transition-transform duration-150 hover:shadow-lg active:scale-[0.99]"
             >
-              <span className="grid h-12 w-12 flex-none place-items-center rounded-xl bg-white/15">
+              <span className="grid h-12 w-12 flex-none place-items-center rounded-xl bg-black/10">
                 {inBlock ? <Play className="h-6 w-6" aria-hidden="true" /> : <Lock className="h-6 w-6" aria-hidden="true" />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-lg font-extrabold tracking-tight">
                   {inBlock ? 'Back to your block' : 'Lock in'}
                 </span>
-                <span className="block truncate text-sm text-white/85">
+                <span className="block truncate text-sm text-primary-foreground/85">
                   {inBlock
                     ? `${clock(focus.remaining)} ${focus.status === 'paused' ? 'left, paused' : 'left'}${focus.taskItem ? ` · ${focus.taskItem.title}` : ''}`
                     : next
@@ -135,7 +135,7 @@ export default function Today() {
                     : `${focus.prefs.focusMin} minutes, no distractions`}
                 </span>
               </span>
-              <span className="hidden text-sm font-semibold text-white/90 sm:block">{inBlock ? 'Open →' : `${focus.prefs.focusMin} min →`}</span>
+              <span className="hidden text-sm font-semibold text-primary-foreground/90 sm:block">{inBlock ? 'Open →' : `${focus.prefs.focusMin} min →`}</span>
             </button>
           )}
 

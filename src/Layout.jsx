@@ -29,8 +29,8 @@ export const NAV = [
 function Brand({ compact = false }) {
   return (
     <Link to="/" className="flex min-w-0 items-center gap-2.5 rounded-lg" aria-label="LOCK IN! — Today">
-      <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-gradient-to-br from-indigo-600 to-fuchsia-600">
-        <Lock className="h-4 w-4 text-white" aria-hidden="true" />
+      <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-primary">
+        <Lock className="h-4 w-4 text-primary-foreground" aria-hidden="true" />
       </span>
       {!compact && (
         <span className="truncate text-lg font-extrabold tracking-tight text-foreground">
@@ -93,11 +93,12 @@ export default function Layout({ children, currentPageName }) {
   const active = currentPageName === 'Home' ? 'Today' : currentPageName;
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', !!user?.dark_mode);
+    const dark = user?.theme !== 'light';   // dark unless they chose light
+    document.documentElement.classList.toggle('dark', dark);
     // The phone's status bar and browser chrome follow the theme too.
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', user?.dark_mode ? '#0f172a' : '#ffffff');
-    syncStatusBar(!!user?.dark_mode);
-  }, [user?.dark_mode]);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a0b0f' : '#f3efe7');
+    syncStatusBar(dark);
+  }, [user?.theme]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -133,8 +134,8 @@ export default function Layout({ children, currentPageName }) {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card px-3 py-4 lg:flex">
         <div className="px-2"><Brand /></div>
         <button type="button" onClick={focus.openFocus}
-          className="mt-5 flex h-11 items-center gap-3 rounded-lg bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-3 text-sm font-semibold text-white shadow-sm hover:brightness-105">
-          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Focus mode <kbd className="ml-auto rounded border border-white/30 px-1.5 text-[10px]">F</kbd>
+          className="mt-5 flex h-11 items-center gap-3 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
+          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Focus mode <kbd className="ml-auto rounded border border-primary-foreground/30 px-1.5 text-[10px]">F</kbd>
         </button>
         <nav aria-label="Main" className="mt-3 flex flex-col gap-0.5">
           {NAV.map(({ name, icon: Icon, page, key }) => {

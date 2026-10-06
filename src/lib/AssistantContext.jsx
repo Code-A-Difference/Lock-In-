@@ -211,7 +211,7 @@ export function AssistantProvider({ children }) {
         return `Daily focus goal set to ${m} minutes.`;
       }
       case 'setAutoBreak': f.updatePrefs({ autoBreak: !!cmd.on }); return cmd.on ? 'Breaks will start by themselves.' : 'Breaks will wait for you.';
-      case 'setDarkMode': await db.auth.updateMe({ dark_mode: !!cmd.on }).catch(() => {}); return cmd.on ? 'Dark mode on.' : 'Dark mode off.';
+      case 'setDarkMode': await db.auth.updateMe({ theme: cmd.on ? 'dark' : 'light' }).catch(() => {}); return cmd.on ? 'Dark mode on.' : 'Dark mode off.';
       default: return (await f.perform(cmd)).reply;
     }
   }, [navigate, qc]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -253,7 +253,7 @@ export function AssistantProvider({ children }) {
               prefs: L.focus.prefs, homework: L.homework, tests: L.tests, classes: L.classes, lectures: L.lectures,
               quiz: quiz ? { topic: quiz.topic, index: quiz.index, total: quiz.questions.length } : null,
               recording: !!L.lecture.active,
-              dark: !!L.user?.dark_mode,
+              dark: L.user?.theme !== 'light',
               plan: {
                 slots: L.planner.slots.map(x => `${x.date} ${x.start}-${x.end}`).join(', '),
                 today: L.planner.today.map(b => `${b.start}-${b.end} ${b.title}`).join('; '),
