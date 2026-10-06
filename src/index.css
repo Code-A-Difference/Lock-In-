@@ -3,71 +3,67 @@
 @tailwind utilities;
 
 /*
- * LOCK IN! design tokens.
- *
- * The export shipped shadcn's neutral grey with a near-black primary, which is
- * most of why every screen looked generic. These retune the same variables to
- * slate surfaces and an indigo primary, so every existing shadcn component —
- * buttons, inputs, dialogs, selects — picks the new look up without edits.
- *
- * The indigo-to-fuchsia gradient is NOT a token on purpose: it belongs to one
- * control per screen (the "Lock in" action) and is written where it is used.
- * Focus is indigo, break is emerald; see components/lockin/TimerRing.jsx.
+ * LOCK IN! design tokens — Code A Difference's look: warm ink on near-black,
+ * ember (#ff6b3d) as the one accent, mint for focus rings, Space Grotesk.
+ * Dark is the default (the site is dark by design); the light theme is warm
+ * paper with a darker ember so text on it stays readable. Everything in the
+ * app reads these variables, so changing them here changes every screen.
+ * There are no gradients: colour is flat, the way the site's cards are.
  */
 @layer base {
   :root {
-    --background: 210 40% 98%;          /* slate-50  */
-    --foreground: 222 47% 11%;          /* slate-900 */
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 243 75% 59%;             /* indigo-600 */
+    --background: 40 33% 93%;           /* paper #f3efe7 */
+    --foreground: 228 20% 7%;
+    --card: 40 30% 97%;
+    --card-foreground: 228 20% 7%;
+    --popover: 40 30% 97%;
+    --popover-foreground: 228 20% 7%;
+    --primary: 17 86% 43%;              /* ember, darkened for white text */
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;           /* slate-100 */
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 19% 35%;    /* slate-600: 7:1 on white, safe for small text */
-    --accent: 226 100% 97%;             /* indigo-50 */
-    --accent-foreground: 244 55% 41%;   /* indigo-800 */
-    --destructive: 0 72% 51%;           /* red-600 */
+    --secondary: 40 22% 89%;
+    --secondary-foreground: 228 20% 7%;
+    --muted: 40 22% 89%;
+    --muted-foreground: 228 10% 32%;
+    --accent: 17 70% 91%;               /* ember wash */
+    --accent-foreground: 17 80% 28%;
+    --destructive: 0 72% 46%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;              /* slate-200 */
-    --input: 214 32% 91%;
-    --ring: 239 84% 67%;                /* indigo-500 */
+    --border: 40 14% 80%;
+    --input: 40 14% 80%;
+    --ring: 174 65% 32%;                /* mint, darkened for paper */
     --radius: 0.75rem;
-    --chart-1: 243 75% 59%;
-    --chart-2: 160 84% 39%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 292 84% 61%;
-    --chart-5: 199 89% 48%;
+    --chart-1: 17 86% 43%;
+    --chart-2: 174 65% 32%;
+    --chart-3: 41 100% 45%;
+    --chart-4: 14 100% 62%;
+    --chart-5: 199 60% 40%;
   }
 
   .dark {
-    --background: 229 84% 5%;           /* slate-950 */
-    --foreground: 210 40% 96%;          /* slate-100 */
-    --card: 222 47% 11%;                /* slate-900 */
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 239 84% 67%;             /* indigo-500: lighter, not inverted */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;           /* slate-800 */
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 70%;    /* slate-400+: 7:1 on slate-900 */
-    --accent: 244 47% 20%;              /* indigo-950-ish */
-    --accent-foreground: 226 100% 94%;
-    --destructive: 0 84% 60%;
+    --background: 228 20% 5%;           /* #0a0b0f */
+    --foreground: 40 33% 93%;           /* warm off-white #f3efe7 */
+    --card: 227 22% 8%;                 /* #101219 */
+    --card-foreground: 40 33% 93%;
+    --popover: 227 22% 8%;
+    --popover-foreground: 40 33% 93%;
+    --primary: 14 100% 62%;             /* ember #ff6b3d */
+    --primary-foreground: 228 20% 5%;
+    --secondary: 227 22% 11%;           /* #161922 */
+    --secondary-foreground: 40 33% 93%;
+    --muted: 227 22% 11%;
+    --muted-foreground: 227 9% 66%;     /* #a0a4b0 */
+    --accent: 14 45% 16%;               /* ember-soft */
+    --accent-foreground: 14 100% 76%;
+    --destructive: 0 72% 58%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 17%;
-    --input: 217 33% 20%;
-    --ring: 234 89% 74%;                /* indigo-400 */
-    --chart-1: 239 84% 67%;
-    --chart-2: 158 64% 52%;
-    --chart-3: 43 96% 56%;
-    --chart-4: 292 91% 73%;
-    --chart-5: 198 93% 60%;
+    --border: 227 15% 16%;              /* #23262f */
+    --input: 227 15% 18%;
+    --ring: 174 63% 57%;                /* mint #4fd6c4 */
+    --chart-1: 14 100% 62%;
+    --chart-2: 174 63% 57%;
+    --chart-3: 41 100% 70%;             /* amber #ffd166 */
+    --chart-4: 14 100% 76%;
+    --chart-5: 199 70% 62%;
   }
 }
 
@@ -80,7 +76,6 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv11", "ss01";
   }
   /* Visible keyboard focus everywhere, never on mouse click. */
   :focus-visible {

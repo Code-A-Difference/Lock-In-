@@ -69,7 +69,7 @@ function LectureList() {
         </button>
       ) : (
         <button type="button" onClick={() => (classes.length ? setPicking(true) : record(null))} disabled={!lec.canRecord}
-          className="flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 p-4 text-left text-white shadow-lg shadow-indigo-600/20 active:scale-[0.99] disabled:opacity-50">
+          className="flex w-full items-center gap-3 rounded-2xl bg-primary p-4 text-left text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.99] disabled:opacity-50">
           <span className="grid h-11 w-11 flex-none place-items-center rounded-full bg-white/15"><Mic className="h-5 w-5" aria-hidden="true" /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-base font-bold">Record a lecture</span>
@@ -316,7 +316,7 @@ function RecorderPanel({ live, lec }) {
       </div>
       <p className="mt-3 text-center text-5xl font-bold tabular-nums tracking-tight" role="timer">{clock(live.elapsed)}</p>
       <div className="mt-4 flex h-12 items-center justify-center gap-[3px]" aria-hidden="true">
-        {bars.map((b, i) => <span key={i} className="w-1 rounded-full bg-gradient-to-t from-indigo-400 to-fuchsia-400" style={{ height: `${Math.max(6, b * 100)}%` }} />)}
+        {bars.map((b, i) => <span key={i} className="w-1 rounded-full bg-primary" style={{ height: `${Math.max(6, b * 100)}%` }} />)}
       </div>
       <div className="mt-5 flex items-center justify-center gap-5">
         <button type="button" disabled={finishing} onClick={live.state === 'paused' ? lec.resume : lec.pause}

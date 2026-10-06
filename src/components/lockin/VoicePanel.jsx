@@ -385,8 +385,8 @@ export default function VoicePanel() {
       <CameraCapture open={camera} onClose={() => setCamera(false)} onPhoto={(url) => a.addPhoto(url)} />
 
       <button type="button" onClick={() => { setExpanded(open => !open); unlockAudio(); }} aria-expanded={expanded} aria-label={expanded ? 'Close the Lock In assistant' : 'Open the Lock In assistant'}
-        className={cn('relative grid h-14 w-14 place-items-center rounded-full text-white shadow-lg ring-4 ring-background transition-transform hover:scale-105 active:scale-95',
-          armed || listening ? 'bg-emerald-600' : 'bg-gradient-to-br from-indigo-600 to-fuchsia-600')}>
+        className={cn('relative grid h-14 w-14 place-items-center rounded-full shadow-lg ring-4 ring-background transition-transform hover:scale-105 active:scale-95',
+          armed || listening ? 'bg-mint text-[#0a0b0f]' : 'bg-primary text-primary-foreground')}>
         {armed || listening ? <Radio className="h-6 w-6 animate-pulse" /> : <Mic className="h-6 w-6" />}
         {handsFree && !armed && <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" title="Listening for Hey Lock In" />}
       </button>

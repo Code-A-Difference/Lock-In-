@@ -24,7 +24,8 @@ export const AuthProvider = ({ children }) => {
       queryClientInstance.clear();
       lastUsername.current = name;
     }
-    if (!u) document.documentElement.classList.remove('dark');
+    // Signed out you get the site's own look (dark), not the last person's choice.
+    if (!u) document.documentElement.classList.add('dark');
     setUser(u);
   }, []);
 
