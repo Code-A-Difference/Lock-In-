@@ -96,7 +96,7 @@ export default function Layout({ children, currentPageName }) {
     const dark = user?.theme !== 'light';   // dark unless they chose light
     document.documentElement.classList.toggle('dark', dark);
     // The phone's status bar and browser chrome follow the theme too.
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a0b0f' : '#f3efe7');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#16181d' : '#f2f0eb');
     syncStatusBar(dark);
   }, [user?.theme]);
 

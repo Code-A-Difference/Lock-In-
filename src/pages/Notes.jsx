@@ -3,8 +3,10 @@ import { MathLine } from '@/components/lockin/RichText';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Mic, Pause, Play, Square, ChevronLeft, Loader2, Sparkles, Trash2, Copy, Share2, Brain, Plus, Check,
-  AlertTriangle, FileText, NotebookPen, ListChecks, RefreshCw, GraduationCap,
+  AlertTriangle, FileText, NotebookPen, ListChecks, RefreshCw, GraduationCap, MessageCircle,
 } from 'lucide-react';
+import ClassChat from '@/components/lockin/ClassChat';
+import { RECIPES, NOTE_TEMPLATES } from '@/lib/classChat';
 import { cn } from '@/lib/utils';
 import { useStudyData, useActions } from '@/lib/data';
 import { useLecture } from '@/lib/LectureContext';
@@ -169,6 +171,8 @@ function LectureView({ id }) {
   const live = lec.active?.id === id ? lec.active : null;
   const [tab, setTab] = useState(live ? 'mine' : 'notes');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [autoAsk, setAutoAsk] = useState(null);
+  const quickAsk = (r) => { setAutoAsk(r); setTab('ask'); };
 
   useEffect(() => { if (lecture && !live && !lecture.notes && tab === 'notes') setTab('transcript'); }, [lecture, live]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -214,7 +218,7 @@ function LectureView({ id }) {
       <TitleEditor lecture={lecture} onSave={(title) => actions.updateLecture(id, { title, auto_title: false })} />
       <ClassPicker lecture={lecture} classes={classes} onPick={(c) => actions.updateLecture(id, { class_name: c?.name || '', class_id: c?.id || '' })} />
 
-      {live && <RecorderPanel live={live} lec={lec} />}
+      {live && <RecorderPanel live={live} lec={lec} lecture={lecture} onQuickAsk={quickAsk} />}
 
       {!live && (lecture.status === 'transcribing' || writing) && (
         <div className="mt-4 flex items-center gap-3 rounded-2xl border bg-card p-4 text-sm text-foreground" role="status">
@@ -230,12 +234,12 @@ function LectureView({ id }) {
       )}
 
       <div className="sticky top-14 z-10 -mx-4 mt-4 bg-background/95 px-4 py-2 backdrop-blur lg:top-0" role="tablist" aria-label="Lecture views">
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1">
-          {[['notes', 'Notes', Sparkles], ['mine', 'My notes', NotebookPen], ['transcript', 'Transcript', FileText]].map(([k, label, Icon]) => (
+        <div className="grid grid-cols-4 gap-1 rounded-xl bg-secondary p-1">
+          {[['notes', 'Notes', Sparkles], ['mine', 'My notes', NotebookPen], ['transcript', 'Transcript', FileText], ['ask', 'Ask', MessageCircle]].map(([k, label, Icon]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-              className={cn('flex h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors',
+              className={cn('flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg px-1 text-sm font-semibold transition-colors',
                 tab === k ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}>
-              <Icon className="h-4 w-4" aria-hidden="true" />{label}
+              <Icon className="hidden h-4 w-4 flex-none sm:block" aria-hidden="true" /><span className="truncate">{label}</span>
             </button>
           ))}
         </div>
@@ -244,15 +248,21 @@ function LectureView({ id }) {
       <div className="mt-3">
         {tab === 'notes' && (
           lecture.notes
-            ? <NotesView lecture={lecture} onRegenerate={regenerate} busy={!!writing} />
-            : <p className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
-                {live ? 'Your notes are written when you stop recording.' : writing ? 'Writing…' : transcript
-                  ? <button type="button" onClick={regenerate} className="h-11 rounded-xl bg-primary px-4 font-semibold text-primary-foreground">Write notes from the transcript</button>
-                  : 'No transcript to make notes from.'}
-              </p>
+            ? <NotesView lecture={lecture} onRegenerate={regenerate} busy={!!writing}
+                onTemplate={(template) => actions.updateLecture(id, { template })} />
+            : <div className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
+                <TemplatePicker value={lecture.template} onChange={(template) => actions.updateLecture(id, { template })} />
+                <p className="mt-3">
+                  {live ? 'Your notes are written when you stop recording, in this style.' : writing ? 'Writing…' : transcript
+                    ? <button type="button" onClick={regenerate} className="h-11 rounded-xl bg-primary px-4 font-semibold text-primary-foreground">Write notes from the transcript</button>
+                    : 'No transcript to make notes from.'}
+                </p>
+              </div>
         )}
         {tab === 'mine' && <MyNotes lecture={lecture} live={!!live} onSave={(my_notes) => actions.updateLecture(id, { my_notes })} />}
-        {tab === 'transcript' && <TranscriptView lecture={lecture} live={live} failed={failed} onRetry={lec.retryFailed} canRetry={lec.hasFailed} />}
+        {tab === 'transcript' && <TranscriptView lecture={lecture} live={live} failed={failed} lec={lec} />}
+        {tab === 'ask' && <ClassChat lecture={lecture} live={live} lec={lec} autoAsk={autoAsk} onAutoAsked={() => setAutoAsk(null)}
+          onSaveChat={(chat) => actions.updateLecture(id, { chat })} />}
       </div>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -300,40 +310,52 @@ function ClassPicker({ lecture, classes, onPick }) {
 
 /* ---------------------------------------------------------- live recording */
 
-function RecorderPanel({ live, lec }) {
+function RecorderPanel({ live, lec, lecture, onQuickAsk }) {
   const bars = useLevelHistory(live.level, live.state === 'recording');
   const finishing = live.state === 'finishing';
+  const lastError = [...(lecture.segments || [])].reverse().find(x => x.error)?.error;
   return (
-    <section className="mt-4 rounded-3xl bg-slate-950 p-5 text-white" aria-label="Recording">
+    <section className="mt-4 rounded-3xl border bg-card p-4 text-foreground" aria-label="Recording">
       <div className="flex items-center justify-between">
-        <span className={cn('inline-flex items-center gap-2 text-sm font-semibold', live.state === 'recording' ? 'text-red-400' : 'text-slate-300')}>
-          <span className={cn('h-2.5 w-2.5 rounded-full', live.state === 'recording' ? 'animate-pulse bg-red-500 motion-reduce:animate-none' : 'bg-slate-500')} />
+        <span className={cn('inline-flex items-center gap-2 text-sm font-semibold', live.state === 'recording' ? 'text-red-400' : 'text-muted-foreground')}>
+          <span className={cn('h-2.5 w-2.5 rounded-full', live.state === 'recording' ? 'animate-pulse bg-red-500 motion-reduce:animate-none' : 'bg-muted-foreground')} />
           {finishing ? 'Finishing…' : live.state === 'paused' ? 'Paused' : 'Recording'}
         </span>
-        <span className="text-xs text-slate-400" aria-live="polite">
+        <span className="text-xs text-muted-foreground" aria-live="polite">
           {live.queued ? `Transcribing ${live.queued} part${live.queued === 1 ? '' : 's'}…` : 'Transcript up to date'}
         </span>
       </div>
-      <p className="mt-3 text-center text-5xl font-bold tabular-nums tracking-tight" role="timer">{clock(live.elapsed)}</p>
-      <div className="mt-4 flex h-12 items-center justify-center gap-[3px]" aria-hidden="true">
-        {bars.map((b, i) => <span key={i} className="w-1 rounded-full bg-primary" style={{ height: `${Math.max(6, b * 100)}%` }} />)}
-      </div>
-      <div className="mt-5 flex items-center justify-center gap-5">
+      <div className="mt-3 flex items-center gap-4">
+        <p className="w-28 flex-none text-4xl font-bold tabular-nums tracking-tight" role="timer">{clock(live.elapsed)}</p>
+        <div className="flex h-10 min-w-0 flex-1 items-center justify-end gap-[3px] overflow-hidden" aria-hidden="true">
+          {bars.map((b, i) => <span key={i} className="w-1 flex-none rounded-full bg-primary/70" style={{ height: `${Math.max(8, b * 100)}%` }} />)}
+        </div>
         <button type="button" disabled={finishing} onClick={live.state === 'paused' ? lec.resume : lec.pause}
           aria-label={live.state === 'paused' ? 'Resume recording' : 'Pause recording'}
-          className="grid h-14 w-14 place-items-center rounded-full bg-white/10 hover:bg-white/15 active:scale-95 disabled:opacity-40">
-          {live.state === 'paused' ? <Play className="h-6 w-6 translate-x-0.5" /> : <Pause className="h-6 w-6" />}
+          className="grid h-12 w-12 flex-none place-items-center rounded-full bg-secondary hover:bg-secondary/80 active:scale-95 disabled:opacity-40">
+          {live.state === 'paused' ? <Play className="h-5 w-5 translate-x-0.5" /> : <Pause className="h-5 w-5" />}
         </button>
         <button type="button" disabled={finishing} onClick={lec.stop} aria-label="Stop and write notes"
-          className="grid h-[72px] w-[72px] place-items-center rounded-full bg-red-600 shadow-lg shadow-red-600/30 hover:bg-red-500 active:scale-95 disabled:opacity-40">
-          {finishing ? <Loader2 className="h-7 w-7 animate-spin" /> : <Square className="h-7 w-7 fill-current" />}
+          className="grid h-14 w-14 flex-none place-items-center rounded-full bg-red-600 text-white hover:bg-red-500 active:scale-95 disabled:opacity-40">
+          {finishing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Square className="h-6 w-6 fill-current" />}
         </button>
-        <span className="h-14 w-14" aria-hidden="true" />
       </div>
-      <p className="mt-4 text-center text-xs leading-relaxed text-slate-400">
-        Keep LOCK IN! open with the screen on — phones stop recording in the background. Type in “My notes” whenever something matters.
+      <div className="mt-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Quick asks about the class">
+        {RECIPES.filter(r => r.live).map(r => (
+          <button key={r.id} type="button" onClick={() => onQuickAsk(r)}
+            className="h-10 flex-none whitespace-nowrap rounded-full border bg-background px-3.5 text-sm font-semibold text-foreground hover:border-primary/50">
+            {r.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        Keep LOCK IN! open with the screen on — phones stop recording in the background. Jot in “My notes”; ask anything in “Ask”.
       </p>
-      {live.failed > 0 && <p className="mt-2 text-center text-xs text-amber-300">{live.failed} part{live.failed === 1 ? '' : 's'} couldn't be transcribed yet — they'll be retried.</p>}
+      {live.failed > 0 && (
+        <p className="mt-2 text-xs text-amber-300" role="status">
+          {live.failed} part{live.failed === 1 ? '' : 's'} couldn't be transcribed yet{lastError ? ` (${lastError})` : ''}. The audio is kept on this device and retried.
+        </p>
+      )}
     </section>
   );
 }
@@ -375,28 +397,50 @@ function MyNotes({ lecture, live, onSave }) {
   );
 }
 
-function TranscriptView({ lecture, live, failed, onRetry, canRetry }) {
+function TranscriptView({ lecture, live, failed, lec }) {
   const end = useRef(null);
   const segs = (lecture.segments || []).filter(s => s.text || s.error);
+  const [pending, setPending] = useState(0);
+  const retrying = lec.retrying[lecture.id];
   useEffect(() => { if (live) end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [segs.length, live]);
+  useEffect(() => { let on = true; lec.pendingCount(lecture.id).then(n => on && setPending(n)); return () => { on = false; }; },
+    [lecture.id, failed, retrying]); // eslint-disable-line react-hooks/exhaustive-deps
+  const reason = segs.find(x => x.error)?.error;
+  const retry = async () => {
+    const r = await lec.retryFailed(lecture.id);
+    if (r.error) toast({ title: r.done ? `Got ${r.done} more part${r.done === 1 ? '' : 's'}, then it stopped` : 'Still can’t transcribe', description: r.error, variant: 'destructive' });
+    else if (r.done) {
+      toast({ title: `Transcribed ${r.done} part${r.done === 1 ? '' : 's'}`, description: lecture.notes ? 'Rewrite the notes to include them.' : 'Now write the notes from the Notes tab.' });
+    }
+  };
   if (!segs.length) {
     return <p className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
-      {live ? 'The first lines appear about 30 seconds after you start.' : 'Nothing was transcribed.'}
+      {live ? (live.queued ? 'Transcribing the first part…' : 'The first lines appear about 15 seconds after you start.') : 'Nothing was transcribed.'}
     </p>;
   }
   return (
     <div className="rounded-2xl border bg-card p-4">
-      {failed > 0 && canRetry && !live && (
-        <button type="button" onClick={onRetry} className="mb-3 inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold">
-          <RefreshCw className="h-4 w-4" />Retry {failed} missing part{failed === 1 ? '' : 's'}
-        </button>
+      {failed > 0 && !live && (
+        <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+          <p className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
+            {failed} part{failed === 1 ? '' : 's'} couldn’t be transcribed{reason ? `: ${reason}` : '.'}</p>
+          {pending > 0 ? (
+            <button type="button" onClick={retry} disabled={!!retrying}
+              className="mt-2 inline-flex h-10 items-center gap-2 rounded-xl bg-amber-200 px-3 text-sm font-semibold text-amber-950 disabled:opacity-60">
+              <RefreshCw className={cn('h-4 w-4', retrying && 'animate-spin')} />
+              {retrying ? `Transcribing ${retrying.done} of ${retrying.total}…` : `Try the ${pending} missing part${pending === 1 ? '' : 's'} again`}
+            </button>
+          ) : (
+            <p className="mt-1 text-xs text-amber-200/80">The audio for these parts isn't on this device, so they can't be retried here.</p>
+          )}
+        </div>
       )}
       <ol className="space-y-3">
         {segs.map(s => (
           <li key={s.start} className="flex gap-3">
             <span className="w-12 flex-none pt-0.5 text-xs tabular-nums text-muted-foreground">{clock(s.start)}</span>
             <p className={cn('text-base leading-relaxed', s.error ? 'italic text-muted-foreground' : 'text-foreground')}>
-              {s.error ? 'This part couldn’t be transcribed.' : s.text}
+              {s.error ? 'Not transcribed yet.' : s.text}
             </p>
           </li>
         ))}
@@ -406,7 +450,19 @@ function TranscriptView({ lecture, live, failed, onRetry, canRetry }) {
   );
 }
 
-function NotesView({ lecture, onRegenerate, busy }) {
+function TemplatePicker({ value, onChange }) {
+  return (
+    <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+      Style
+      <select value={value || 'lecture'} onChange={e => onChange(e.target.value)}
+        className="h-10 rounded-lg border bg-card px-2 text-base text-foreground sm:text-sm">
+        {NOTE_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
   const navigate = useNavigate();
   const { classes } = useStudyData();
   const actions = useActions();
@@ -498,7 +554,11 @@ function NotesView({ lecture, onRegenerate, busy }) {
         </section>
       )}
 
-      <div className="grid grid-cols-2 gap-2 pt-2 sm:grid-cols-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+        <TemplatePicker value={lecture.template} onChange={onTemplate} />
+        <span className="text-xs text-muted-foreground">Change the style, then Rewrite.</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <button type="button" onClick={() => navigate('/Study', { state: { tab: 'quiz', topic: lecture.title, notes: md } })}
           className="col-span-2 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground sm:col-span-1">
           <Brain className="h-4 w-4" />Quiz me

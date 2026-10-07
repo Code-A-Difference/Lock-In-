@@ -2,7 +2,7 @@
  * The lecture being recorded, for the whole app — like FocusContext, it sits
  * above the pages so a recording carries on while you check your agenda.
  *
- * Each ~30 s piece goes to the transcriber in order (the end of one piece is
+ * Each ~15 s piece goes to the transcriber in order (the end of one piece is
  * the spelling hint for the next) and is saved to the lecture as it comes
  * back, so a crash or a dead battery loses at most the piece in flight. When
  * you stop, it finishes the queue and writes the notes.
@@ -13,7 +13,17 @@ import { useActions, useStudyData } from './data.js';
 import { ymd } from './dates.js';
 import { LectureRecorder, canRecord, downsample, encodeWav, isSilent, SAMPLE_RATE, CHUNK_SECONDS } from './recorder.js';
 import { transcribeChunk, transcriptText, generateNotes } from './lectures.js';
+import { templateHow } from './classChat.js';
 import { chime, unlockAudio } from './soundscape.js';
+import { keepPending, dropPending, listPending, dropLecture } from './pendingAudio.js';
+
+/* Speech models sometimes "hear" a stock phrase in a quiet room. A piece that
+   was nearly silent and came back as only such filler is treated as silence. */
+const FILLER = /^(\W*(thank you( for watching)?|thanks|all ?right|okay|ok|right|you|bye|um+|uh+|hmm+|yeah|so|music|silence)\W*)+$/i;
+export function cleanPiece(text, loudness = 1) {
+  const t = (text || '').trim();
+  return loudness < 0.03 && FILLER.test(t) ? '' : t;
+}
 
 const Ctx = createContext(null);
 
@@ -35,6 +45,7 @@ export function LectureProvider({ children }) {
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(null);   // { id, title, done, total } while a video or audio file is transcribed
   const [writing, setWriting] = useState({});     // id -> progress text while notes are written
+  const [retrying, setRetrying] = useState({});   // id -> {done, total} while failed pieces are retried
   const rec = useRef(null);
   const queue = useRef(Promise.resolve());
   const segs = useRef([]);
@@ -51,6 +62,7 @@ export function LectureProvider({ children }) {
     try {
       const notes = await generateNotes({
         transcript, myNotes: lec.my_notes, className: lec.class_name, title: lec.title, date: lec.date,
+        how: templateHow(lec.template),
       }, (msg) => setWriting(w => ({ ...w, [lec.id]: msg })));
       const patch = { notes, status: 'ready', notes_at: new Date().toISOString() };
       if (lec.auto_title && notes.title) patch.title = notes.title;
@@ -71,13 +83,15 @@ export function LectureProvider({ children }) {
       const hint = [className, before].filter(Boolean).join(' — ');
       let seg;
       try {
-        const text = await transcribeChunk(chunk.wav, hint);
+        // live pieces don't wait long on a busy service: the next piece is coming, and this one is kept to retry
+        const text = cleanPiece(await transcribeChunk(chunk.wav, hint, { tries: 2 }), chunk.loudness);
         seg = { start: chunk.start, duration: chunk.duration, text };
-        failedChunks.current.delete(chunk.start);
+        if (failedChunks.current.delete(chunk.start)) dropPending(id, chunk.start);
       } catch (e) {
         seg = { start: chunk.start, duration: chunk.duration, text: '', error: e.message };
+        if (!failedChunks.current.has(chunk.start)) setActive(a => a && { ...a, failed: a.failed + 1 });
         failedChunks.current.set(chunk.start, chunk.wav);
-        setActive(a => a && { ...a, failed: a.failed + 1 });
+        keepPending(id, chunk.start, chunk.duration, chunk.wav);
       }
       segs.current = [...segs.current.filter(s => s.start !== seg.start), seg].sort((a, b) => a.start - b.start);
       await save(id, { segments: segs.current });
@@ -134,6 +148,14 @@ export function LectureProvider({ children }) {
     chime('breakEnd', 0.25);
     await save(id, { duration: Math.round(r.elapsed), status: 'transcribing' });
     await queue.current;
+    // one more go at anything that failed while class was on
+    if (failedChunks.current.size) {
+      for (const [startAt, wav] of [...failedChunks.current.entries()]) {
+        const old = segs.current.find(x => x.start === startAt);
+        transcribe({ wav, start: startAt, duration: old?.duration || CHUNK_SECONDS, loudness: 1 });
+      }
+      await queue.current;
+    }
     const transcript = transcriptText(segs.current);
     const lec = { id, segments: segs.current, class_name: meta.current.className };
     setActive(null);
@@ -189,9 +211,10 @@ export function LectureProvider({ children }) {
         const samples = pcm.subarray(i * piece, Math.min(pcm.length, (i + 1) * piece));
         let seg = { start: i * CHUNK_SECONDS, duration: samples.length / SAMPLE_RATE, text: '' };
         if (!isSilent(samples)) {
+          const wav = encodeWav(samples);
           try {
-            seg.text = await transcribeChunk(encodeWav(samples), [className, transcriptText(out).slice(-300)].filter(Boolean).join(' — '));
-          } catch (e) { seg.error = e.message; }
+            seg.text = await transcribeChunk(wav, [className, transcriptText(out).slice(-300)].filter(Boolean).join(' — '));
+          } catch (e) { seg.error = e.message; keepPending(lec.id, seg.start, seg.duration, wav); }
         }
         out.push(seg);
         await save(lec.id, { segments: out });
@@ -207,12 +230,54 @@ export function LectureProvider({ children }) {
     return lec;
   }, [save, writeNotes]);
 
-  /** Try the pieces that failed again (only while the app has them in memory). */
-  const retryFailed = useCallback(async () => {
-    const pending = [...failedChunks.current.entries()];
-    for (const [startAt, wav] of pending) transcribe({ wav, start: startAt, duration: 0 });
-    await queue.current;
-  }, [transcribe]);
+  /**
+   * Try the pieces of a lecture that failed again. Their audio is kept on this
+   * device until they're transcribed, so this works days later too. Returns
+   * {done, left, error}.
+   */
+  const retryFailed = useCallback(async (lectureId) => {
+    const lecId = lectureId || meta.current.id;
+    if (rec.current && lecId === meta.current.id) {           // the one being recorded: through its queue
+      for (const [startAt, wav] of [...failedChunks.current.entries()]) {
+        const old = segs.current.find(x => x.start === startAt);
+        transcribe({ wav, start: startAt, duration: old?.duration || CHUNK_SECONDS, loudness: 1 });
+      }
+      await queue.current;
+      return { done: 0, left: failedChunks.current.size, error: '' };
+    }
+    const pending = await listPending(lecId);
+    let done = 0, error = '';
+    setRetrying(r => ({ ...r, [lecId]: { done: 0, total: pending.length } }));
+    try {
+      for (const p of pending) {
+        const lecNow = lecturesRef.current.find(l => l.id === lecId);
+        if (!lecNow) { await dropLecture(lecId); break; }
+        const list = lecNow.segments || [];
+        const hint = [lecNow.class_name, transcriptText(list.filter(x => x.start < p.start)).slice(-300)].filter(Boolean).join(' — ');
+        let text;
+        try { text = await transcribeChunk(p.wav, hint, { tries: 2 }); } catch (e) { error = e.message; break; }
+        const seg = { start: p.start, duration: p.duration, text };
+        const next = [...list.filter(x => Math.abs(x.start - p.start) > 0.01), seg].sort((a, b) => a.start - b.start);
+        lecturesRef.current = lecturesRef.current.map(l => (l.id === lecId ? { ...l, segments: next } : l));
+        await save(lecId, { segments: next });
+        await dropPending(lecId, p.start);
+        done++;
+        setRetrying(r => ({ ...r, [lecId]: { done, total: pending.length } }));
+      }
+    } finally {
+      setRetrying(r => { const n = { ...r }; delete n[lecId]; return n; });
+    }
+    return { done, left: pending.length - done, error };
+  }, [transcribe, save]);
+
+  /** How many pieces of a lecture are waiting on this device to be transcribed. */
+  const pendingCount = useCallback(async (lectureId) => (await listPending(lectureId)).length, []);
+
+  /** Send the audio heard since the last piece and wait until the transcript has it — for "catch me up". */
+  const flushNow = useCallback(async () => {
+    rec.current?.flushNow();
+    await Promise.race([queue.current, new Promise(r => setTimeout(r, 9000))]);
+  }, []);
 
   // Leaving (sign-out) mid-recording: stop the microphone.
   useEffect(() => () => { clearInterval(tick.current); rec.current?.stop(); }, []);
@@ -226,7 +291,7 @@ export function LectureProvider({ children }) {
   }, [!!active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = {
-    canRecord, active, error, writing, importing, importMedia, start, pause, resume, stop, retryFailed, writeNotes,
+    canRecord, active, error, writing, importing, retrying, importMedia, start, pause, resume, stop, retryFailed, pendingCount, flushNow, writeNotes,
     hasFailed: (active?.failed || 0) > 0 || failedChunks.current.size > 0,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

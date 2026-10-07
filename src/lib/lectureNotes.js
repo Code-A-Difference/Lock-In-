@@ -72,9 +72,9 @@ Transcript:
 ${part}`;
 }
 
-export function notesPrompt({ transcript, myNotes = '', className = '', title = '', date = '' }) {
+export function notesPrompt({ transcript, myNotes = '', className = '', title = '', date = '', how = '' }) {
   return `You are turning a recorded class into a student's study notes.
-${className ? `Class: ${className}\n` : ''}${date ? `Date: ${date}\n` : ''}${title ? `Working title: ${title}\n` : ''}
+${className ? `Class: ${className}\n` : ''}${date ? `Date: ${date}\n` : ''}${title ? `Working title: ${title}\n` : ''}${how ? `Layout for this kind of class: ${how}\n` : ''}
 ${myNotes.trim()
     ? `The student took these rough notes during class. Treat them as the outline of what matters to them: keep their headings and points, correct and complete them from the transcript, and add what they missed beneath them.\n--- Student's notes ---\n${myNotes.trim().slice(0, 6000)}\n--- End ---\n`
     : 'The student took no notes of their own; organise the notes by topic, in the order taught.\n'}
