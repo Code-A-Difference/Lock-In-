@@ -39,6 +39,15 @@ function serverBin() {
 }
 
 let server = null;          // { proc, port, model }
+const speeds = {};          // model -> {rtf, n}: seconds of work per second of audio (running average)
+function noteSpeed(model, rtf) {
+  const s = speeds[model] || { rtf, n: 0 };
+  s.rtf = s.n ? 0.7 * s.rtf + 0.3 * rtf : rtf;
+  s.n++;
+  speeds[model] = s;
+}
+/** How hard a model works this computer: {rtf, n} — rtf 0.2 means 15 s of class takes 3 s. */
+const speed = (model) => speeds[model] || null;
 let starting = null;
 let downloading = null;     // { id, got, total }
 const listeners = new Set();
@@ -133,8 +142,10 @@ async function start(id) {
     await ensureModel(id);
     const port = await freePort();
     const threads = String(Math.max(2, Math.min(8, os.cpus().length - 1)));
-    const args = ['-m', modelPath(id), '--host', '127.0.0.1', '--port', String(port), '-t', threads, '-nt'];
-    if (hasVad()) args.push('--vad', '-vm', path.join(dir(), VAD.file));
+    // Tuned for a classroom: the teacher is often far from the mic, so the voice detector
+    // (-vt) and the "no speech" cut-off (-nth) are more willing than the defaults (0.5, 0.6).
+    const args = ['-m', modelPath(id), '--host', '127.0.0.1', '--port', String(port), '-t', threads, '-nt', '-nth', '0.8'];
+    if (hasVad()) args.push('--vad', '-vm', path.join(dir(), VAD.file), '-vt', '0.3');
     const proc = spawn(serverBin(), args, { cwd: binDir(), windowsHide: true, stdio: 'ignore' });
     proc.on('exit', () => { if (server?.proc === proc) { server = null; emit(); } });
     if (!(await waitForPort(port, 60000))) { try { proc.kill(); } catch (_) {} throw new Error('The transcription engine did not start.'); }
@@ -162,11 +173,13 @@ async function transcribe(wav, { model = 'base', language = 'en', hint = '' } = 
     const r = await fetch(`http://127.0.0.1:${s.port}/inference`, { method: 'POST', body: form });
     const j = await r.json().catch(() => null);
     if (!r.ok || !j || j.error) throw new Error(j?.error || `The transcription engine answered ${r.status}.`);
-    const text = String(j.text || '').replace(/\[(BLANK_AUDIO|MUSIC|NOISE|SILENCE)[^\]]*\]|\((music|silence|inaudible)\)/gi, '').replace(/\s+/g, ' ').trim();
-    return { ok: true, text, ms: Date.now() - t0 };
+    const text = String(j.text || '').replace(/[[(]\s*(BLANK_AUDIO|MUSIC|NOISE|SILENCE|inaudible|unintelligible|indistinct[^\])]*)\s*[\])]/gi, ' ').replace(/\s+/g, ' ').trim();
+    const ms = Date.now() - t0;
+    noteSpeed(model, ms / 1000 / Math.max(0.5, (wav.length - 44) / 32000));   // 16 kHz, 16-bit mono
+    return { ok: true, text, ms };
   } catch (e) {
     return { ok: false, error: e.message || String(e) };
   }
 }
 
-module.exports = { MODELS, status, ensureModel, start, stop, transcribe, onStatus: (f) => { listeners.add(f); return () => listeners.delete(f); } };
+module.exports = { MODELS, status, ensureModel, start, stop, transcribe, speed, onStatus: (f) => { listeners.add(f); return () => listeners.delete(f); } };

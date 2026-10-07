@@ -16,7 +16,9 @@
 export const SAMPLE_RATE = 16000;
 // Short pieces keep the live transcript (and "catch me up") a few seconds behind, not half a minute.
 export const CHUNK_SECONDS = 15;
-const SILENCE_RMS = 0.006;
+// Low on purpose: a voice across the room is this quiet. True silence is still dropped,
+// and the speech models' own voice detection skips what's left.
+const SILENCE_RMS = 0.0022;
 
 /** Average a Float32 signal down to `outRate`, as 16-bit PCM. */
 export function downsample(input, inRate, outRate = SAMPLE_RATE) {
@@ -63,6 +65,49 @@ export function rms(samples) {
 }
 
 export function isSilent(samples) { return rms(samples) < SILENCE_RMS; }
+
+/**
+ * Make faraway speech clear enough to transcribe. A teacher across the room
+ * reaches the microphone very quietly; speech models do far better when the
+ * voice is at a normal level. So: cut the low rumble (fans, desks, traffic)
+ * below ~90 Hz, find the level of the loudest stretches (the speech, not the
+ * gaps), raise that to a steady target — up to 30× (about +30 dB) — and
+ * soft-limit so nothing clips. 16-bit PCM in and out. Pure.
+ */
+export function enhanceSpeech(samples, rate = SAMPLE_RATE) {
+  const n = samples.length;
+  if (!n) return samples;
+  // one-pole high-pass
+  const a = Math.exp(-2 * Math.PI * 90 / rate);
+  const hp = new Float32Array(n);
+  let px = 0, py = 0;
+  for (let i = 0; i < n; i++) {
+    const x = samples[i] / 32768;
+    py = a * (py + x - px);
+    px = x;
+    hp[i] = py;
+  }
+  // speech level: the 90th-percentile loudness of 50 ms frames
+  const frame = Math.max(1, Math.round(rate * 0.05));
+  const levels = [];
+  for (let s = 0; s < n; s += frame) {
+    let sum = 0;
+    const e = Math.min(n, s + frame);
+    for (let i = s; i < e; i++) sum += hp[i] * hp[i];
+    levels.push(Math.sqrt(sum / (e - s)));
+  }
+  levels.sort((x, y) => x - y);
+  const speech = levels[Math.min(levels.length - 1, Math.floor(levels.length * 0.9))];
+  const TARGET = 0.12;
+  const gain = speech > 1e-5 ? Math.min(30, Math.max(1, TARGET / speech)) : 1;
+  const out = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    const y = hp[i] * gain;
+    const lim = Math.tanh(y * 1.2) / Math.tanh(1.2);   // gentle: unchanged when quiet, never past full scale
+    out[i] = Math.max(-32767, Math.min(32767, Math.round(lim * 32767)));
+  }
+  return out;
+}
 
 export function toBase64(bytes) {
   let bin = '';
@@ -116,7 +161,9 @@ export class LectureRecorder {
       try {
         this.streams.push(await navigator.mediaDevices.getUserMedia({
           // with the computer's sound too, cancel the speakers out of the mic so nothing is heard twice
-          audio: { channelCount: 1, echoCancellation: source === 'both', noiseSuppression: true, autoGainControl: true },
+          // No noise suppression: it's built for calls, where a faraway voice IS the noise to remove —
+          // in a classroom that's the teacher. enhanceSpeech() levels the sound instead.
+          audio: { channelCount: 1, echoCancellation: source === 'both', noiseSuppression: false, autoGainControl: true },
         }));
       } catch (e) {
         this._display?.getTracks().forEach(t => t.stop());
@@ -189,7 +236,7 @@ export class LectureRecorder {
     this._chunkStart += duration;
     this._parts = [];
     this._partLen = 0;
-    this.onChunk?.({ wav: encodeWav(all), start, duration, silent: isSilent(all), loudness: rms(all) });
+    this.onChunk?.({ wav: encodeWav(enhanceSpeech(all)), start, duration, silent: isSilent(all), loudness: rms(all) });
   }
 
   // Keep the screen (and with it, on phones, the recording) awake.

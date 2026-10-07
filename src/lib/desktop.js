@@ -8,8 +8,8 @@ export const desktop = typeof window !== 'undefined' ? window.lockinDesktop || n
 export const isDesktop = !!desktop;
 
 /** The newest desktop app. Older ones still work (the page is loaded live); this just offers the update. */
-export const DESKTOP_VERSION = '1.0.0';
-const REL = 'https://github.com/Code-A-Difference/Lock-In-/releases/download/desktop-v1.0.0';
+export const DESKTOP_VERSION = '1.0.1';
+const REL = 'https://github.com/Code-A-Difference/Lock-In-/releases/download/desktop-v1.0.1';
 export const DESKTOP_DOWNLOADS = {
   windows: `${REL}/LOCKIN-win-x64.exe`,
   macArm: `${REL}/LOCKIN-mac-arm64.dmg`,

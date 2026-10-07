@@ -219,7 +219,7 @@ function wireIpc() {
   ipcMain.handle('whisper:set', (_e, patch = {}) => {
     const t = settings.transcription;
     if (typeof patch.enabled === 'boolean') t.enabled = patch.enabled;
-    if (patch.model && whisper.MODELS[patch.model]) t.model = patch.model;
+    if (patch.model && whisper.MODELS[patch.model]) { t.model = patch.model; t.chosen = true; }   // their choice: no more auto-switching
     if (typeof patch.language === 'string' && /^(auto|[a-z]{2})$/.test(patch.language)) t.language = patch.language;
     saveSettings();
     if (!t.enabled) whisper.stop();
@@ -234,7 +234,9 @@ function wireIpc() {
     const t = settings.transcription;
     if (!t.enabled) return { ok: false, error: 'off' };
     if (!whisper.status().models[t.model]?.installed) return { ok: false, error: 'no-model' };
-    return whisper.transcribe(Buffer.from(wav), { model: t.model, language: t.language, hint });
+    const r = await whisper.transcribe(Buffer.from(wav), { model: t.model, language: t.language, hint });
+    if (r.ok) autoTune();
+    return r;
   });
   whisper.onStatus(s => send('whisper:status', { ...s, settings: settings.transcription }));
 
@@ -251,6 +253,32 @@ function wireIpc() {
   });
   ipcMain.on('recording', (_e, on) => { recording = !!on; updateTray(); });
   ipcMain.on('show', () => showWindow());
+}
+
+/**
+ * Use the most accurate model this computer can keep up with, unless the
+ * student chose one themselves. The fast model working under 0.2 s per second
+ * of audio means the accurate one (about 3x the work) still keeps up live:
+ * fetch it in the background and switch. If that turns out too slow (over
+ * 0.7 s per second), go back.
+ */
+let tuning = false;
+function autoTune() {
+  const t = settings.transcription;
+  if (t.chosen || tuning) return;
+  const base = whisper.speed('base');
+  const small = whisper.speed('small');
+  if (t.model === 'base' && base && base.n >= 3 && base.rtf < 0.2) {
+    tuning = true;
+    whisper.ensureModel('small')
+      .then(() => { t.model = 'small'; saveSettings(); return whisper.start('small'); })
+      .catch(() => {})
+      .finally(() => { tuning = false; });
+  } else if (t.model === 'small' && small && small.n >= 3 && small.rtf > 0.7) {
+    t.model = 'base';
+    saveSettings();
+    whisper.start('base').catch(() => {});
+  }
 }
 
 /* ------------------------------------------------------------- meetings */
