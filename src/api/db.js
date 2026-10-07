@@ -23,6 +23,7 @@
 
 import { store, deriveKey, openJson, KDF_ITERATIONS, b64url } from './vault';
 import { escapeLatexInJson } from '@/lib/mathText';
+import { raceAI, usualTime, noteTime } from '@/lib/aiRace';
 
 const ENTITY_NAMES = ['Class', 'ClassGroup', 'Homework', 'Test', 'FocusSession', 'StudyHistory', 'Lecture'];
 export const LOCKIN_API = import.meta.env.VITE_LOCKIN_API || '/api/lockin.php';
@@ -583,21 +584,31 @@ const integrations = {
         files,
       };
 
-      let r;
-      try {
-        r = await fetch(AI_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-      } catch (_) {
-        throw new Error('Could not reach the AI service. Check your connection.');
-      }
-      let j = null;
-      try { j = await r.json(); } catch (_) {}
-      if (!j || !j.ok) {
-        throw new Error((j && j.error) || `The AI service returned an error (${r.status}).`);
-      }
+      // If the answer lags, a second request races it from another key or model (lib/aiRace.js).
+      const kind = (maxTokens || 4096) > 1500 ? 'l' : 's';
+      const send = async (lane, signal) => {
+        let r;
+        try {
+          r = await fetch(AI_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(lane ? { ...body, lane } : body),
+            signal,
+          });
+        } catch (e) {
+          if (e?.name === 'AbortError') throw e;
+          throw new Error('Could not reach the AI service. Check your connection.');
+        }
+        let j = null;
+        try { j = await r.json(); } catch (_) {}
+        if (!j || !j.ok) {
+          // the server answered: it has already tried every key, so another lane won't help
+          throw Object.assign(new Error((j && j.error) || `The AI service returned an error (${r.status}).`), { final: true });
+        }
+        return j;
+      };
+      const { value: j, ms } = await raceAI(send, { long: kind === 'l', usualMs: usualTime(kind) });
+      noteTime(kind, ms);
       return wantJson ? parseJsonReply(j.text) : j.text;
     },
   },
