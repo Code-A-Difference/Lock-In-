@@ -14,6 +14,7 @@ import { ymd } from './dates.js';
 import { LectureRecorder, canRecord, downsample, encodeWav, isSilent, SAMPLE_RATE, CHUNK_SECONDS } from './recorder.js';
 import { transcribeChunk, transcriptText, generateNotes } from './lectures.js';
 import { templateHow } from './classChat.js';
+import { desktop } from './desktop.js';
 import { chime, unlockAudio } from './soundscape.js';
 import { keepPending, dropPending, listPending, dropLecture } from './pendingAudio.js';
 
@@ -99,7 +100,7 @@ export function LectureProvider({ children }) {
     });
   }, [save]);
 
-  const start = useCallback(async ({ className = '', classId = '', title = '' } = {}) => {
+  const start = useCallback(async ({ className = '', classId = '', title = '', source = 'mic' } = {}) => {
     if (rec.current) return null;
     setError('');
     unlockAudio();
@@ -120,13 +121,14 @@ export function LectureProvider({ children }) {
       onLevel: (level) => setActive(a => a && { ...a, level }),
     });
     try {
-      await r.start();
+      await r.start({ source });
     } catch (e) {
       await actionsRef.current.deleteLecture(lec).catch(() => {});
       setError(e.message);
       throw e;
     }
     rec.current = r;
+    desktop?.setRecording(true);
     chime('assistantActive', 0.25);
     setActive({ id: lec.id, state: 'recording', elapsed: 0, level: 0, queued: 0, failed: 0 });
     tick.current = setInterval(() => setActive(a => a && { ...a, elapsed: r.elapsed }), 500);
@@ -141,6 +143,7 @@ export function LectureProvider({ children }) {
     const r = rec.current;
     if (!r) return;
     rec.current = null;
+    desktop?.setRecording(false);
     clearInterval(tick.current);
     const { id } = meta.current;
     setActive(a => a && { ...a, state: 'finishing', elapsed: r.elapsed });

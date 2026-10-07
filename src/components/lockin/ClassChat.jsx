@@ -12,7 +12,7 @@ import { notesMarkdown } from '@/lib/lectures';
  * "I got asked a question" see the last few seconds, not the last piece.
  * The conversation is kept with the lecture.
  */
-export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onAutoAsked }) {
+export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onAutoAsked, dockClassName = 'bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-4' }) {
   const [msgs, setMsgs] = useState(() => lecture.chat || []);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState('');
@@ -93,7 +93,7 @@ export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onA
       )}
       <div ref={end} />
 
-      <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 -mx-1 rounded-2xl border bg-background/95 p-2 shadow-lg backdrop-blur lg:bottom-4">
+      <div className={cn('sticky z-10 -mx-1 rounded-2xl border bg-background/95 p-2 shadow-lg backdrop-blur', dockClassName)}>
         <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]" role="group" aria-label="Quick asks">
           {recipes.map(r => (
             <button key={r.id} type="button" disabled={!!busy} onClick={() => ask(r.ask, r.label)}

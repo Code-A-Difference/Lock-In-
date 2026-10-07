@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
-import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download } from "lucide-react";
+import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
@@ -16,6 +16,7 @@ import { AI_VOICES, configureVoice, listBrowserVoices, onVoicesReady, speak, sto
 import { cn } from '@/lib/utils';
 import { formatMinutes } from '@/lib/agenda';
 import { isNativeApp } from '@/lib/native';
+import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } from '@/lib/desktop';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
 const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline — let's lock in.";
@@ -40,6 +41,140 @@ function PhoneApp() {
           <strong className="font-semibold text-foreground">iPhone:</strong> in Safari tap Share, then Add to Home Screen.
         </p>
       </div>
+    </Section>
+  );
+}
+
+const LANGUAGES = [
+  ['en', 'English'], ['auto', 'Detect automatically'], ['fr', 'French'], ['es', 'Spanish'], ['pa', 'Punjabi'], ['hi', 'Hindi'],
+  ['zh', 'Chinese'], ['ar', 'Arabic'], ['tl', 'Tagalog'], ['ko', 'Korean'], ['ja', 'Japanese'], ['de', 'German'], ['vi', 'Vietnamese'],
+];
+
+export const DESKTOP_PERKS = [
+  [ShieldCheck, 'Private, free transcription', 'Classes are transcribed on your computer — the audio never leaves it, and it works even when the AI service is busy.'],
+  [PictureInPicture2, 'Floats over your other apps', 'A small window stays on top while you work: live transcript, “catch me up”, and quick answers.'],
+  [MonitorSpeaker, 'Records online classes', 'Captures your computer’s sound — Zoom, Teams, Google Meet or a lecture video — with or without your mic.'],
+  [PhoneCall, 'Notices when a call starts', 'Offers to record when Zoom, Teams or a browser call begins.'],
+  [Keyboard, 'Shortcuts from any app', 'Ctrl+Shift+K catches you up, Ctrl+Shift+L opens the assistant, Ctrl+Shift+R starts recording.'],
+];
+
+/** In a browser: the pitch and the downloads. In the desktop app: its settings. */
+function DesktopApp() {
+  if (isNativeApp) return null;
+  return isDesktop ? <ThisComputer /> : <GetDesktop />;
+}
+
+function GetDesktop() {
+  const os = guessOS();
+  const btn = 'flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold';
+  return (
+    <Section icon={Monitor} title="Get the desktop app" description="LOCK IN! for Windows and Mac — same account, and a better experience in class.">
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {DESKTOP_PERKS.map(([Icon, title, text]) => (
+          <li key={title} className="flex gap-3">
+            <Icon className="mt-0.5 h-5 w-5 flex-none text-primary" aria-hidden="true" />
+            <span><span className="block text-sm font-semibold text-foreground">{title}</span><span className="block text-sm text-muted-foreground">{text}</span></span>
+          </li>
+        ))}
+      </ul>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <a href={DESKTOP_DOWNLOADS.windows} className={cn(btn, os === 'windows' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border text-foreground hover:bg-secondary')}>
+          <Download className="h-4 w-4" aria-hidden="true" />Windows
+        </a>
+        <a href={DESKTOP_DOWNLOADS.macArm} className={cn(btn, os === 'mac' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border text-foreground hover:bg-secondary')}>
+          <Download className="h-4 w-4" aria-hidden="true" />Mac (Apple chip)
+        </a>
+        <a href={DESKTOP_DOWNLOADS.macIntel} className={cn(btn, 'border text-foreground hover:bg-secondary')}>
+          <Download className="h-4 w-4" aria-hidden="true" />Mac (Intel)
+        </a>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Windows may say it “protected your PC” — choose More info → Run anyway. On a Mac, open the app once from Finder with right-click → Open
+        (or System Settings → Privacy &amp; Security → Open Anyway). The app isn’t signed by Apple or Microsoft yet.
+      </p>
+    </Section>
+  );
+}
+
+function ThisComputer() {
+  const [st, setSt] = useState(null);
+  const [login, setLogin] = useState(false);
+  const [prefs, setPrefs] = useState({ offerRecordCalls: true, shortcuts: [] });
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    desktop.whisper.status().then(setSt).catch(() => {});
+    desktop.launchAtLogin.get().then(setLogin).catch(() => {});
+    desktop.prefs.get().then(setPrefs).catch(() => {});
+    return desktop.whisper.onStatus(setSt);
+  }, []);
+  if (!st) return null;
+  const t = st.settings;
+  const set = async (patch) => setSt(await desktop.whisper.set(patch));
+  const get = async (id) => {
+    setErr('');
+    const r = await desktop.whisper.download(id);
+    if (!r.ok) setErr(r.error);
+    setSt(await desktop.whisper.status());
+  };
+  const dl = st.downloading;
+  return (
+    <Section icon={Monitor} title="This computer" description="Settings for the LOCK IN! desktop app on this computer.">
+      {desktopNeedsUpdate && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+          A newer desktop app is out. <a className="font-semibold underline" href={desktop.platform === 'darwin' ? DESKTOP_DOWNLOADS.macArm : DESKTOP_DOWNLOADS.windows}>Download it</a> and install over this one.
+        </p>
+      )}
+      <Row id="local-stt" label="Transcribe on this computer" hint="Private and free: class audio never leaves this computer. Off: the online service is used.">
+        <Switch id="local-stt" checked={t.enabled} onCheckedChange={(v) => set({ enabled: v })} />
+      </Row>
+      {t.enabled && (
+        <>
+          {!st.available && <p className="text-sm text-red-300">The transcription engine is missing from this install. Reinstall the desktop app.</p>}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Quality</p>
+            {Object.entries(st.models).map(([id, m]) => (
+              <div key={id} className="flex items-center gap-3 rounded-xl border p-3">
+                <input type="radio" name="stt-model" id={`m-${id}`} checked={t.model === id} onChange={() => set({ model: id })} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+                <label htmlFor={`m-${id}`} className="min-w-0 flex-1 text-sm">
+                  <span className="block font-semibold text-foreground">{m.label}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {id === 'base' ? 'Quick on any computer' : id === 'small' ? 'Better with names and terms' : 'Most accurate; best on a fast computer'} · {m.mb} MB
+                  </span>
+                </label>
+                {m.installed ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400"><Check className="h-3.5 w-3.5" />Ready</span>
+                  : dl?.id === id ? <span className="text-xs tabular-nums text-muted-foreground">{Math.round(dl.progress * 100)}%</span>
+                  : <Button size="sm" variant="outline" disabled={!!dl} onClick={() => get(id)}><Download className="mr-1.5 h-3.5 w-3.5" />Get</Button>}
+              </div>
+            ))}
+            {err && <p className="text-sm text-red-300" role="alert">{err}</p>}
+            {!st.models[t.model]?.installed && !dl && <p className="text-xs text-amber-200">Download this one to use it — until then the online service transcribes.</p>}
+          </div>
+          <Row id="stt-lang" label="Language spoken in class">
+            <select id="stt-lang" value={t.language} onChange={e => set({ language: e.target.value })}
+              className="h-10 rounded-lg border bg-card px-2 text-sm text-foreground">
+              {LANGUAGES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </Row>
+        </>
+      )}
+      <Row id="login" label="Start with my computer" hint="Opens quietly in the tray, so shortcuts and call detection are ready.">
+        <Switch id="login" checked={login} onCheckedChange={async (v) => setLogin(await desktop.launchAtLogin.set(v))} />
+      </Row>
+      <Row id="calls" label="Offer to record calls and online classes" hint="When Zoom, Teams or a browser call starts using the microphone.">
+        <Switch id="calls" checked={prefs.offerRecordCalls} onCheckedChange={async (v) => setPrefs({ ...prefs, ...(await desktop.prefs.set({ offerRecordCalls: v })) })} />
+      </Row>
+      <div>
+        <p className="text-sm font-medium text-foreground">Shortcuts that work from any app</p>
+        <ul className="mt-2 space-y-1.5">
+          {prefs.shortcuts.map(k => (
+            <li key={k.type} className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-muted-foreground">{k.label}</span>
+              <kbd className="flex-none rounded border bg-background px-2 py-0.5 text-xs text-foreground">{k.keys}</kbd>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <Button variant="outline" onClick={() => desktop.mini.set(true)}><PictureInPicture2 className="mr-2 h-4 w-4" />Float on top of other apps</Button>
     </Section>
   );
 }
@@ -188,6 +323,7 @@ export default function Settings() {
           </div>
         </Section>
 
+        <DesktopApp />
         <PhoneApp />
 
         <Section icon={Palette} title="Appearance">

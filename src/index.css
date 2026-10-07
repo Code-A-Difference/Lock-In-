@@ -153,3 +153,7 @@
   0%, 100% { transform: scaleY(0.3); }
   50% { transform: scaleY(1); }
 }
+
+/* ---- desktop app: the floating mini window ------------------------------ */
+.lockin-mini .lockin-handsfree-ask { display: none; }
+.lockin-mini .lockin-voice-dock { bottom: 12px; right: 12px; }

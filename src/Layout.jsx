@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic } from 'lucide-react';
+import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic, PictureInPicture2 } from 'lucide-react';
+import { desktop, isDesktop } from '@/lib/desktop';
+import { DesktopBridge, MiniView, useMini } from '@/components/lockin/DesktopShell';
 import { useAuth } from '@/lib/AuthContext';
 import { sync } from '@/api/db';
 import { cn } from '@/lib/utils';
@@ -91,6 +93,7 @@ export default function Layout({ children, currentPageName }) {
   const navigate = useNavigate();
   const [showKeys, setShowKeys] = useState(false);
   const active = currentPageName === 'Home' ? 'Today' : currentPageName;
+  const mini = useMini();
 
   useEffect(() => {
     const dark = user?.theme !== 'light';   // dark unless they chose light
@@ -124,8 +127,13 @@ export default function Layout({ children, currentPageName }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [active, focus.openFocus, navigate]);
 
+  if (mini) {
+    return (<><DesktopBridge /><MiniView /><SaveStatus /></>);
+  }
+
   return (
     <div className="min-h-dvh bg-background">
+      {isDesktop && <DesktopBridge />}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-card focus:px-4 focus:py-2 focus:shadow">
         Skip to content
       </a>
@@ -162,6 +170,12 @@ export default function Layout({ children, currentPageName }) {
 
         <div className="mt-auto flex flex-col gap-3">
           <RecordingPill className="w-full justify-center" />
+          {isDesktop && (
+            <button type="button" onClick={() => desktop.mini.set(true)} title="A small window that stays on top of your other apps"
+              className="flex h-9 items-center justify-center gap-2 rounded-lg border text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
+              <PictureInPicture2 className="h-4 w-4" aria-hidden="true" />Float on top
+            </button>
+          )}
           <TimerPill wide />
           {!isNativeApp && <a href={SITE_URL} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Code A Difference

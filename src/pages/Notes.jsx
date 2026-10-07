@@ -6,6 +6,8 @@ import {
   AlertTriangle, FileText, NotebookPen, ListChecks, RefreshCw, GraduationCap, MessageCircle,
 } from 'lucide-react';
 import ClassChat from '@/components/lockin/ClassChat';
+import { SourcePicker, preferredSource } from '@/components/lockin/DesktopShell';
+import { isDesktop } from '@/lib/desktop';
 import { RECIPES, NOTE_TEMPLATES } from '@/lib/classChat';
 import { cn } from '@/lib/utils';
 import { useStudyData, useActions } from '@/lib/data';
@@ -39,13 +41,14 @@ function LectureList() {
   const lec = useLecture();
   const [cls, setCls] = useState(location.state?.className || '');
   const [picking, setPicking] = useState(false);
+  const [source, setSource] = useState(preferredSource);
 
   const shown = useMemo(() => (cls ? lectures.filter(l => l.class_name === cls) : lectures), [lectures, cls]);
   const counts = useMemo(() => Object.fromEntries(classes.map(c => [c.name, lectures.filter(l => l.class_name === c.name).length])), [classes, lectures]);
 
   const record = async (c) => {
     setPicking(false);
-    try { await lec.start({ className: c?.name || '', classId: c?.id || '' }); } catch (e) {
+    try { await lec.start({ className: c?.name || '', classId: c?.id || '', source: isDesktop ? source : 'mic' }); } catch (e) {
       toast({ title: 'Could not start recording', description: e.message, variant: 'destructive' });
     }
   };
@@ -70,7 +73,7 @@ function LectureList() {
           </span>
         </button>
       ) : (
-        <button type="button" onClick={() => (classes.length ? setPicking(true) : record(null))} disabled={!lec.canRecord}
+        <button type="button" onClick={() => (classes.length || isDesktop ? setPicking(true) : record(null))} disabled={!lec.canRecord}
           className="flex w-full items-center gap-3 rounded-2xl bg-primary p-4 text-left text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.99] disabled:opacity-50">
           <span className="grid h-11 w-11 flex-none place-items-center rounded-full bg-white/15"><Mic className="h-5 w-5" aria-hidden="true" /></span>
           <span className="min-w-0 flex-1">
@@ -103,7 +106,8 @@ function LectureList() {
       </section>
 
       {picking && (
-        <Sheet title="Which class is this?" onClose={() => setPicking(false)}>
+        <Sheet title={isDesktop ? 'What are you recording?' : 'Which class is this?'} onClose={() => setPicking(false)}>
+          <SourcePicker value={source} onChange={setSource} className="mb-3" />
           <ul className="space-y-1">
             {classes.map(c => (
               <li key={c.id}>
@@ -173,6 +177,12 @@ function LectureView({ id }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [autoAsk, setAutoAsk] = useState(null);
   const quickAsk = (r) => { setAutoAsk(r); setTab('ask'); };
+  // Ctrl/Cmd+Shift+K in the desktop app: "catch me up" from anywhere
+  useEffect(() => {
+    const on = (e) => { const r = RECIPES.find(x => x.id === e.detail); if (r && live) quickAsk(r); };
+    window.addEventListener('lockin:quickask', on);
+    return () => window.removeEventListener('lockin:quickask', on);
+  }, [!!live]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (lecture && !live && !lecture.notes && tab === 'notes') setTab('transcript'); }, [lecture, live]); // eslint-disable-line react-hooks/exhaustive-deps
 

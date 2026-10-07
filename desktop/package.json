@@ -1,0 +1,48 @@
+{
+  "name": "lockin-desktop",
+  "productName": "LOCK IN!",
+  "version": "1.0.0",
+  "description": "LOCK IN! for Windows and Mac: private on-device transcription, a floating window, and computer-audio recording.",
+  "author": "Code A Difference",
+  "license": "MIT",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.mjs\"",
+    "dist:win": "electron-builder --win --x64 --publish never",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "devDependencies": {
+    "electron": "^44.6.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "ws.ct.codeadifference.lockin",
+    "productName": "LOCK IN!",
+    "artifactName": "LOCKIN-${os}-${arch}.${ext}",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "whisper.js", "meetings.js", "offline.html", "build/icon.png", "build/tray*.png", "package.json"],
+    "extraResources": [{ "from": "resources/whisper/${os}-${arch}", "to": "whisper", "filter": ["**/*"] }],
+    "win": { "target": "nsis", "icon": "build/icon.png" },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "LOCK IN!"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.education",
+      "icon": "build/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "LOCK IN! records your classes so it can transcribe them and write your notes.",
+        "NSAudioCaptureUsageDescription": "LOCK IN! can record your computer's sound — an online class or a lecture video — to transcribe it.",
+        "NSScreenCaptureUsageDescription": "Recording your computer's sound uses macOS screen and audio capture. LOCK IN! never saves the picture."
+      }
+    },
+    "dmg": { "title": "LOCK IN!" }
+  }
+}

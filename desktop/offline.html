@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>LOCK IN! — offline</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #16181d; color: #dbd8d1; font: 16px/1.5 system-ui, sans-serif; }
+  main { height: 100%; display: grid; place-content: center; text-align: center; padding: 24px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p { color: #9a9ea8; margin: 0 0 20px; max-width: 360px; }
+  button { height: 44px; padding: 0 20px; border: 0; border-radius: 12px; background: #84b3a6; color: #16181d; font-weight: 600; font-size: 15px; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Can’t reach LOCK IN!</h1>
+  <p>Check your internet connection. LOCK IN! will try again on its own.</p>
+  <div><button id="retry" type="button">Try again</button></div>
+</main>
+<script>
+  const to = new URLSearchParams(location.search).get('to') || 'https://codeadifference.ct.ws/lockin/';
+  const go = () => { location.href = to; };
+  document.getElementById('retry').onclick = go;
+  window.addEventListener('online', go);
+  setTimeout(go, 20000);
+</script>
+</body>
+</html>
