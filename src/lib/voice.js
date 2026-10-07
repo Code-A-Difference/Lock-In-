@@ -16,6 +16,7 @@
  * time, so nothing is read literally and nothing gets cut off.
  */
 import { AI_ENDPOINT } from '@/api/db';
+import { gateFetch } from '@/api/hostGate';
 import { speakable, chunks, voiceScore } from './speakable.js';
 
 export { speakable, chunks, voiceScore };
@@ -115,7 +116,7 @@ async function aiAudioUrl(text) {
   if (cache.has(key)) return cache.get(key);
   let r;
   try {
-    r = await fetch(AI_ENDPOINT, {
+    r = await gateFetch(AI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'speak', text, voice: settings.aiVoice }),
