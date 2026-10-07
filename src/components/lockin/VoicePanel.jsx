@@ -11,6 +11,7 @@ import { useLecture } from '@/lib/LectureContext';
 import { useStudyData } from '@/lib/data';
 import { listenOnce, HandsFree, canListen, canHandsFree } from '@/lib/listen';
 import { isNativeApp, appNeedsUpdate, APK_URL } from '@/lib/native';
+import { isDesktop } from '@/lib/desktop';
 import { chime, unlockAudio } from '@/lib/soundscape';
 import { stopSpeaking } from '@/lib/voice';
 
@@ -170,8 +171,11 @@ export default function VoicePanel() {
 
   useEffect(() => {
     const onTalk = () => { setExpanded(true); talk(); };
+    // the desktop app's global shortcut: open it ready to type
+    const onOpen = () => { setExpanded(true); setTimeout(() => box.current?.focus(), 150); };
     window.addEventListener('lockin:talk', onTalk);
-    return () => window.removeEventListener('lockin:talk', onTalk);
+    window.addEventListener('lockin:assistant', onOpen);
+    return () => { window.removeEventListener('lockin:talk', onTalk); window.removeEventListener('lockin:assistant', onOpen); };
   }, [talk]);
 
   /* -------------------------------------------------------------- typing */
@@ -219,12 +223,12 @@ export default function VoicePanel() {
   const lecturesReady = lectures.filter(l => l.notes || (l.segments || []).some(s => s.text));
 
   return (
-    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-2 lg:bottom-5">
+    <div className="lockin-voice-dock fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-2 lg:bottom-5">
       {pref === null && canHandsFree && !expanded && (
-        <div role="dialog" aria-label="Hands-free" className="w-[min(20rem,calc(100vw-2rem))] rounded-2xl border bg-card p-4 shadow-2xl">
+        <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask w-[min(20rem,calc(100vw-2rem))] rounded-2xl border bg-card p-4 shadow-2xl">
           <p className="text-sm font-semibold text-foreground">Go hands-free?</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : 'I’ll ask your browser for the microphone once and remember your answer.'}
+            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : (isDesktop ? 'It listens while LOCK IN! is open, even in the background.' : 'I’ll ask your browser for the microphone once and remember your answer.')}
           </p>
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={() => choose(true)} className="h-10 flex-1 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700">Turn on</button>

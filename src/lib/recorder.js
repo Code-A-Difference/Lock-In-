@@ -89,20 +89,46 @@ export class LectureRecorder {
     this._chunkStart = 0;
   }
 
-  async start() {
+  /**
+   * `source`: 'mic' (default), 'system' — the computer's own sound, e.g. an
+   * online class or a lecture video (desktop app only) — or 'both', mixed.
+   */
+  async start({ source = 'mic' } = {}) {
     if (!canRecord) throw new Error('This device can’t record audio here.');
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true },
-      });
-    } catch (e) {
-      throw new Error(e?.name === 'NotAllowedError'
-        ? 'Microphone access is blocked. Allow it for LOCK IN!, then try again.'
-        : 'No microphone could be opened.');
+    this.streams = [];
+    if (source === 'system' || source === 'both') {
+      let disp;
+      try {
+        disp = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+      } catch (_) {
+        throw new Error('The computer’s sound couldn’t be recorded. On a Mac, allow LOCK IN! under System Settings → Privacy & Security → Screen & System Audio Recording.');
+      }
+      // Only the sound is wanted; the picture is never kept.
+      disp.getVideoTracks().forEach(t => { t.enabled = false; });
+      if (!disp.getAudioTracks().length) {
+        disp.getTracks().forEach(t => t.stop());
+        throw new Error('This computer didn’t share its sound. Record with the microphone instead.');
+      }
+      this.streams.push(new MediaStream(disp.getAudioTracks()));
+      this._display = disp;
     }
+    if (source !== 'system') {
+      try {
+        this.streams.push(await navigator.mediaDevices.getUserMedia({
+          // with the computer's sound too, cancel the speakers out of the mic so nothing is heard twice
+          audio: { channelCount: 1, echoCancellation: source === 'both', noiseSuppression: true, autoGainControl: true },
+        }));
+      } catch (e) {
+        this._display?.getTracks().forEach(t => t.stop());
+        throw new Error(e?.name === 'NotAllowedError'
+          ? 'Microphone access is blocked. Allow it for LOCK IN!, then try again.'
+          : 'No microphone could be opened.');
+      }
+    }
+    this.stream = this.streams[0];
     const Ctx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctx();
-    this.source = this.ctx.createMediaStreamSource(this.stream);
+    this.sources = this.streams.map(s => this.ctx.createMediaStreamSource(s));
     // ScriptProcessor is deprecated but is the one sample tap every WebView
     // has, including older iOS ones; the work done per buffer is tiny.
     this.node = this.ctx.createScriptProcessor(4096, 1, 1);
@@ -118,7 +144,7 @@ export class LectureRecorder {
     // A muted gain keeps the processor running without playing the mic back.
     this.mute = this.ctx.createGain();
     this.mute.gain.value = 0;
-    this.source.connect(this.node);
+    this.sources.forEach(s => s.connect(this.node));     // several inputs are summed: mic + computer sound
     this.node.connect(this.mute);
     this.mute.connect(this.ctx.destination);
     if (this.ctx.state === 'suspended') await this.ctx.resume();
@@ -140,8 +166,9 @@ export class LectureRecorder {
     if (this.state === 'idle' || this.state === 'stopped') return;
     this.state = 'stopped';
     this._flush();
-    try { this.node.disconnect(); this.source.disconnect(); this.mute.disconnect(); } catch (_) {}
-    this.stream?.getTracks().forEach(t => t.stop());
+    try { this.node.disconnect(); this.sources.forEach(s => s.disconnect()); this.mute.disconnect(); } catch (_) {}
+    this.streams?.forEach(s => s.getTracks().forEach(t => t.stop()));
+    this._display?.getTracks().forEach(t => t.stop());
     try { await this.ctx.close(); } catch (_) {}
     try { await this.wakeLock?.release(); } catch (_) {}
     this.wakeLock = null;

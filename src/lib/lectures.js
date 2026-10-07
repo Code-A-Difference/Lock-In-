@@ -4,6 +4,7 @@
  */
 import { AI_ENDPOINT, db } from '@/api/db';
 import { toBase64 } from './recorder.js';
+import { transcribeLocally } from './desktop.js';
 import { sections, sectionPrompt, notesPrompt, normaliseNotes, NOTES_SCHEMA } from './lectureNotes.js';
 
 export * from './lectureNotes.js';
@@ -29,6 +30,11 @@ async function ask(request, tries = 4) {
  * and terms come out spelled right. Retries a busy proxy a few times.
  */
 export async function transcribeChunk(wav, hint = '', { tries = 4 } = {}) {
+  // In the desktop app, on this computer first: private, free, no service limits.
+  try {
+    const local = await transcribeLocally(wav, hint);
+    if (local !== null) return local.trim();
+  } catch (_) { /* the engine hiccuped: the online service takes this piece */ }
   const body = JSON.stringify({ mode: 'transcribe', audio: toBase64(wav), mimeType: 'audio/wav', hint });
   let wait = 2000;
   for (let i = 0; ; i++) {
