@@ -22,6 +22,7 @@
  */
 
 import { store, deriveKey, openJson, KDF_ITERATIONS, b64url } from './vault';
+import { gateFetch } from './hostGate';
 import { escapeLatexInJson } from '@/lib/mathText';
 import { raceAI, usualTime, noteTime } from '@/lib/aiRace';
 
@@ -38,7 +39,7 @@ const MAX_OPS_PER_REQUEST = 500;
 async function call(action, body = {}) {
   let r;
   try {
-    r = await fetch(LOCKIN_API, {
+    r = await gateFetch(LOCKIN_API, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-LockIn': '1' },
@@ -589,7 +590,7 @@ const integrations = {
       const send = async (lane, signal) => {
         let r;
         try {
-          r = await fetch(AI_ENDPOINT, {
+          r = await gateFetch(AI_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(lane ? { ...body, lane } : body),
@@ -601,6 +602,10 @@ const integrations = {
         }
         let j = null;
         try { j = await r.json(); } catch (_) {}
+        if (!j && r.ok) {
+          // not JSON at all: the host's check page even after renewing — a second lane may get through
+          throw new Error('LOCK IN! briefly lost its connection to the site. Try again, or reload the app if it keeps happening.');
+        }
         if (!j || !j.ok) {
           // the server answered: it has already tried every key, so another lane won't help
           throw Object.assign(new Error((j && j.error) || `The AI service returned an error (${r.status}).`), { final: true });

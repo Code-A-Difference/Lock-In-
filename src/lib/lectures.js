@@ -3,6 +3,7 @@
  * the AI for notes. The pure parts live in lectureNotes.js.
  */
 import { AI_ENDPOINT, db } from '@/api/db';
+import { gateFetch } from '@/api/hostGate';
 import { toBase64 } from './recorder.js';
 import { transcribeLocally } from './desktop.js';
 import { sections, sectionPrompt, notesPrompt, normaliseNotes, NOTES_SCHEMA } from './lectureNotes.js';
@@ -40,7 +41,7 @@ export async function transcribeChunk(wav, hint = '', { tries = 4 } = {}) {
   for (let i = 0; ; i++) {
     let r, j = null;
     try {
-      r = await fetch(AI_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      r = await gateFetch(AI_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
       try { j = await r.json(); } catch (_) {}
     } catch (_) {
       r = null;
