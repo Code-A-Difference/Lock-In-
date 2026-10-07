@@ -53,6 +53,12 @@ export const NOTES_SCHEMA = {
     summary: { type: 'string' },
     sections: { type: 'array', items: { type: 'object', properties: {
       heading: { type: 'string' }, points: { type: 'array', items: { type: 'string' } },
+      graph: { type: 'object', properties: {
+        title: { type: 'string' },
+        expressions: { type: 'array', items: { type: 'string' } },
+        xmin: { type: 'number' }, xmax: { type: 'number' }, ymin: { type: 'number' }, ymax: { type: 'number' },
+        caption: { type: 'string' },
+      } },
     } } },
     key_terms: { type: 'array', items: { type: 'object', properties: {
       term: { type: 'string' }, definition: { type: 'string' },
@@ -64,9 +70,27 @@ export const NOTES_SCHEMA = {
   },
 };
 
+/**
+ * How maths and science are written in notes, so they render as real notation
+ * (KaTeX + mhchem in the app) instead of "x squared over two".
+ */
+export const STEM_RULES = `Maths and science notation (when the class has any):
+- Write every formula, expression, number with a unit, and symbol in LaTeX between single dollar signs, inline: $x^2 + 3x - 4 = 0$. Never leave maths as words or plain text like x^2 or sqrt(x).
+- Turn spoken maths into notation: "x squared" -> $x^2$, "two over three" -> $\\frac{2}{3}$, "square root of b squared minus four a c" -> $\\sqrt{b^2 - 4ac}$, "d y by d x" -> $\\frac{dy}{dx}$, "the integral from zero to one of x d x" -> $\\int_0^1 x\\,dx$, "limit as x goes to zero" -> $\\lim_{x \\to 0}$, "delta x" -> $\\Delta x$, "theta" -> $\\theta$, "f of x" -> $f(x)$, "less than or equal to" -> $\\le$.
+- Chemistry in mhchem: formulas and equations as $\\ce{2H2 + O2 -> 2H2O}$, ions $\\ce{SO4^2-}$, states $\\ce{NaCl(aq)}$, equilibrium $\\ce{N2 + 3H2 <=> 2NH3}$.
+- Physics: numbers with units as $9.8\\,\\text{m/s}^2$, scientific notation $3.0 \\times 10^8\\,\\text{m/s}$, vectors $\\vec{F}$, subscripts $v_0$, $F_{net}$.
+- Calculus: $f'(x)$, $\\frac{d}{dx}\\left(x^3\\right) = 3x^2$, $\\int x^2\\,dx = \\frac{x^3}{3} + C$, $\\sum_{n=1}^{\\infty}$.
+- Keep each worked step on its own point. In JSON, write every LaTeX backslash doubled (\\\\frac).`;
+
+export const GRAPH_RULES = `Graphs: when the class graphs, sketches or describes a plot of something with a known equation or data — a parabola, a line, a trig or exponential function, a derivative or area under a curve, a position/velocity–time relation, a supply/demand line — give that section a "graph" for Desmos:
+- "expressions": Desmos LaTeX, one per item, in x and y (e.g. "y=x^2-4", "f(x)=\\\\sin(x)", "y=2x+1", "(2,0)", "y\\\\le x+1"). For physics or other axes, still use x and y and name the real axes in "caption" (e.g. "x is time in s, y is velocity in m/s").
+- "xmin"/"xmax"/"ymin"/"ymax": a window that shows the interesting part (roots, vertex, intersections).
+- "title": what the graph shows; "caption": one line on what to notice.
+- Only when the equation or numbers were actually given or follow directly from the class. No graph is better than an invented one. Most sections have none.`;
+
 export function sectionPrompt(part, index, total, className) {
   return `This is part ${index + 1} of ${total} of a transcript of a ${className ? `${className} ` : ''}class.
-Write dense study notes for just this part: the ideas taught, in order, with examples, formulas, dates and definitions kept exactly. Bullet points. Note anything the teacher said is due, coming up on a test, or important to remember. No preamble.
+Write dense study notes for just this part: the ideas taught, in order, with examples, formulas, dates and definitions kept exactly. Bullet points. Note anything the teacher said is due, coming up on a test, or important to remember. Write maths and science in LaTeX between $ signs ($x^2$, $\\ce{H2O}$, $9.8\\,\\text{m/s}^2$), turning spoken maths into notation. If a graph is drawn or described, keep its equation and what it shows. No preamble.
 
 Transcript:
 ${part}`;
@@ -86,6 +110,11 @@ Rules:
 - "action_items" are only things the teacher actually said: homework, a test or quiz, or something to bring or do. "due" is the date exactly as said ("next Friday", "Oct 12"), or "".
 - "review_questions" are 3-5 questions that check understanding of this class.
 - "title" is a short name for this class's topic.
+- Write "summary", points, definitions and review questions with the notation rules below.
+
+${STEM_RULES}
+
+${GRAPH_RULES}
 
 Transcript:
 ${transcript}`;
@@ -99,14 +128,36 @@ export function actionKind(kind, title = '') {
   return 'reminder';
 }
 
+/**
+ * A section's Desmos graph, checked: a few short expressions and a sane
+ * window, or null. Bad bounds are dropped (Desmos picks its own).
+ */
+export function normaliseGraph(g) {
+  if (!g || typeof g !== 'object') return null;
+  const expressions = (Array.isArray(g.expressions) ? g.expressions : [])
+    .map(e => String(e ?? '').trim().replace(/^\$+|\$+$/g, ''))
+    .filter(e => e && e.length <= 200).slice(0, 6);
+  if (!expressions.length) return null;
+  const num = (v) => (typeof v === 'number' ? v : Number(v));
+  const [xmin, xmax, ymin, ymax] = [g.xmin, g.xmax, g.ymin, g.ymax].map(num);
+  const out = { title: String(g.title || '').trim(), caption: String(g.caption || '').trim(), expressions };
+  if ([xmin, xmax].every(Number.isFinite) && xmin < xmax) Object.assign(out, { xmin, xmax });
+  if ([ymin, ymax].every(Number.isFinite) && ymin < ymax) Object.assign(out, { ymin, ymax });
+  return out;
+}
+
 /** Fill in anything the AI left out, so the page never has to guard. */
 export function normaliseNotes(n) {
   const arr = (x) => (Array.isArray(x) ? x : []);
   return {
     title: String(n?.title || '').trim(),
     summary: String(n?.summary || '').trim(),
-    sections: arr(n?.sections).map(s => ({ heading: String(s?.heading || '').trim(), points: arr(s?.points).map(String).filter(Boolean) }))
-      .filter(s => s.heading || s.points.length),
+    sections: arr(n?.sections).map(s => {
+      const out = { heading: String(s?.heading || '').trim(), points: arr(s?.points).map(String).filter(Boolean) };
+      const g = normaliseGraph(s?.graph);
+      if (g) out.graph = g;
+      return out;
+    }).filter(s => s.heading || s.points.length),
     key_terms: arr(n?.key_terms).map(k => ({ term: String(k?.term || '').trim(), definition: String(k?.definition || '').trim() })).filter(k => k.term),
     action_items: arr(n?.action_items).map(a => ({
       kind: actionKind(a?.kind, a?.title),
@@ -127,6 +178,7 @@ export function notesMarkdown(notes, { title, className, date } = {}) {
   for (const s of n.sections) {
     lines.push('', `## ${s.heading || 'Notes'}`);
     for (const p of s.points) lines.push(`- ${p}`);
+    if (s.graph) lines.push(`- Graph${s.graph.title ? ` (${s.graph.title})` : ''}: ${s.graph.expressions.map(e => `$${e}$`).join(', ')}${s.graph.caption ? ` — ${s.graph.caption}` : ''}`);
   }
   if (n.key_terms.length) {
     lines.push('', '## Key terms');

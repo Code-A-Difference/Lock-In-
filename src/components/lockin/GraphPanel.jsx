@@ -14,7 +14,7 @@ const KEY = import.meta.env.VITE_DESMOS_KEY || 'dcb31709b452b1cf9dc26972add0fda6
 const SRC = `https://www.desmos.com/api/v1.11/calculator.js?apiKey=${KEY}`;
 
 let loading = null;
-function loadDesmos() {
+export function loadDesmos() {
   if (window.Desmos) return Promise.resolve(window.Desmos);
   loading ||= new Promise((resolve, reject) => {
     const s = document.createElement('script');
