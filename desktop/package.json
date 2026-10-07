@@ -1,7 +1,7 @@
 {
   "name": "lockin-desktop",
   "productName": "LOCK IN!",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LOCK IN! for Windows and Mac: private on-device transcription, a floating window, and computer-audio recording.",
   "author": "Code A Difference",
   "license": "MIT",

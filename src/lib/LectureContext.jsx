@@ -11,20 +11,13 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useNavigate } from 'react-router-dom';
 import { useActions, useStudyData } from './data.js';
 import { ymd } from './dates.js';
-import { LectureRecorder, canRecord, downsample, encodeWav, isSilent, SAMPLE_RATE, CHUNK_SECONDS } from './recorder.js';
-import { transcribeChunk, transcriptText, generateNotes } from './lectures.js';
+import { LectureRecorder, canRecord, downsample, encodeWav, enhanceSpeech, isSilent, SAMPLE_RATE, CHUNK_SECONDS } from './recorder.js';
+import { transcribeChunk, transcriptText, generateNotes, cleanPiece } from './lectures.js';
 import { templateHow } from './classChat.js';
 import { desktop } from './desktop.js';
 import { chime, unlockAudio } from './soundscape.js';
 import { keepPending, dropPending, listPending, dropLecture } from './pendingAudio.js';
 
-/* Speech models sometimes "hear" a stock phrase in a quiet room. A piece that
-   was nearly silent and came back as only such filler is treated as silence. */
-const FILLER = /^(\W*(thank you( for watching)?|thanks|all ?right|okay|ok|right|you|bye|um+|uh+|hmm+|yeah|so|music|silence)\W*)+$/i;
-export function cleanPiece(text, loudness = 1) {
-  const t = (text || '').trim();
-  return loudness < 0.03 && FILLER.test(t) ? '' : t;
-}
 
 const Ctx = createContext(null);
 
@@ -214,9 +207,9 @@ export function LectureProvider({ children }) {
         const samples = pcm.subarray(i * piece, Math.min(pcm.length, (i + 1) * piece));
         let seg = { start: i * CHUNK_SECONDS, duration: samples.length / SAMPLE_RATE, text: '' };
         if (!isSilent(samples)) {
-          const wav = encodeWav(samples);
+          const wav = encodeWav(enhanceSpeech(samples));
           try {
-            seg.text = await transcribeChunk(wav, [className, transcriptText(out).slice(-300)].filter(Boolean).join(' — '));
+            seg.text = cleanPiece(await transcribeChunk(wav, [className, transcriptText(out).slice(-300)].filter(Boolean).join(' — ')));
           } catch (e) { seg.error = e.message; keepPending(lec.id, seg.start, seg.duration, wav); }
         }
         out.push(seg);
@@ -258,7 +251,7 @@ export function LectureProvider({ children }) {
         const list = lecNow.segments || [];
         const hint = [lecNow.class_name, transcriptText(list.filter(x => x.start < p.start)).slice(-300)].filter(Boolean).join(' — ');
         let text;
-        try { text = await transcribeChunk(p.wav, hint, { tries: 2 }); } catch (e) { error = e.message; break; }
+        try { text = cleanPiece(await transcribeChunk(p.wav, hint, { tries: 2 })); } catch (e) { error = e.message; break; }
         const seg = { start: p.start, duration: p.duration, text };
         const next = [...list.filter(x => Math.abs(x.start - p.start) > 0.01), seg].sort((a, b) => a.start - b.start);
         lecturesRef.current = lecturesRef.current.map(l => (l.id === lecId ? { ...l, segments: next } : l));

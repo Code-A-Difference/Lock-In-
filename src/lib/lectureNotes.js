@@ -20,6 +20,19 @@ export function transcriptText(segments = []) {
   return segments.filter(s => s.text).map(s => s.text.trim()).join(' ').replace(/\s+/g, ' ').trim();
 }
 
+/* Tags speech models write for sound they couldn't make out: [inaudible], (indistinct chatter), [BLANK_AUDIO]… */
+const TAGS = /[[(*]\s*(?:inaudible|unintelligible|indistinct[^\])*]*|blank_audio|no speech|silence|music|noise|background noise|crosstalk|static)\s*[\])*]/gi;
+/* Speech models sometimes "hear" a stock phrase in a quiet room. A piece that
+   was nearly silent and came back as only such filler is treated as silence. */
+const FILLER = /^(\W*(thank you( for watching)?|thanks|all ?right|okay|ok|right|you|bye|um+|uh+|hmm+|yeah|so|music|silence)\W*)+$/i;
+
+/** One transcribed piece, tidied: no [inaudible]-style tags, no filler "heard" in silence. */
+export function cleanPiece(text, loudness = 1) {
+  const t = String(text || '').replace(TAGS, ' ').replace(/\s+([,.!?])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+  if (!/[\p{L}\p{N}]/u.test(t)) return '';
+  return loudness < 0.03 && FILLER.test(t) ? '' : t;
+}
+
 /** "12:05" for 725 seconds; "1:02:05" past the hour. */
 export function clock(seconds) {
   const s = Math.max(0, Math.round(seconds || 0));
