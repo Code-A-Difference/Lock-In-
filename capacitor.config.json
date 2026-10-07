@@ -9,18 +9,18 @@
   },
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#0a0b0f"
+    "backgroundColor": "#16181d"
   },
   "ios": {
     "contentInset": "never",
-    "backgroundColor": "#0a0b0f",
+    "backgroundColor": "#16181d",
     "limitsNavigationsToAppBoundDomains": false
   },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 1200,
       "launchAutoHide": true,
-      "backgroundColor": "#0a0b0f",
+      "backgroundColor": "#16181d",
       "showSpinner": false,
       "androidScaleType": "CENTER_CROP"
     },

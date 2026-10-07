@@ -14,7 +14,8 @@
  */
 
 export const SAMPLE_RATE = 16000;
-export const CHUNK_SECONDS = 30;
+// Short pieces keep the live transcript (and "catch me up") a few seconds behind, not half a minute.
+export const CHUNK_SECONDS = 15;
 const SILENCE_RMS = 0.006;
 
 /** Average a Float32 signal down to `outRate`, as 16-bit PCM. */
@@ -146,6 +147,11 @@ export class LectureRecorder {
     this.wakeLock = null;
   }
 
+  /** Send what's been heard since the last piece now (someone asked about the class). */
+  flushNow(minSeconds = 2) {
+    if (this.state === 'recording' && this._partLen >= minSeconds * SAMPLE_RATE) this._flush();
+  }
+
   _flush() {
     if (!this._partLen) return;
     const all = new Int16Array(this._partLen);
@@ -156,7 +162,7 @@ export class LectureRecorder {
     this._chunkStart += duration;
     this._parts = [];
     this._partLen = 0;
-    this.onChunk?.({ wav: encodeWav(all), start, duration, silent: isSilent(all) });
+    this.onChunk?.({ wav: encodeWav(all), start, duration, silent: isSilent(all), loudness: rms(all) });
   }
 
   // Keep the screen (and with it, on phones, the recording) awake.

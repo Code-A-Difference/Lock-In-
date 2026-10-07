@@ -14,25 +14,21 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
-  			// Code A Difference's ember. The app used indigo/violet/fuchsia everywhere; the same
-  			// class names now resolve to the site's orange, so no purple is left anywhere.
+  			// A calm sage. The app used indigo/violet/fuchsia everywhere; the same class names
+  			// resolve to this soft green-grey, which is easy on the eyes for hours (no purple, no neon).
   			indigo: {
-  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
-  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  			50: '#f1f6f4', 100: '#dde9e5', 200: '#bdd6ce', 300: '#9cc0b5', 400: '#84b3a6', 500: '#6a9a8c', 600: '#557f73', 700: '#45675e', 800: '#38534c', 900: '#2e443f', 950: '#18241f',
   		},
   			violet: {
-  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
-  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  			50: '#f1f6f4', 100: '#dde9e5', 200: '#bdd6ce', 300: '#9cc0b5', 400: '#84b3a6', 500: '#6a9a8c', 600: '#557f73', 700: '#45675e', 800: '#38534c', 900: '#2e443f', 950: '#18241f',
   		},
   			purple: {
-  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
-  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  			50: '#f1f6f4', 100: '#dde9e5', 200: '#bdd6ce', 300: '#9cc0b5', 400: '#84b3a6', 500: '#6a9a8c', 600: '#557f73', 700: '#45675e', 800: '#38534c', 900: '#2e443f', 950: '#18241f',
   		},
   			fuchsia: {
-  			50: '#fff4ee', 100: '#ffe4d6', 200: '#ffc9ad', 300: '#ffa57a', 400: '#ff8556',
-  			500: '#ff6b3d', 600: '#cf4519', 700: '#a5380f', 800: '#842f12', 900: '#6c2a13', 950: '#3a1307',
+  			50: '#f1f6f4', 100: '#dde9e5', 200: '#bdd6ce', 300: '#9cc0b5', 400: '#84b3a6', 500: '#6a9a8c', 600: '#557f73', 700: '#45675e', 800: '#38534c', 900: '#2e443f', 950: '#18241f',
   		},
-  			mint: '#4fd6c4',
+  			mint: '#84b3a6',
   			// Code A Difference's ink scale instead of Tailwind's blue-grey slate
   			slate: {
   				50: '#f6f3ec', 100: '#ece8df', 200: '#d9d4c8', 300: '#b9b6ae', 400: '#8a8d99', 500: '#6b6f7d',

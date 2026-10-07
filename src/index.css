@@ -4,7 +4,7 @@
 
 /*
  * LOCK IN! design tokens — Code A Difference's look: warm ink on near-black,
- * ember (#ff6b3d) as the one accent, mint for focus rings, Space Grotesk.
+ * a calm sage (#84b3a6) as the one accent on soft charcoal, Space Grotesk.
  * Dark is the default (the site is dark by design); the light theme is warm
  * paper with a darker ember so text on it stays readable. Everything in the
  * app reads these variables, so changing them here changes every screen.
@@ -12,58 +12,58 @@
  */
 @layer base {
   :root {
-    --background: 40 33% 93%;           /* paper #f3efe7 */
-    --foreground: 228 20% 7%;
-    --card: 40 30% 97%;
+    --background: 40 20% 94%;           /* soft paper */
+    --foreground: 220 15% 16%;
+    --card: 40 25% 97%;
     --card-foreground: 228 20% 7%;
     --popover: 40 30% 97%;
     --popover-foreground: 228 20% 7%;
-    --primary: 17 86% 43%;              /* ember, darkened for white text */
+    --primary: 166 30% 33%;             /* sage, deep enough for white text */
     --primary-foreground: 0 0% 100%;
     --secondary: 40 22% 89%;
     --secondary-foreground: 228 20% 7%;
     --muted: 40 22% 89%;
     --muted-foreground: 228 10% 32%;
-    --accent: 17 70% 91%;               /* ember wash */
-    --accent-foreground: 17 80% 28%;
+    --accent: 160 22% 89%;              /* sage wash */
+    --accent-foreground: 166 32% 24%;
     --destructive: 0 72% 46%;
     --destructive-foreground: 0 0% 100%;
     --border: 40 14% 80%;
     --input: 40 14% 80%;
-    --ring: 174 65% 32%;                /* mint, darkened for paper */
+    --ring: 166 30% 38%;
     --radius: 0.75rem;
-    --chart-1: 17 86% 43%;
+    --chart-1: 166 30% 38%;
     --chart-2: 174 65% 32%;
     --chart-3: 41 100% 45%;
-    --chart-4: 14 100% 62%;
+    --chart-4: 205 35% 50%;
     --chart-5: 199 60% 40%;
   }
 
   .dark {
-    --background: 228 20% 5%;           /* #0a0b0f */
-    --foreground: 40 33% 93%;           /* warm off-white #f3efe7 */
-    --card: 227 22% 8%;                 /* #101219 */
-    --card-foreground: 40 33% 93%;
-    --popover: 227 22% 8%;
-    --popover-foreground: 40 33% 93%;
-    --primary: 14 100% 62%;             /* ember #ff6b3d */
-    --primary-foreground: 228 20% 5%;
-    --secondary: 227 22% 11%;           /* #161922 */
-    --secondary-foreground: 40 33% 93%;
-    --muted: 227 22% 11%;
-    --muted-foreground: 227 9% 66%;     /* #a0a4b0 */
-    --accent: 14 45% 16%;               /* ember-soft */
-    --accent-foreground: 14 100% 76%;
-    --destructive: 0 72% 58%;
+    --background: 220 13% 10%;          /* soft charcoal, not black */
+    --foreground: 40 12% 84%;           /* soft warm grey-white */
+    --card: 220 12% 13%;
+    --card-foreground: 40 12% 84%;
+    --popover: 220 12% 13%;
+    --popover-foreground: 40 12% 84%;
+    --primary: 162 24% 60%;             /* muted sage #84b3a6 — calm on a dark screen */
+    --primary-foreground: 220 15% 10%;
+    --secondary: 220 11% 17%;
+    --secondary-foreground: 40 12% 84%;
+    --muted: 220 11% 17%;
+    --muted-foreground: 220 7% 62%;
+    --accent: 165 14% 18%;              /* sage-soft */
+    --accent-foreground: 160 22% 76%;
+    --destructive: 0 55% 58%;
     --destructive-foreground: 0 0% 100%;
-    --border: 227 15% 16%;              /* #23262f */
-    --input: 227 15% 18%;
-    --ring: 174 63% 57%;                /* mint #4fd6c4 */
-    --chart-1: 14 100% 62%;
-    --chart-2: 174 63% 57%;
-    --chart-3: 41 100% 70%;             /* amber #ffd166 */
-    --chart-4: 14 100% 76%;
-    --chart-5: 199 70% 62%;
+    --border: 220 10% 21%;
+    --input: 220 10% 23%;
+    --ring: 162 24% 55%;
+    --chart-1: 162 24% 60%;
+    --chart-2: 205 30% 62%;
+    --chart-3: 40 45% 66%;
+    --chart-4: 15 40% 66%;
+    --chart-5: 260 15% 66%;
   }
 }
 

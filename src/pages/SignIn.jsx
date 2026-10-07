@@ -74,7 +74,7 @@ export default function SignIn() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 lg:grid lg:grid-cols-[1.05fr_1fr]">
 
       {/* ── brand panel ─────────────────────────────────────────── */}
-      <aside className="relative overflow-hidden bg-[#0a0b0f] px-6 py-10 text-[#f3efe7] sm:px-10 lg:flex lg:flex-col lg:justify-between lg:py-14">
+      <aside className="relative overflow-hidden bg-[#16181d] px-6 py-10 text-[#f3efe7] sm:px-10 lg:flex lg:flex-col lg:justify-between lg:py-14">
         <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-2xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
 
