@@ -18,6 +18,34 @@ export function normaliseMath(text) {
     .replace(/(^|[\s(])(\\(?:frac|dfrac|sqrt|int|sum|lim)\b(?:\{(?:[^{}]|\{[^{}]*\})*\}|[^\s,.;)]*)+)/g, (_, pre, m) => `${pre}$${m}$`))).join('');
 }
 
+/* LaTeX commands a model might write inside a JSON string. */
+const LATEX_CMDS = new Set(`frac dfrac tfrac sqrt times div cdot cdotp pm mp text textbf textit mathrm mathbf mathit mathbb mathcal operatorname
+theta Theta vartheta tau tan tanh beta bar boxed binom rightarrow Rightarrow rightleftharpoons right rho neq ne nu nabla not vec
+varepsilon varphi alpha gamma Gamma delta Delta epsilon lambda Lambda mu pi Pi sigma Sigma phi Phi omega Omega eta kappa xi psi chi
+zeta iota int iint oint sum prod lim infty partial le leq ge geq approx equiv propto sim sin cos sec csc cot arcsin arccos
+arctan sinh cosh log ln exp left ce pu circ degree angle perp parallel in notin cup cap to dots ldots cdots vdots overline underline
+hat dot ddot quad qquad displaystyle pmatrix bmatrix begin end hbar ell langle rangle leftarrow longrightarrow leftrightarrow
+Leftrightarrow uparrow downarrow forall exists subset subseteq emptyset therefore because prime mid nmid gcd max min det overrightarrow
+underbrace overbrace stackrel xrightarrow cancel square triangle`.split(/\s+/));
+
+/**
+ * A model asked for JSON often writes LaTeX with one backslash ("\frac"),
+ * which JSON reads as an escape: \f becomes a form feed, \t a tab, \b a
+ * backspace, \n a newline — and \s, \c… make JSON.parse fail outright. Double
+ * the backslash in front of known LaTeX commands before parsing; real escapes
+ * ("\n" before a word, "\"") and already-doubled ones are left alone.
+ */
+export function escapeLatexInJson(raw) {
+  return String(raw || '').replace(/\\\\|\\u[0-9a-fA-F]{4}|\\([a-zA-Z]+)|\\([^"\\/])/g, (m, name, other) => {
+    if (name) {
+      // a known command, or any letter run JSON couldn't read anyway (\sqrt, \qty…)
+      return LATEX_CMDS.has(name) || !'bfnrt'.includes(name[0]) ? `\\\\${name}` : m;
+    }
+    if (other) return `\\\\${other}`;     // \, \; \! \{ \% … — spacing and symbols, never valid JSON
+    return m;                              // \\ \uXXXX \" \/ stay as they are
+  });
+}
+
 const GREEK = {
   alpha: 'alpha', beta: 'beta', gamma: 'gamma', delta: 'delta', Delta: 'delta', epsilon: 'epsilon', varepsilon: 'epsilon',
   theta: 'theta', lambda: 'lambda', mu: 'mu', pi: 'pi', rho: 'rho', sigma: 'sigma', Sigma: 'sigma', tau: 'tau',

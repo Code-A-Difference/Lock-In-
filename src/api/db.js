@@ -22,6 +22,7 @@
  */
 
 import { store, deriveKey, openJson, KDF_ITERATIONS, b64url } from './vault';
+import { escapeLatexInJson } from '@/lib/mathText';
 
 const ENTITY_NAMES = ['Class', 'ClassGroup', 'Homework', 'Test', 'FocusSession', 'StudyHistory', 'Lecture'];
 export const LOCKIN_API = import.meta.env.VITE_LOCKIN_API || '/api/lockin.php';
@@ -537,7 +538,8 @@ function dataUrlToPart(url) {
 }
 
 function parseJsonReply(text) {
-  const t = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  // maths written with single backslashes would otherwise be mangled or unparseable
+  const t = escapeLatexInJson(String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
   try { return JSON.parse(t); } catch (_) {}
   const start = t.search(/[[{]/);
   const end = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));

@@ -6,6 +6,7 @@ import {
   AlertTriangle, FileText, NotebookPen, ListChecks, RefreshCw, GraduationCap, MessageCircle,
 } from 'lucide-react';
 import ClassChat from '@/components/lockin/ClassChat';
+import NoteGraph from '@/components/lockin/NoteGraph';
 import { SourcePicker, preferredSource } from '@/components/lockin/DesktopShell';
 import { isDesktop } from '@/lib/desktop';
 import { RECIPES, NOTE_TEMPLATES } from '@/lib/classChat';
@@ -506,7 +507,7 @@ function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
       {n.summary && (
         <section className="rounded-2xl bg-accent p-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-accent-foreground/80">Summary</h2>
-          <p className="mt-1 text-base leading-relaxed text-foreground">{n.summary}</p>
+          <p className="mt-1 text-base leading-relaxed text-foreground"><MathLine text={n.summary} /></p>
         </section>
       )}
 
@@ -538,6 +539,7 @@ function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
           <ul className="mt-1.5 list-disc space-y-1.5 pl-5 text-base leading-relaxed text-foreground marker:text-indigo-500">
             {s.points.map((p, j) => <li key={j}><MathLine text={p} /></li>)}
           </ul>
+          {s.graph && <NoteGraph graph={s.graph} />}
         </section>
       ))}
 
@@ -559,7 +561,7 @@ function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
         <section>
           <h2 className="text-lg font-bold text-foreground">Check yourself</h2>
           <ol className="mt-1.5 list-decimal space-y-1.5 pl-5 text-base leading-relaxed text-foreground">
-            {n.review_questions.map((q, i) => <li key={i}>{q}</li>)}
+            {n.review_questions.map((q, i) => <li key={i}><MathLine text={q} /></li>)}
           </ol>
         </section>
       )}
