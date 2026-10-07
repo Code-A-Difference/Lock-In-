@@ -49,12 +49,13 @@ async function call(action, body = {}) {
     throw Object.assign(new Error("Can't reach LOCK IN!'s server. Check your connection."), { status: 0, offline: true });
   }
   let j = null;
-  try { j = await r.json(); } catch (_) {}
+  let text = '';
+  try { text = await r.text(); j = JSON.parse(text); } catch (_) { j = null; }
   if (r.ok && j && j.ok) return j;
 
   const err = Object.assign(
     new Error((j && j.error) || `LOCK IN!'s server had a problem (${r.status}). Try again in a moment.`),
-    { status: j ? r.status : (r.status >= 400 ? r.status : 502) }
+    { status: j ? r.status : (r.status >= 400 ? r.status : 502), snippet: j ? '' : String(text).replace(/\s+/g, ' ').slice(0, 100) }
   );
   // Signed out underneath us: the password was changed on another device,
   // or the session ran out. Back to the sign-in page.
@@ -130,7 +131,20 @@ let flushTimer = null;
 let retryIn = 0;
 let offline = false;
 
-function syncState() { return { pending: outbox.length + (flushing ? 1 : 0), offline }; }
+/* Why saving is failing, for the banner — and a short record of failures that rides along
+   with the next save that gets through, so the server's log shows what happened. */
+let lastError = null;             // { status, msg, snippet }
+let failures = [];                // [{ at, status, msg, snippet, ops, bytes }]
+
+function saveProblem(e) {
+  if (e?.status === 0 || e?.offline) return 'no connection to the server';
+  if (/aes\.js|slowAES/.test(e?.snippet || '')) return 'the site’s security check';
+  if (e?.status === 502 && e?.snippet) return 'an unexpected reply from the server';
+  if (e?.status >= 500) return `server error ${e.status}`;
+  return e?.message || 'unknown problem';
+}
+
+function syncState() { return { pending: outbox.length + (flushing ? 1 : 0), offline, reason: offline && lastError ? lastError.reason : '' }; }
 function notifySync() { const st = syncState(); syncListeners.forEach(fn => { try { fn(st); } catch (_) {} }); }
 
 function send(op) {
@@ -168,7 +182,10 @@ function flush() {
   const who = session.username;
   flushing = (async () => {
     try {
-      const j = await call('ops', { ops: coalesce(batch.map(b => b.op)) });
+      const report = failures.length ? failures.slice(-20) : null;
+      const j = await call('ops', { ops: coalesce(batch.map(b => b.op)), ...(report ? { diag: report } : {}) });
+      if (report) failures = [];
+      lastError = null;
       if (session?.username === who) {
         // Anything other than one step on means another device saved in between.
         if (j.rev !== session.rev + 1) stale = true;
@@ -182,6 +199,10 @@ function flush() {
         batch.forEach(b => b.reject(e));
       } else if (e.offline || e.status >= 500) {
         // Worth another go: put it back at the front, in order.
+        lastError = { status: e.status ?? 0, msg: String(e.message || '').slice(0, 120), snippet: e.snippet || '', reason: saveProblem(e) };
+        failures.push({ at: new Date().toISOString(), status: lastError.status, msg: lastError.msg, snippet: lastError.snippet,
+          ops: batch.length, bytes: JSON.stringify(batch.map(b => b.op)).length, online: typeof navigator !== 'undefined' ? navigator.onLine : null });
+        if (failures.length > 40) failures = failures.slice(-40);
         outbox.unshift(...batch);
         offline = true;
         retryIn = Math.min(30000, retryIn ? retryIn * 2 : 2000);
