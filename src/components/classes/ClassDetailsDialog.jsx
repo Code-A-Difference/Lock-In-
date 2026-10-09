@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, User, Clock, Share2, Loader2 } from "lucide-react";
+import { Copy, Check, User, Clock, Share2, Loader2, Brain, FilePlus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useStudyData } from "@/lib/data";
+import { classSources } from "@/lib/classQuiz";
 import { cn } from "@/lib/utils";
 import { sharing } from '@/api/db';
 
@@ -13,6 +16,8 @@ export default function ClassDetailsDialog({ open, onOpenChange, classItem }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
+  const { lectures = [] } = useStudyData();
 
   useEffect(() => {
     if (!open || !classItem) return;
@@ -54,6 +59,20 @@ export default function ClassDetailsDialog({ open, onOpenChange, classItem }) {
               <Clock className="h-4 w-4" /><span>{classItem.schedule}</span>
             </div>
           )}
+
+          {(() => {
+            const n = classSources(lectures, classItem.name).length;
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                <Button disabled={!n} onClick={() => { onOpenChange(false); navigate('/Study', { state: { tab: 'quiz', className: classItem.name } }); }}>
+                  <Brain className="mr-2 h-4 w-4" />Quiz me{n ? ` (${n})` : ''}
+                </Button>
+                <Button variant="outline" onClick={() => { onOpenChange(false); navigate('/Notes', { state: { className: classItem.name } }); }}>
+                  <FilePlus className="mr-2 h-4 w-4" />Notes &amp; material
+                </Button>
+              </div>
+            );
+          })()}
 
           <div className="border-t pt-4 dark:border-slate-700">
             <p className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200">

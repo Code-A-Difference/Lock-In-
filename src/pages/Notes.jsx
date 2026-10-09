@@ -3,10 +3,11 @@ import { MathLine } from '@/components/lockin/RichText';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Mic, Pause, Play, Square, ChevronLeft, Loader2, Sparkles, Trash2, Copy, Share2, Brain, Plus, Check,
-  AlertTriangle, FileText, NotebookPen, ListChecks, RefreshCw, GraduationCap, MessageCircle,
+  AlertTriangle, FileText, NotebookPen, ListChecks, RefreshCw, GraduationCap, MessageCircle, FilePlus,
 } from 'lucide-react';
 import ClassChat from '@/components/lockin/ClassChat';
 import NoteGraph from '@/components/lockin/NoteGraph';
+import RichText from '@/components/lockin/RichText';
 import { SourcePicker, preferredSource } from '@/components/lockin/DesktopShell';
 import { isDesktop } from '@/lib/desktop';
 import { RECIPES, NOTE_TEMPLATES } from '@/lib/classChat';
@@ -42,6 +43,7 @@ function LectureList() {
   const lec = useLecture();
   const [cls, setCls] = useState(location.state?.className || '');
   const [picking, setPicking] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [source, setSource] = useState(preferredSource);
 
   const shown = useMemo(() => (cls ? lectures.filter(l => l.class_name === cls) : lectures), [lectures, cls]);
@@ -84,12 +86,28 @@ function LectureList() {
         </button>
       )}
       {lec.error && <p className="mt-2 text-sm text-red-700 dark:text-red-400" role="alert">{lec.error}</p>}
+      <button type="button" onClick={() => setAdding(true)}
+        className="mt-2 flex w-full items-center gap-3 rounded-2xl border bg-card p-3.5 text-left hover:bg-secondary active:scale-[0.99]">
+        <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent text-accent-foreground"><FilePlus className="h-5 w-5" aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold text-foreground">Add material</span>
+          <span className="block text-sm text-muted-foreground">A handout, slides, a photo of the board, or notes you paste — kept with the class to ask about and quiz on</span>
+        </span>
+      </button>
+      {adding && <AddMaterialSheet classes={classes} defaultClass={cls} onClose={() => setAdding(false)} onAdded={(l) => { setAdding(false); navigate(`/Notes?id=${l.id}`); }} />}
 
       {classes.length > 0 && (
         <div className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Filter by class">
           <Chip on={!cls} onClick={() => setCls('')}>All · {lectures.length}</Chip>
           {classes.map(c => <Chip key={c.id} on={cls === c.name} onClick={() => setCls(c.name)}>{c.name} · {counts[c.name] || 0}</Chip>)}
         </div>
+      )}
+
+      {cls && shown.some(l => (l.notes || l.material_text || (l.segments || []).some(x => x.text))) && (
+        <button type="button" onClick={() => navigate('/Study', { state: { tab: 'quiz', className: cls } })}
+          className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-semibold text-foreground hover:bg-secondary">
+          <Brain className="h-4 w-4" aria-hidden="true" />Quiz me on all of {cls}
+        </button>
       )}
 
       <section className="mt-4" aria-label="Lectures">
@@ -246,7 +264,7 @@ function LectureView({ id }) {
 
       <div className="sticky top-14 z-10 -mx-4 mt-4 bg-background/95 px-4 py-2 backdrop-blur lg:top-0" role="tablist" aria-label="Lecture views">
         <div className="grid grid-cols-4 gap-1 rounded-xl bg-secondary p-1">
-          {[['notes', 'Notes', Sparkles], ['mine', 'My notes', NotebookPen], ['transcript', 'Transcript', FileText], ['ask', 'Ask', MessageCircle]].map(([k, label, Icon]) => (
+          {[['notes', 'Notes', Sparkles], ['mine', 'My notes', NotebookPen], ['transcript', lecture.source === 'material' ? 'Material' : 'Transcript', FileText], ['ask', 'Ask', MessageCircle]].map(([k, label, Icon]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
               className={cn('flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg px-1 text-sm font-semibold transition-colors',
                 tab === k ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}>
@@ -408,7 +426,18 @@ function MyNotes({ lecture, live, onSave }) {
   );
 }
 
-function TranscriptView({ lecture, live, failed, lec }) {
+/** Added material shows the text kept from it; a recording, its transcript. */
+function TranscriptView(props) {
+  if (props.lecture.source !== 'material') return <RecordingTranscript {...props} />;
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <p className="mb-2 text-xs text-muted-foreground">The text LOCK IN! kept from what you added.</p>
+      <RichText text={props.lecture.material_text || ''} />
+    </div>
+  );
+}
+
+function RecordingTranscript({ lecture, live, failed, lec }) {
   const end = useRef(null);
   const segs = (lecture.segments || []).filter(s => s.text || s.error);
   const [pending, setPending] = useState(0);
@@ -587,6 +616,67 @@ function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
         </button>
       </div>
     </article>
+  );
+}
+
+/* ----------------------------------------------------------- add material */
+
+function AddMaterialSheet({ classes, defaultClass, onClose, onAdded }) {
+  const lec = useLecture();
+  const [cls, setCls] = useState(defaultClass || classes[0]?.name || '');
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const add = async () => {
+    setError('');
+    setBusy('Starting…');
+    try {
+      const c = classes.find(x => x.name === cls);
+      const l = await lec.addMaterial({ title, className: cls, classId: c?.id || '', text, files }, setBusy);
+      toast({ title: 'Added', description: `${l.title} is with ${cls || 'your notes'} now.` });
+      onAdded(l);
+    } catch (e) {
+      setError(e.message || 'That couldn’t be added.');
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <Sheet title="Add material" onClose={busy ? () => {} : onClose}>
+      <div className="space-y-3 px-3 pb-2">
+        <label className="block text-sm font-medium text-foreground">
+          Class
+          <select value={cls} onChange={e => setCls(e.target.value)} className="mt-1 h-11 w-full rounded-xl border bg-card px-3 text-base text-foreground sm:text-sm">
+            <option value="">No class</option>
+            {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-foreground">
+          Name (optional)
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Unit 3 study guide"
+            className="mt-1 h-11 w-full rounded-xl border bg-card px-3 text-base text-foreground" />
+        </label>
+        <label className="block text-sm font-medium text-foreground">
+          Files — PDFs, photos, text
+          <input type="file" multiple accept="application/pdf,image/*,.txt,.md,text/plain" onChange={e => setFiles(Array.from(e.target.files || []))}
+            className="mt-1 block w-full text-sm text-muted-foreground file:mr-3 file:h-10 file:rounded-lg file:border file:bg-card file:px-3 file:text-foreground" />
+        </label>
+        {files.length > 0 && <p className="text-xs text-muted-foreground">{files.map(f => f.name).join(', ')}</p>}
+        <label className="block text-sm font-medium text-foreground">
+          Or paste notes
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={5} placeholder="Paste anything you want to be quizzed on…"
+            className="mt-1 w-full rounded-xl border bg-card p-3 text-base text-foreground outline-none focus:border-primary/60" />
+        </label>
+        {error && <p className="text-sm text-red-300" role="alert">{error}</p>}
+        <button type="button" onClick={add} disabled={!!busy || (!files.length && text.trim().length < 20)}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
+          {busy ? <><Loader2 className="h-4 w-4 animate-spin" />{busy}</> : <><FilePlus className="h-4 w-4" />Add to {cls || 'my notes'}</>}
+        </button>
+        <p className="text-xs text-muted-foreground">Files up to 4 MB each. LOCK IN! reads them once and keeps the text and notes, not the file.</p>
+      </div>
+    </Sheet>
   );
 }
 

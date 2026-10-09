@@ -15,6 +15,8 @@ import { LectureRecorder, canRecord, downsample, encodeWav, enhanceSpeech, isSil
 import { transcribeChunk, transcriptText, generateNotes, cleanPiece } from './lectures.js';
 import { templateHow } from './classChat.js';
 import { desktop } from './desktop.js';
+import { EXTRACT_PROMPT, MATERIAL_MAX_CHARS } from './classQuiz.js';
+import { db } from '@/api/db';
 import { chime, unlockAudio } from './soundscape.js';
 import { keepPending, dropPending, listPending, dropLecture } from './pendingAudio.js';
 
@@ -50,7 +52,8 @@ export function LectureProvider({ children }) {
   const save = useCallback((id, patch) => actionsRef.current.updateLecture(id, patch).catch(() => {}), []);
 
   const writeNotes = useCallback(async (lec) => {
-    const transcript = transcriptText(lec.segments);
+    // added material has its own text; a recording has its transcript
+    const transcript = lec.material_text || transcriptText(lec.segments);
     setWriting(w => ({ ...w, [lec.id]: 'Writing your notes…' }));
     await save(lec.id, { status: 'writing' });
     try {
@@ -286,8 +289,44 @@ export function LectureProvider({ children }) {
     return () => window.removeEventListener('beforeunload', warn);
   }, [!!active]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Material the student adds to a class themselves — a handout, slides, a
+   * photo of the board, a study guide, or text they paste. Files are read
+   * once by the AI (everything they teach, diagrams described in words) and
+   * kept as text, so they don't fill up the account; then notes are written
+   * from it like a lecture's. It lives with the class's lectures, so it can
+   * be asked about and quizzed on. `onProgress(text)` reports each step.
+   */
+  const addMaterial = useCallback(async ({ title = '', className = '', classId = '', text = '', files = [] } = {}, onProgress) => {
+    const parts = [];
+    if (text.trim()) parts.push(text.trim());
+    for (const f of files) {
+      onProgress?.(`Reading ${f.name}…`);
+      if (/^text\/|\.(txt|md|csv)$/i.test(f.type || f.name)) {
+        parts.push(`${f.name}\n${(await f.text()).trim()}`);
+        continue;
+      }
+      if (!/^image\/|application\/pdf/.test(f.type)) throw new Error(`${f.name}: add a PDF, a photo or a text file.`);
+      const { file_url } = await db.integrations.Core.UploadFile({ file: f });
+      const out = await db.integrations.Core.InvokeLLM({ prompt: EXTRACT_PROMPT, file_urls: [file_url] });
+      if (String(out || '').trim()) parts.push(`${f.name}\n${String(out).trim()}`);
+    }
+    const material = parts.join('\n\n').slice(0, MATERIAL_MAX_CHARS);
+    if (material.trim().length < 20) throw new Error('There’s nothing in that to keep — add a file, or paste some notes.');
+    const now = new Date();
+    const name = title.trim() || files[0]?.name?.replace(/\.[^.]+$/, '') || 'Class material';
+    const lec = await actionsRef.current.addLecture({
+      title: name.slice(0, 120), auto_title: false, class_name: className, class_id: classId,
+      date: ymd(now), started_at: now.toISOString(), status: 'transcribed', duration: 0,
+      segments: [], my_notes: '', source: 'material', material_text: material,
+    });
+    onProgress?.('Writing notes from it…');
+    await writeNotes({ ...lec, material_text: material, class_name: className }).catch(() => {});
+    return lec;
+  }, [writeNotes]);
+
   const value = {
-    canRecord, active, error, writing, importing, retrying, importMedia, start, pause, resume, stop, retryFailed, pendingCount, flushNow, writeNotes,
+    canRecord, active, error, writing, importing, retrying, importMedia, addMaterial, start, pause, resume, stop, retryFailed, pendingCount, flushNow, writeNotes,
     hasFailed: (active?.failed || 0) > 0 || failedChunks.current.size > 0,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

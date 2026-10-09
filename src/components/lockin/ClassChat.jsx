@@ -36,7 +36,9 @@ export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onA
       setBusy('Thinking…');
       const l = lectureRef.current;
       const { system, prompt } = classChatPrompt({
-        question: q, segments: l.segments || [], myNotes: l.my_notes || '',
+        question: q, myNotes: l.my_notes || '',
+        // added material has its own text instead of a transcript
+        segments: l.segments?.length ? l.segments : (l.material_text ? [{ start: 0, text: l.material_text.slice(0, 15000) }] : []),
         notes: l.notes ? notesMarkdown(l.notes, { title: l.title }) : '',
         className: l.class_name, title: l.title, live: !!live, elapsed: live?.elapsed || l.duration || 0, history,
       });

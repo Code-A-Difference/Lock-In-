@@ -8,7 +8,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Upload, Target, Sparkles, Loader2 } from "lucide-react";
+import { Brain, Upload, Target, Sparkles, Loader2, GraduationCap, FileText, NotebookPen } from "lucide-react";
+import { classSources, gatherMaterial, classQuizPrompt, CLASS_QUIZ_SCHEMA } from '@/lib/classQuiz';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,11 @@ export default function Study() {
   const [includeWritten, setIncludeWritten] = useState(false);
   const [isGradingWritten, setIsGradingWritten] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
+  // A whole class: every lecture's notes plus the material added to it.
+  const [quizClass, setQuizClass] = useState(location.state?.className || '');
+  const [leftOut, setLeftOut] = useState(() => new Set());
+  const [quizCount, setQuizCount] = useState(10);
+  const [quizFocus, setQuizFocus] = useState('');
 
   const queryClient = useQueryClient();
 
@@ -77,7 +83,10 @@ export default function Study() {
   // Same data, same filtering as every other page. Tests are sorted soonest
   // first — the old list was sorted latest first, so the "upcoming test"
   // banner named the one furthest away.
-  const { tests: myTests } = useStudyData();
+  const { tests: myTests, classes = [], lectures = [] } = useStudyData();
+  const classOptions = classes.filter(c => classSources(lectures, c.name).length);
+  const sourcesForClass = quizClass ? classSources(lectures, quizClass) : [];
+  const chosenSources = sourcesForClass.filter(x => !leftOut.has(x.id));
   const tests = myTests
     .filter(t => { const d = parseDay(t.date); return d && daysUntil(d) >= 0; })
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -138,6 +147,32 @@ Be constructive, encouraging, and specific.`;
       setGradingResult(`Couldn't grade that: ${error?.message || 'please try again.'}`);
     } finally {
       setIsGrading(false);
+    }
+  };
+
+  /** A quiz on everything for one class: its lectures' notes and the material added to it. */
+  const handleClassQuiz = async () => {
+    if (!chosenSources.length) return;
+    setSelectedTest(null);
+    setIsGeneratingQuiz(true);
+    setQuiz(null);
+    setAnswers({});
+    setWrittenAnswers({});
+    setQuizResults(null);
+    try {
+      const { text } = gatherMaterial(chosenSources);
+      const written = includeWritten ? Math.max(1, Math.round(quizCount / 5)) : 0;
+      const response = await db.integrations.Core.InvokeLLM({
+        prompt: classQuizPrompt({ className: quizClass, focus: quizFocus.trim(), material: text, count: quizCount, written }),
+        response_json_schema: CLASS_QUIZ_SCHEMA,
+      });
+      const questions = (response?.questions || []).filter(q => q && q.question);
+      if (!questions.length) throw new Error('The AI sent back no questions.');
+      setQuiz({ questions, title: `${quizClass}${quizFocus.trim() ? ` — ${quizFocus.trim()}` : ''}` });
+    } catch (error) {
+      alert(`Couldn't make that quiz: ${error?.message || 'please try again.'}`);
+    } finally {
+      setIsGeneratingQuiz(false);
     }
   };
 
@@ -318,7 +353,7 @@ Provide a score out of 10 and brief feedback.`,
     setQuizResults(quizResultsData);
     
     // Save quiz history
-    const title = selectedTest?.title || customQuizTopic || 'Practice Quiz';
+    const title = selectedTest?.title || quiz?.title || customQuizTopic || 'Practice Quiz';
     saveHistoryMutation.mutate({
       type: 'quiz',
       title: title,
@@ -496,6 +531,65 @@ Provide a score out of 10 and brief feedback.`,
                 {!quiz && !isGeneratingQuiz && !selectedTest && (
                   <>
                     <div className="space-y-4">
+                      <section className="rounded-lg border bg-card p-4" aria-labelledby="class-quiz-h">
+                        <h3 id="class-quiz-h" className="mb-1 flex items-center gap-2 font-medium text-foreground"><GraduationCap className="h-4 w-4" aria-hidden="true" />Quiz me on a whole class</h3>
+                        <p className="mb-3 text-sm text-muted-foreground">Every lecture's notes for the class, plus anything you've added to it — handouts, slides, photos, pasted notes.</p>
+                        {classOptions.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Record a lecture or add material to a class in Notes, and it can be quizzed here.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            <div>
+                              <Label htmlFor="quiz-class">Class</Label>
+                              <select id="quiz-class" value={quizClass} onChange={e => { setQuizClass(e.target.value); setLeftOut(new Set()); }}
+                                className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
+                                <option value="">Choose a class…</option>
+                                {classOptions.map(c => <option key={c.id} value={c.name}>{c.name} · {classSources(lectures, c.name).length} item{classSources(lectures, c.name).length === 1 ? '' : 's'}</option>)}
+                              </select>
+                            </div>
+                            {quizClass && (
+                              <>
+                                <fieldset>
+                                  <legend className="text-sm font-medium text-foreground">Include</legend>
+                                  <ul className="mt-1 max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
+                                    {sourcesForClass.map(x => (
+                                      <li key={x.id}>
+                                        <label className="flex min-h-[40px] cursor-pointer items-center gap-2 rounded px-2 text-sm hover:bg-secondary">
+                                          <input type="checkbox" className="h-4 w-4" checked={!leftOut.has(x.id)}
+                                            onChange={e => setLeftOut(prev => { const n = new Set(prev); if (e.target.checked) n.delete(x.id); else n.add(x.id); return n; })} />
+                                          {x.kind === 'material' ? <FileText className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" /> : <NotebookPen className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />}
+                                          <span className="min-w-0 flex-1 truncate text-foreground">{x.title}</span>
+                                          <span className="flex-none text-xs text-muted-foreground">{x.kind === 'material' ? 'material' : x.date}</span>
+                                        </label>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </fieldset>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <div>
+                                    <Label htmlFor="quiz-count">Questions</Label>
+                                    <select id="quiz-count" value={quizCount} onChange={e => setQuizCount(Number(e.target.value))}
+                                      className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
+                                      {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="quiz-focus">Focus on (optional)</Label>
+                                    <Input id="quiz-focus" value={quizFocus} onChange={e => setQuizFocus(e.target.value)} placeholder="e.g. cell division" className="mt-1" />
+                                  </div>
+                                </div>
+                                <label className="flex items-center gap-2 text-sm text-foreground">
+                                  <input type="checkbox" className="h-4 w-4" checked={includeWritten} onChange={e => setIncludeWritten(e.target.checked)} />
+                                  Include some written answers
+                                </label>
+                                <Button onClick={handleClassQuiz} disabled={!chosenSources.length} className="w-full">
+                                  <Brain className="mr-2 h-4 w-4" />Quiz me on {chosenSources.length} item{chosenSources.length === 1 ? '' : 's'}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </section>
+
                       <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
                         <h3 className="font-medium text-slate-800 dark:text-slate-200 mb-3">Create Custom Quiz</h3>
                         <div className="space-y-3">
@@ -637,7 +731,7 @@ Provide a score out of 10 and brief feedback.`,
                 {quiz && !quizResults && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Practice Quiz{selectedTest ? `: ${selectedTest.title}` : ''}</h3>
+                      <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Practice Quiz{selectedTest ? `: ${selectedTest.title}` : quiz.title ? `: ${quiz.title}` : ''}</h3>
                       <Badge className="dark:bg-indigo-900 dark:text-indigo-200">{quiz.questions.length} Questions</Badge>
                     </div>
                     
@@ -649,7 +743,9 @@ Provide a score out of 10 and brief feedback.`,
                               {q.type === 'written' ? 'Written' : 'Multiple Choice'}
                             </Badge>
                           </div>
-                          <p className="font-medium mb-3 text-slate-800 dark:text-slate-200">{idx + 1}. <MathLine text={q.question} /></p>
+                          <p className="font-medium mb-1 text-slate-800 dark:text-slate-200">{idx + 1}. <MathLine text={q.question} /></p>
+                          {q.source && <p className="mb-3 text-xs text-muted-foreground">From: {q.source}</p>}
+                          {!q.source && <div className="mb-2" />}
                           
                           {(q.type === 'multiple_choice' || !q.type) && (
                             <div className="space-y-2">
@@ -734,6 +830,7 @@ Provide a score out of 10 and brief feedback.`,
                                 {result.type === 'written' ? '✍️' : result.isCorrect ? '✓' : '✗'} Q{idx + 1}
                               </Badge>
                               <div className="flex-1 space-y-2">
+                                {quiz?.questions?.[idx]?.source && <p className="text-xs text-muted-foreground">Review: {quiz.questions[idx].source}</p>}
                                 {result.type === 'multiple_choice' || !result.type ? (
                                   <>
                                     <p className="text-sm text-slate-700 dark:text-slate-300">
