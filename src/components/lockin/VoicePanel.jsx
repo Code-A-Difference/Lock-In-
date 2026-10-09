@@ -228,7 +228,7 @@ export default function VoicePanel() {
         <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask w-[min(20rem,calc(100vw-2rem))] rounded-2xl border bg-card p-4 shadow-2xl">
           <p className="text-sm font-semibold text-foreground">Go hands-free?</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : (isDesktop ? 'It listens while LOCK IN! is open, even in the background.' : 'I’ll ask your browser for the microphone once and remember your answer.')}
+            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : (isDesktop ? 'It listens while LOCK IN! is open, even in the background, and the speech is understood on this computer by Whisper — nothing is sent anywhere.' : 'I’ll ask your browser for the microphone once and remember your answer.')}
           </p>
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={() => choose(true)} className="h-10 flex-1 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700">Turn on</button>
@@ -372,7 +372,7 @@ export default function VoicePanel() {
 
           {canHandsFree && (
             <label className="flex items-center justify-between gap-2 border-t bg-secondary/40 px-4 py-2 text-xs text-muted-foreground">
-              <span>Hands-free “Hey Lock In” <span className="opacity-70">{isNativeApp ? '— listens on your phone while the app is open' : '— your browser may send speech to its recognition service'}</span></span>
+              <span>Hands-free “Hey Lock In” <span className="opacity-70">{isNativeApp ? '— listens on your phone while the app is open' : isDesktop ? '— understood on this computer, never sent anywhere' : '— your browser may send speech to its recognition service'}</span></span>
               <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} aria-label="Listen for Hey Lock In" />
             </label>
           )}

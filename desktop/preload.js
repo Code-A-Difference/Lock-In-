@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('lockinDesktop', {
   platform: process.platform,
   /** One WAV piece (Uint8Array) -> {ok, text} | {ok:false, error}. */
   transcribe: (wav, hint) => ipcRenderer.invoke('whisper:transcribe', wav, hint || ''),
+  hear: (wav, hint) => ipcRenderer.invoke('whisper:hear', wav, hint || ''),
   whisper: {
     status: () => ipcRenderer.invoke('whisper:status'),
     set: (patch) => ipcRenderer.invoke('whisper:set', patch),

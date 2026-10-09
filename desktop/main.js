@@ -35,7 +35,8 @@ if (process.platform === 'win32') app.setAppUserModelId('ws.ct.codeadifference.l
 const settingsFile = () => path.join(app.getPath('userData'), 'desktop-settings.json');
 const DEFAULTS = {
   bounds: null, miniBounds: null, offerRecordCalls: true, toldAboutTray: false,
-  transcription: { enabled: true, model: 'base', language: 'en' },
+  // turbo (Whisper large-v3 turbo) is the goal; base works while it downloads (see warmUp)
+  transcription: { enabled: true, model: 'turbo', language: 'en' },
 };
 let settings = { ...DEFAULTS };
 function loadSettings() {
@@ -224,6 +225,7 @@ function wireIpc() {
     saveSettings();
     if (!t.enabled) whisper.stop();
     else if (whisper.status().models[t.model]?.installed) whisper.start(t.model).catch(() => {});
+    else warmUp().catch(() => {});
     return tStatus();
   });
   ipcMain.handle('whisper:download', async (_e, id) => {
@@ -237,6 +239,14 @@ function wireIpc() {
     const r = await whisper.transcribe(Buffer.from(wav), { model: t.model, language: t.language, hint });
     if (r.ok) autoTune();
     return r;
+  });
+  // "Hey Lock In" and the assistant: a short phrase that needs an answer now (see earModel)
+  ipcMain.handle('whisper:hear', async (_e, wav, hint) => {
+    const t = settings.transcription;
+    if (!t.enabled) return { ok: false, error: 'off' };
+    const model = earModel();
+    if (!model) return { ok: false, error: 'no-model' };
+    return whisper.transcribe(Buffer.from(wav), { model, language: t.language, hint, lane: model === t.model ? 'notes' : 'ear' });
   });
   whisper.onStatus(s => send('whisper:status', { ...s, settings: settings.transcription }));
 
@@ -256,29 +266,77 @@ function wireIpc() {
 }
 
 /**
- * Use the most accurate model this computer can keep up with, unless the
- * student chose one themselves. The fast model working under 0.2 s per second
- * of audio means the accurate one (about 3x the work) still keeps up live:
- * fetch it in the background and switch. If that turns out too slow (over
- * 0.7 s per second), go back.
+ * Whisper large-v3 turbo is used for everything — classes, "Hey Lock In" and
+ * the assistant — unless the student chose a model themselves, or this
+ * computer has shown it can't keep up with turbo live (over 0.8 s of work per
+ * second of class). Then it steps down to small, and from small to base.
  */
 let tuning = false;
 function autoTune() {
   const t = settings.transcription;
   if (t.chosen || tuning) return;
-  const base = whisper.speed('base');
-  const small = whisper.speed('small');
-  if (t.model === 'base' && base && base.n >= 3 && base.rtf < 0.2) {
+  const fast = (id) => { const s = whisper.speed(id); return s && s.n >= 3 ? s.rtf : null; };
+  const down = { turbo: 'small', small: 'base' }[t.model];
+  if (down && fast(t.model) > 0.8) {
+    if (t.model === 'turbo') t.turboSlow = true;          // don't climb back up on this computer
     tuning = true;
-    whisper.ensureModel('small')
-      .then(() => { t.model = 'small'; saveSettings(); return whisper.start('small'); })
+    whisper.ensureModel(down)
+      .then(() => { t.model = down; saveSettings(); return whisper.start(down); })
       .catch(() => {})
       .finally(() => { tuning = false; });
-  } else if (t.model === 'small' && small && small.n >= 3 && small.rtf > 0.7) {
-    t.model = 'base';
-    saveSettings();
-    whisper.start('base').catch(() => {});
   }
+}
+
+/**
+ * What hears "Hey Lock In" and the assistant. Turbo too, when this computer
+ * does a 15-second piece of class in under about 2 s (a fast processor, or
+ * Apple's GPU) — then a phrase is understood in about 2 s. Otherwise small:
+ * measured on a Ryzen 7 laptop on battery, turbo took 5-6 s per phrase, small
+ * about 1 s, and small still caught "Hey Lock In" every time.
+ */
+function earModel() {
+  const t = settings.transcription;
+  const have = (id) => whisper.status().models[id]?.installed;
+  const s = whisper.speed(t.model);
+  if (have(t.model) && (t.model !== 'turbo' || (s && s.n >= 3 && s.rtf <= 0.15))) return t.model;
+  return ['small', 'base', t.model].find(have) || null;
+}
+
+/** The model to aim for: turbo, unless they chose one or turbo proved too slow here. */
+function goal() {
+  const t = settings.transcription;
+  if (t.chosen) return t.model;
+  return t.turboSlow ? (t.model === 'base' ? 'base' : 'small') : 'turbo';
+}
+
+/**
+ * Start listening straight away with a model that's already here (or the
+ * 57 MB fast one), and fetch the goal model (547 MB for turbo) behind it,
+ * switching over when it arrives.
+ */
+async function warmUp() {
+  const t = settings.transcription;
+  if (!t.enabled || !whisper.status().available) return;
+  const want = goal();
+  const have = (id) => whisper.status().models[id]?.installed;
+  if (have(want)) {
+    t.model = want;
+    saveSettings();
+    await whisper.start(want);
+    if (want === 'turbo') await whisper.ensureModel('small');   // the ear, on computers turbo is slow on
+    return;
+  }
+  // small (190 MB) first: it hears "Hey Lock In" on most computers, and takes notes until turbo arrives
+  const now = want === 'base' ? 'base' : 'small';
+  await whisper.ensureModel(now);
+  t.model = now;
+  saveSettings();
+  await whisper.start(now);
+  await whisper.ensureModel(want);
+  if (settings.transcription.chosen && settings.transcription.model !== want) return;   // they picked another meanwhile
+  t.model = want;
+  saveSettings();
+  await whisper.start(want);
 }
 
 /* ------------------------------------------------------------- meetings */
@@ -311,10 +369,7 @@ app.whenReady().then(() => {
   updateTray();
   registerShortcuts();
   watchCalls();
-  // Warm the transcription engine so the first piece of a class isn't slow. The
-  // first time, fetch the model in the background so it just works (57 MB).
-  const t = settings.transcription;
-  if (t.enabled && whisper.status().available) {
-    whisper.ensureModel(t.model).then(() => whisper.start(t.model)).catch(() => {});
-  }
+  // Warm the transcription engine so the first piece of a class (and the first
+  // "Hey Lock In") isn't slow, fetching turbo in the background the first time.
+  warmUp().catch(() => {});
 });
