@@ -8,6 +8,7 @@
  * Pure; tests/classQuiz.test.mjs runs it.
  */
 import { notesMarkdown, transcriptText } from './lectureNotes.js';
+import { quizRules } from './quizKit.js';
 
 export const QUIZ_MATERIAL_CHARS = 20000;    // the AI proxy takes 30,000 characters per prompt; the rest is instructions
 
@@ -60,17 +61,14 @@ export function gatherMaterial(sources = [], budget = QUIZ_MATERIAL_CHARS) {
 }
 
 /** The quiz request for a class's material. */
-export function classQuizPrompt({ className = '', focus = '', material = '', count = 10, written = 0 }) {
-  const mc = Math.max(1, count - written);
+export function classQuizPrompt({ className = '', focus = '', material = '', count = 10, written = 0, difficulty = 'standard' }) {
   return `Write a practice quiz for a student's ${className ? `"${className}" ` : ''}class, from their own notes and class material below.
 ${focus ? `Focus especially on: ${focus}\n` : ''}
-Make ${mc} multiple-choice question${mc === 1 ? '' : 's'}${written ? ` and ${written} written (open-ended) question${written === 1 ? '' : 's'}` : ''}.
 - Spread the questions across ALL of the lectures and materials below, not just the first one — roughly in proportion to how much each covers.
 - Only ask about what the material actually says. Test understanding, not trivia: definitions, how and why, worked problems, cause and effect.
 - Every question has a "source": the exact title after "Lecture:" or "Material:" that it came from.
-- Multiple choice: 4 options written "A) …", "B) …"; "correct" is the index of the right one; an "explanation" of why it's right, and "wrong_explanations" for each option.
-- Written: an "ideal_answer" and the "key_points" a good answer mentions.
-- Maths and science in LaTeX between $ signs ($x^2$, $\\frac{a}{b}$, $\\ce{H2O}$).
+
+${quizRules({ difficulty, count, written })}
 
 Material:
 ${material}`;

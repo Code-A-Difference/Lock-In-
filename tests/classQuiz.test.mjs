@@ -42,10 +42,11 @@ test('everything fits untouched when there is room', () => {
 test('the prompt asks for spread, sources and the right mix of questions', () => {
   const p = classQuizPrompt({ className: 'Bio', focus: 'cell division', material: 'MATERIAL', count: 10, written: 2 });
   assert.match(p, /"Bio" class/);
-  assert.match(p, /Make 8 multiple-choice questions and 2 written/);
+  assert.match(p, /exactly 8 multiple-choice questions and 2 written/);
   assert.match(p, /ALL of the lectures and materials/);
   assert.match(p, /"source"/);
   assert.match(p, /Focus especially on: cell division/);
   assert.ok(p.trim().endsWith('MATERIAL'));
-  assert.ok(p.includes(String.raw`$\frac{a}{b}$`));
+  assert.ok(p.includes(String.raw`$\frac{dy}{dx}$`));
+  assert.match(p, /"steps"/);
 });
