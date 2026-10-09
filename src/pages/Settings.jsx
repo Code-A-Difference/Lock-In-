@@ -124,7 +124,7 @@ function ThisComputer() {
           A newer desktop app is out. <a className="font-semibold underline" href={desktop.platform === 'darwin' ? DESKTOP_DOWNLOADS.macArm : DESKTOP_DOWNLOADS.windows}>Download it</a> and install over this one.
         </p>
       )}
-      <Row id="local-stt" label="Transcribe on this computer" hint="Private and free: class audio never leaves this computer. Off: the online service is used.">
+      <Row id="local-stt" label="Listen and transcribe on this computer" hint="Classes, “Hey Lock In” and the assistant all use Whisper on this computer: private, free, nothing leaves it. Off: the online service is used.">
         <Switch id="local-stt" checked={t.enabled} onCheckedChange={(v) => set({ enabled: v })} />
       </Row>
       {t.enabled && (
@@ -138,7 +138,7 @@ function ThisComputer() {
                 <label htmlFor={`m-${id}`} className="min-w-0 flex-1 text-sm">
                   <span className="block font-semibold text-foreground">{m.label}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {id === 'base' ? 'Quick on any computer' : id === 'small' ? 'Better with names and terms' : 'Most accurate; best on a fast computer'} · {m.mb} MB
+                    {id === 'base' ? 'Quick on any computer' : id === 'small' ? 'Better with names and terms' : 'Most accurate — the default. Steps down by itself if this computer can’t keep up'} · {m.mb} MB
                   </span>
                 </label>
                 {m.installed ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400"><Check className="h-3.5 w-3.5" />Ready</span>

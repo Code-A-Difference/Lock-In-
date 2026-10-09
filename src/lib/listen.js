@@ -13,16 +13,26 @@
  *
  * Chrome and Edge send the audio to their own speech service to transcribe
  * it; Safari does it on the device. Settings says so where the switch is.
+ * In the desktop app both go through Whisper on the computer instead
+ * (localEar.js), once its model is downloaded.
  */
 import { afterWake } from './wake.js';
 import { nativeSpeech, wakeWord } from './native.js';
+import { canHearLocally, localReady, LocalEar, hearLocally, listenOnceLocally } from './localEar.js';
 
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
-export const canListen = !!SR || !!nativeSpeech;
+export const canListen = !!SR || !!nativeSpeech || canHearLocally;
 
-/** Hands-free "Hey Lock In": the browser's recogniser on the web, the on-device wake-word model on Android. */
-export const canHandsFree = !!wakeWord || (!!SR && !nativeSpeech);
+/** Hands-free "Hey Lock In": the browser's recogniser on the web, the on-device wake-word model on Android, Whisper on the desktop. */
+export const canHandsFree = !!wakeWord || (!!SR && !nativeSpeech) || canHearLocally;
+
+/** Wait for a promise, but hand back a stop() that works before it settles. */
+function deferredListen(choose) {
+  let inner = null, stopped = false;
+  const promise = choose().then((l) => { inner = l; if (stopped) l.stop(); return l.promise; });
+  return { promise, stop: () => { stopped = true; inner?.stop(); } };
+}
 
 const lang = () => (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
 
@@ -46,6 +56,12 @@ function friendly(err) {
 export function listenOnce({ onInterim, onSpeech, recognition, pauseMs = 1600, quietMs = 8000 } = {}) {
   const Rec = recognition || SR;
   if (nativeSpeech && !recognition) return nativeListenOnce({ onInterim, onSpeech });
+  if (canHearLocally && !recognition) {
+    return deferredListen(() => localReady().then(ok => (ok
+      ? listenOnceLocally({ onInterim, onSpeech, quietMs })
+      : SR ? listenOnce({ onInterim, onSpeech, recognition: SR, pauseMs, quietMs })
+        : { promise: Promise.reject(new Error('Turn on on-device transcription in Settings to talk to Lock In.')), stop() {} })));
+  }
   if (!Rec) {
     return { promise: Promise.reject(new Error('This browser cannot listen. Chrome, Edge and Safari can.')), stop() {} };
   }
@@ -132,15 +148,17 @@ export class HandsFree {
     this.rapid = 0;
     this.openedAt = 0;
     this.timer = null;
+    this.local = !recognition && canHearLocally;   // desktop: Whisper on this computer, if it's set up
   }
 
   get armed() { return Date.now() < this.armedUntil; }
 
   start() {
-    if ((!this.SR && !wakeWord) || this.running) return false;
+    if ((!this.SR && !wakeWord && !this.local) || this.running) return false;
     this.running = true;
     this.rapid = 0;
-    this._open();
+    if (this.local) this._runLocal();
+    else this._open();
     this.onState?.(true);
     return true;
   }
@@ -153,6 +171,8 @@ export class HandsFree {
     this.collecting = false;
     this._wakeOutcome?.('stopped');
     if (wakeWord && !this.SR) wakeWord.stop().catch(() => {});
+    this.ear?.stop();
+    this.ear = null;
     if (nativeSpeech) nativeSpeech.stop().catch(() => {});
     this.armedUntil = 0;
     const r = this.rec;
@@ -263,6 +283,44 @@ export class HandsFree {
       handles.forEach(h => h?.remove?.());
       this._wakeOutcome = null;
     }
+  }
+
+  /**
+   * Desktop: the microphone is cut into utterances and each is transcribed by
+   * Whisper on this computer, then handled exactly like a recogniser's final
+   * result. If the engine isn't set up (switched off, no model yet), the
+   * browser's recogniser is used as before.
+   */
+  async _runLocal() {
+    if (!(await localReady())) {
+      this.local = false;
+      if (!this.running) return;
+      if (this.SR) this._open();
+      else { this.onError?.('Hands-free needs on-device transcription: download a model in Settings.'); this.stop(); }
+      return;
+    }
+    if (!this.running) return;
+    this.pauseMs = 500;                    // an utterance arrives already finished: no need to wait for more
+    let seq = 0, queue = Promise.resolve(), failures = 0;
+    const woken = new Set();
+    this.ear = new LocalEar({
+      onUtterance: (pcm) => {
+        if (this._deaf()) return;           // the assistant talking, or its echo
+        const i = seq++;
+        queue = queue.then(async () => {
+          if (!this.running) return;
+          let text = '';
+          try { text = await hearLocally(pcm); failures = 0; }
+          catch (e) {
+            if (e.off || ++failures >= 3) { this.onError?.(e.off ? 'On-device listening was switched off.' : e.message); this.stop(); }
+            return;
+          }
+          if (text && this.running && !this._deaf()) this._final(i, text, woken);
+        });
+      },
+    });
+    try { await this.ear.start(); }
+    catch (e) { this.onError?.(e.message); this.stop(); }
   }
 
   /*
