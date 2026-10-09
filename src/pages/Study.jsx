@@ -1,5 +1,5 @@
 import { db } from '@/api/db';
-import RichText, { MathLine } from '@/components/lockin/RichText';
+import RichText from '@/components/lockin/RichText';
 
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Upload, Target, Sparkles, Loader2, GraduationCap, FileText, NotebookPen } from "lucide-react";
-import { classSources, gatherMaterial, classQuizPrompt, CLASS_QUIZ_SCHEMA } from '@/lib/classQuiz';
+import { classSources, gatherMaterial, classQuizPrompt } from '@/lib/classQuiz';
+import { DIFFICULTIES, QUIZ_LENGTHS, TIME_LIMITS, QUIZ_SCHEMA, quizRules, normaliseQuiz, writtenCount, checkPrompt, CHECK_SCHEMA, applyChecks } from '@/lib/quizKit';
+import QuizRunner from '@/components/study/QuizRunner';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useStudyData } from '@/lib/data';
 import { parseDay, daysUntil } from '@/lib/dates';
@@ -38,6 +39,20 @@ export default function Study() {
   const [selectedTest, setSelectedTest] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [makingStep, setMakingStep] = useState('');
+
+  /* A fast model sometimes writes an answer key that contradicts its own worked
+     solution. A short second pass checks each key against its steps and fixes
+     the key. If the check itself fails, the quiz is used as it is. */
+  const checkKeys = async (questions) => {
+    setMakingStep('Checking the answers…');
+    try {
+      const raw = await db.integrations.Core.InvokeLLM({ prompt: checkPrompt(questions), response_json_schema: CHECK_SCHEMA, maxTokens: 1500 });
+      return applyChecks(questions, raw);
+    } catch (_) {
+      return questions;
+    } finally { setMakingStep(''); }
+  };
   const [answers, setAnswers] = useState({});
   const [writtenAnswers, setWrittenAnswers] = useState({});
   const [quizResults, setQuizResults] = useState(null);
@@ -48,13 +63,18 @@ export default function Study() {
   const lectureNotes = location.state?.notes || '';
   const [customQuizClass, setCustomQuizClass] = useState('');
   const [includeWritten, setIncludeWritten] = useState(false);
-  const [isGradingWritten, setIsGradingWritten] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
   // A whole class: every lecture's notes plus the material added to it.
   const [quizClass, setQuizClass] = useState(location.state?.className || '');
   const [leftOut, setLeftOut] = useState(() => new Set());
   const [quizCount, setQuizCount] = useState(10);
   const [quizFocus, setQuizFocus] = useState('');
+  // How every quiz is made and taken
+  const [difficulty, setDifficulty] = useState('standard');
+  const [timeLimit, setTimeLimit] = useState(0);
+  const [runKey, setRunKey] = useState(0);          // a new key = a fresh attempt at the same questions
+  const [savedRun, setSavedRun] = useState(null);   // a past attempt opened from history
+  const lastMake = React.useRef(null);              // "new questions, same settings"
 
   const queryClient = useQueryClient();
 
@@ -161,14 +181,17 @@ Be constructive, encouraging, and specific.`;
     setQuizResults(null);
     try {
       const { text } = gatherMaterial(chosenSources);
-      const written = includeWritten ? Math.max(1, Math.round(quizCount / 5)) : 0;
       const response = await db.integrations.Core.InvokeLLM({
-        prompt: classQuizPrompt({ className: quizClass, focus: quizFocus.trim(), material: text, count: quizCount, written }),
-        response_json_schema: CLASS_QUIZ_SCHEMA,
+        prompt: classQuizPrompt({ className: quizClass, focus: quizFocus.trim(), material: text, count: quizCount, written: writtenCount(quizCount, includeWritten), difficulty }),
+        response_json_schema: QUIZ_SCHEMA,
       });
-      const questions = (response?.questions || []).filter(q => q && q.question);
-      if (!questions.length) throw new Error('The AI sent back no questions.');
-      setQuiz({ questions, title: `${quizClass}${quizFocus.trim() ? ` — ${quizFocus.trim()}` : ''}` });
+      const { questions: made } = normaliseQuiz(response);
+      if (!made.length) throw new Error('The AI sent back no questions.');
+      const questions = await checkKeys(made);
+      lastMake.current = handleClassQuiz;
+      setSavedRun(null);
+      setRunKey(k => k + 1);
+      setQuiz({ questions, title: `${quizClass}${quizFocus.trim() ? ` — ${quizFocus.trim()}` : ''}`, difficulty });
     } catch (error) {
       alert(`Couldn't make that quiz: ${error?.message || 'please try again.'}`);
     } finally {
@@ -198,69 +221,20 @@ Be constructive, encouraging, and specific.`;
       const className = test?.class_name || customQuizClass;
       const description = customDesc || test?.notes || '';
       
-      const questionTypes = useWritten 
-        ? 'Create 3 multiple choice questions AND 2 open-ended/written questions' 
-        : 'Create 5 multiple choice questions';
-      
       const response = await db.integrations.Core.InvokeLLM({
-        prompt: `Generate a practice quiz for: "${title}" ${className ? `in ${className}` : ''}.
-        ${description ? `Topics/Description: ${description}` : ''}
-        
-${questionTypes} that would help a student prepare. 
-
-For multiple choice questions, include:
-- The correct answer index
-- An explanation of why the correct answer is right
-- An explanation of why each wrong answer is incorrect
-
-For open-ended questions (if included), provide:
-- A sample ideal answer
-- Key points that should be mentioned
-
-Return ONLY valid JSON in this exact format:
-{
-  "questions": [
-    {
-      "type": "multiple_choice",
-      "question": "Question text here?",
-      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
-      "correct": 0,
-      "explanation": "Why this answer is correct",
-      "wrong_explanations": ["Why A is wrong (if not correct)", "Why B is wrong (if not correct)", "Why C is wrong (if not correct)", "Why D is wrong (if not correct)"]
-    },
-    {
-      "type": "written",
-      "question": "Open-ended question here?",
-      "ideal_answer": "Sample ideal answer",
-      "key_points": ["Point 1", "Point 2", "Point 3"]
-    }
-  ]
-}`,
+        prompt: `Write a practice quiz for: "${title}"${className ? ` in ${className}` : ''}.
+${description ? `Topics, notes or description:\n${description}\n` : ''}${fileUrls.length ? 'Use the attached study material as the source.\n' : ''}
+${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, useWritten) })}`,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            questions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  type: { type: "string" },
-                  question: { type: "string" },
-                  options: { type: "array", items: { type: "string" } },
-                  correct: { type: "number" },
-                  explanation: { type: "string" },
-                  wrong_explanations: { type: "array", items: { type: "string" } },
-                  ideal_answer: { type: "string" },
-                  key_points: { type: "array", items: { type: "string" } }
-                }
-              }
-            }
-          }
-        }
+        response_json_schema: QUIZ_SCHEMA,
       });
-      
-      setQuiz(response);
+      const { questions: made } = normaliseQuiz(response);
+      if (!made.length) throw new Error('The AI sent back no questions.');
+      const questions = await checkKeys(made);
+      lastMake.current = () => handleGenerateQuiz(test, customDesc, files, useWritten);
+      setSavedRun(null);
+      setRunKey(k => k + 1);
+      setQuiz({ questions, title, difficulty });
       setQuizDescription('');
       setQuizFiles([]);
       setCustomQuizTopic('');
@@ -272,95 +246,49 @@ Return ONLY valid JSON in this exact format:
     }
   };
 
-  const handleSubmitQuiz = async () => {
-    const mcQuestions = quiz.questions.filter(q => q.type === 'multiple_choice' || !q.type);
-    const writtenQuestions = quiz.questions.filter(q => q.type === 'written');
-    
-    let score = 0;
-    const results = [];
-    
-    // Grade multiple choice
-    quiz.questions.forEach((q, idx) => {
-      if (q.type === 'multiple_choice' || !q.type) {
-        const isCorrect = answers[idx] === q.correct;
-        if (isCorrect) score++;
-        const selectedAnswer = answers[idx];
-        const wrongExplanation = !isCorrect && q.wrong_explanations ? q.wrong_explanations[selectedAnswer] : null;
-        results.push({ 
-          type: 'multiple_choice',
-          isCorrect, 
-          explanation: q.explanation,
-          wrongExplanation,
-          selectedAnswer,
-          correctAnswer: q.correct
-        });
-      } else if (q.type === 'written') {
-        results.push({
-          type: 'written',
-          userAnswer: writtenAnswers[idx] || '',
-          idealAnswer: q.ideal_answer,
-          keyPoints: q.key_points,
-          graded: false
-        });
-      }
-    });
-
-    // Grade written questions with AI
-    if (writtenQuestions.length > 0) {
-      setIsGradingWritten(true);
-      for (let i = 0; i < quiz.questions.length; i++) {
-        const q = quiz.questions[i];
-        if (q.type === 'written' && writtenAnswers[i]) {
-          try {
-            const gradeResponse = await db.integrations.Core.InvokeLLM({
-              prompt: `Grade this student's answer:
-Question: ${q.question}
-Student's Answer: ${writtenAnswers[i]}
-Ideal Answer: ${q.ideal_answer}
-Key Points to look for: ${q.key_points.join(', ')}
-
-Provide a score out of 10 and brief feedback.`,
-              response_json_schema: {
-                type: "object",
-                properties: {
-                  score: { type: "number" },
-                  feedback: { type: "string" },
-                  missing_points: { type: "array", items: { type: "string" } }
-                }
-              }
-            });
-            
-            const resultIdx = results.findIndex((r, ri) => r.type === 'written' && ri === i);
-            if (resultIdx !== -1) {
-              results[resultIdx] = {
-                ...results[resultIdx],
-                graded: true,
-                writtenScore: gradeResponse.score,
-                feedback: gradeResponse.feedback,
-                missingPoints: gradeResponse.missing_points
-              };
-              if (gradeResponse.score >= 7) score++;
-            }
-          } catch (e) {
-            console.error('Error grading written answer:', e);
-          }
-        }
-      }
-      setIsGradingWritten(false);
-    }
-    
-    const quizResultsData = { score, total: quiz.questions.length, results };
-    setQuizResults(quizResultsData);
-    
-    // Save quiz history
-    const title = selectedTest?.title || quiz?.title || customQuizTopic || 'Practice Quiz';
+  const saveAttempt = ({ answers: a, grades, score, tookMs, regraded }) => {
+    if (regraded) return;
     saveHistoryMutation.mutate({
       type: 'quiz',
-      title: title,
-      data: { quiz, results: quizResultsData, answers, writtenAnswers },
-      score: `${score}/${quiz.questions.length}`
+      title: quiz?.title || selectedTest?.title || 'Practice Quiz',
+      data: { quiz, run: { answers: a, grades, tookMs } },
+      score: `${score.points}/${score.total}`,
     });
   };
+  const resetQuiz = () => {
+    setQuiz(null); setSavedRun(null); setSelectedTest(null);
+    setAnswers({}); setWrittenAnswers({}); setQuizResults(null);
+  };
+
+
+
+  /** Difficulty, length, time limit and written answers — the same for every kind of quiz. */
+  const quizSettings = (idp) => (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <div>
+        <Label htmlFor={`${idp}-diff`}>Difficulty</Label>
+        <select id={`${idp}-diff`} value={difficulty} onChange={e => setDifficulty(e.target.value)} className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
+          {DIFFICULTIES.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor={`${idp}-len`}>Questions</Label>
+        <select id={`${idp}-len`} value={quizCount} onChange={e => setQuizCount(Number(e.target.value))} className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
+          {QUIZ_LENGTHS.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor={`${idp}-time`}>Time limit</Label>
+        <select id={`${idp}-time`} value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))} className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
+          {TIME_LIMITS.map(t => <option key={t} value={t}>{t ? `${t} minutes` : 'No limit'}</option>)}
+        </select>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-3">
+        <input type="checkbox" className="h-4 w-4" checked={includeWritten} onChange={e => setIncludeWritten(e.target.checked)} />
+        Include written answers (worked solutions, marked by the AI)
+      </label>
+    </div>
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -564,23 +492,11 @@ Provide a score out of 10 and brief feedback.`,
                                     ))}
                                   </ul>
                                 </fieldset>
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                  <div>
-                                    <Label htmlFor="quiz-count">Questions</Label>
-                                    <select id="quiz-count" value={quizCount} onChange={e => setQuizCount(Number(e.target.value))}
-                                      className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
-                                      {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n}</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <Label htmlFor="quiz-focus">Focus on (optional)</Label>
-                                    <Input id="quiz-focus" value={quizFocus} onChange={e => setQuizFocus(e.target.value)} placeholder="e.g. cell division" className="mt-1" />
-                                  </div>
+                                <div>
+                                  <Label htmlFor="quiz-focus">Focus on (optional)</Label>
+                                  <Input id="quiz-focus" value={quizFocus} onChange={e => setQuizFocus(e.target.value)} placeholder="e.g. cell division" className="mt-1" />
                                 </div>
-                                <label className="flex items-center gap-2 text-sm text-foreground">
-                                  <input type="checkbox" className="h-4 w-4" checked={includeWritten} onChange={e => setIncludeWritten(e.target.checked)} />
-                                  Include some written answers
-                                </label>
+                                {quizSettings('cq')}
                                 <Button onClick={handleClassQuiz} disabled={!chosenSources.length} className="w-full">
                                   <Brain className="mr-2 h-4 w-4" />Quiz me on {chosenSources.length} item{chosenSources.length === 1 ? '' : 's'}
                                 </Button>
@@ -611,18 +527,7 @@ Provide a score out of 10 and brief feedback.`,
                               className="dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
                             />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="include-written"
-                              checked={includeWritten}
-                              onChange={(e) => setIncludeWritten(e.target.checked)}
-                              className="w-4 h-4"
-                            />
-                            <Label htmlFor="include-written" className="text-slate-700 dark:text-slate-300 cursor-pointer">
-                              Include open-ended/written questions
-                            </Label>
-                          </div>
+                          {quizSettings('cu')}
                           <Button 
                             onClick={() => handleGenerateQuiz(null, lectureNotes.slice(0, 12000), [], includeWritten)}
                             disabled={!customQuizTopic.trim()}
@@ -699,18 +604,7 @@ Provide a score out of 10 and brief feedback.`,
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="include-written-test"
-                        checked={includeWritten}
-                        onChange={(e) => setIncludeWritten(e.target.checked)}
-                        className="w-4 h-4"
-                      />
-                      <Label htmlFor="include-written-test" className="text-slate-700 dark:text-slate-300 cursor-pointer">
-                        Include open-ended/written questions
-                      </Label>
-                    </div>
+                    {quizSettings('tq')}
                     
                     <Button 
                       onClick={() => handleGenerateQuiz(selectedTest, quizDescription, quizFiles, includeWritten)}
@@ -724,177 +618,16 @@ Provide a score out of 10 and brief feedback.`,
                 {isGeneratingQuiz && (
                   <div className="text-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-500" />
-                    <p className="text-slate-600 dark:text-slate-400">Generating your quiz...</p>
+                    <p className="text-slate-600 dark:text-slate-400">{makingStep || 'Writing your quiz…'}</p>
                   </div>
                 )}
                 
-                {quiz && !quizResults && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Practice Quiz{selectedTest ? `: ${selectedTest.title}` : quiz.title ? `: ${quiz.title}` : ''}</h3>
-                      <Badge className="dark:bg-indigo-900 dark:text-indigo-200">{quiz.questions.length} Questions</Badge>
-                    </div>
-                    
-                    {quiz.questions.map((q, idx) => (
-                      <Card key={idx} className="dark:bg-slate-800 dark:border-slate-700">
-                        <CardContent className="pt-6">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Badge variant="outline" className="text-xs">
-                              {q.type === 'written' ? 'Written' : 'Multiple Choice'}
-                            </Badge>
-                          </div>
-                          <p className="font-medium mb-1 text-slate-800 dark:text-slate-200">{idx + 1}. <MathLine text={q.question} /></p>
-                          {q.source && <p className="mb-3 text-xs text-muted-foreground">From: {q.source}</p>}
-                          {!q.source && <div className="mb-2" />}
-                          
-                          {(q.type === 'multiple_choice' || !q.type) && (
-                            <div className="space-y-2">
-                              {q.options?.map((option, optIdx) => (
-                                <label key={optIdx} className="flex items-center gap-2 p-3 rounded-lg border dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name={`question-${idx}`}
-                                    checked={answers[idx] === optIdx}
-                                    onChange={() => setAnswers({...answers, [idx]: optIdx})}
-                                    className="w-4 h-4"
-                                  />
-                                  <span className="text-sm text-slate-700 dark:text-slate-300"><MathLine text={option} /></span>
-                                </label>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {q.type === 'written' && (
-                            <Textarea
-                              value={writtenAnswers[idx] || ''}
-                              onChange={(e) => setWrittenAnswers({...writtenAnswers, [idx]: e.target.value})}
-                              placeholder="Write your answer here..."
-                              rows={4}
-                              className="dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-                            />
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                    
-                    <Button 
-                      onClick={handleSubmitQuiz} 
-                      className="w-full dark:bg-indigo-600 dark:hover:bg-indigo-700"
-                      disabled={
-                        quiz.questions.filter(q => q.type === 'multiple_choice' || !q.type).length !== 
-                        Object.keys(answers).length
-                      }
-                    >
-                      Submit Quiz
-                    </Button>
-                  </div>
-                )}
-                
-                {isGradingWritten && (
-                  <div className="text-center py-8">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-500" />
-                    <p className="text-slate-600 dark:text-slate-400">Grading written answers...</p>
-                  </div>
-                )}
-                
-                {quizResults && !isGradingWritten && (
-                  <div className="space-y-4">
-                    <Card className=" bg-card border-indigo-200 dark:border-indigo-800">
-                      <CardContent className="pt-6">
-                        <div className="text-center">
-                          <p className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">
-                            {quizResults.score}/{quizResults.total}
-                          </p>
-                          <p className="text-slate-600 dark:text-slate-400 mt-2">
-                            {quizResults.score === quizResults.total ? 'Perfect score! 🎉' :
-                             quizResults.score >= quizResults.total * 0.7 ? 'Great job! 👏' :
-                             'Keep practicing! 💪'}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-slate-800 dark:text-slate-200">Answer Review:</h4>
-                      {quizResults.results.map((result, idx) => (
-                        <Card key={idx} className={
-                          result.type === 'written' 
-                            ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800'
-                            : result.isCorrect 
-                              ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800' 
-                              : 'border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800'
-                        }>
-                          <CardContent className="pt-4 space-y-2">
-                            <div className="flex items-start gap-2">
-                              <Badge variant={result.type === 'written' ? 'secondary' : result.isCorrect ? 'default' : 'destructive'}>
-                                {result.type === 'written' ? '✍️' : result.isCorrect ? '✓' : '✗'} Q{idx + 1}
-                              </Badge>
-                              <div className="flex-1 space-y-2">
-                                {quiz?.questions?.[idx]?.source && <p className="text-xs text-muted-foreground">Review: {quiz.questions[idx].source}</p>}
-                                {result.type === 'multiple_choice' || !result.type ? (
-                                  <>
-                                    <p className="text-sm text-slate-700 dark:text-slate-300">
-                                      <strong>Correct answer:</strong> <MathLine text={result.explanation} />
-                                    </p>
-                                    {!result.isCorrect && result.wrongExplanation && (
-                                      <p className="text-sm text-red-600 dark:text-red-400">
-                                        <strong>Why your answer was wrong:</strong> {result.wrongExplanation}
-                                      </p>
-                                    )}
-                                  </>
-                                ) : (
-                                  <>
-                                    <p className="text-sm text-slate-700 dark:text-slate-300">
-                                      <strong>Your answer:</strong> {result.userAnswer || 'No answer provided'}
-                                    </p>
-                                    {result.graded && (
-                                      <>
-                                        <p className="text-sm text-blue-600 dark:text-blue-400">
-                                          <strong>Score:</strong> {result.writtenScore}/10
-                                        </p>
-                                        <p className="text-sm text-slate-700 dark:text-slate-300">
-                                          <strong>Feedback:</strong> {result.feedback}
-                                        </p>
-                                        {result.missingPoints?.length > 0 && (
-                                          <p className="text-sm text-amber-600 dark:text-amber-400">
-                                            <strong>Missing points:</strong> {result.missingPoints.join(', ')}
-                                          </p>
-                                        )}
-                                      </>
-                                    )}
-                                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                                      <strong>Ideal answer:</strong> {result.idealAnswer}
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => {
-                        setQuiz(null);
-                        setAnswers({});
-                        setWrittenAnswers({});
-                        setQuizResults(null);
-                        setSelectedTest(null);
-                        setIncludeWritten(false);
-                      }} className="flex-1 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-600">
-                        New Quiz
-                      </Button>
-                      <Button onClick={() => {
-                        setQuiz(null);
-                        setAnswers({});
-                        setWrittenAnswers({});
-                        setQuizResults(null);
-                      }} className="flex-1 dark:bg-indigo-600 dark:hover:bg-indigo-700">
-                        Retry Same Topic
-                      </Button>
-                    </div>
-                  </div>
+                {quiz && !isGeneratingQuiz && (
+                  <QuizRunner key={runKey} quiz={quiz} timeLimit={savedRun ? 0 : timeLimit} saved={savedRun}
+                    onSubmitted={saveAttempt}
+                    onNew={resetQuiz}
+                    onRetake={() => { setSavedRun(null); setRunKey(k => k + 1); }}
+                    onRegenerate={() => (lastMake.current ? lastMake.current() : resetQuiz())} />
                 )}
               </CardContent>
             </Card>
@@ -914,10 +647,21 @@ Provide a score out of 10 and brief feedback.`,
                   setHomeworkTitle(item.title);
                 } else if (item.type === 'quiz') {
                   setActiveTab('quiz');
-                  setQuiz(item.data?.quiz);
-                  setQuizResults(item.data?.results);
-                  setAnswers(item.data?.answers || {});
-                  setWrittenAnswers(item.data?.writtenAnswers || {});
+                  const q = normaliseQuiz(item.data?.quiz);
+                  let run = item.data?.run;
+                  if (!run) {   // saved before the quiz was rebuilt: answers and written grades kept separately
+                    const a = { ...(item.data?.answers || {}) };
+                    Object.entries(item.data?.writtenAnswers || {}).forEach(([i, v]) => { a[`w${i}`] = v; });
+                    const grades = {};
+                    (item.data?.results?.results || []).forEach((r, i) => {
+                      if (r?.type === 'written' && r.graded) grades[i] = { score: Number(r.writtenScore) || 0, verdict: r.writtenScore >= 9 ? 'correct' : r.writtenScore >= 4 ? 'partly correct' : 'incorrect', what_was_right: r.feedback || '', what_was_missing: '', missing_points: r.missingPoints || [] };
+                    });
+                    run = { answers: a, grades };
+                  }
+                  setSelectedTest(null);
+                  setQuiz({ ...q, title: item.title });
+                  setSavedRun(run);
+                  setRunKey(k => k + 1);
                 }
               }}
               onDeleteItem={(id) => deleteHistoryMutation.mutate(id)}
