@@ -564,7 +564,7 @@ function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
 
       {n.sections?.map((s, i) => (
         <section key={i}>
-          {s.heading && <h2 className="text-lg font-bold text-foreground">{s.heading}</h2>}
+          {s.heading && <h2 className="text-lg font-bold text-foreground"><MathLine text={s.heading} /></h2>}
           <ul className="mt-1.5 list-disc space-y-1.5 pl-5 text-base leading-relaxed text-foreground marker:text-indigo-500">
             {s.points.map((p, j) => <li key={j}><MathLine text={p} /></li>)}
           </ul>
@@ -578,7 +578,7 @@ function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
           <dl className="mt-2 space-y-2">
             {n.key_terms.map((k, i) => (
               <div key={i} className="rounded-xl border bg-card p-3">
-                <dt className="font-semibold text-foreground">{k.term}</dt>
+                <dt className="font-semibold text-foreground"><MathLine text={k.term} /></dt>
                 <dd className="mt-0.5 text-sm leading-relaxed text-muted-foreground"><MathLine text={k.definition} /></dd>
               </div>
             ))}
