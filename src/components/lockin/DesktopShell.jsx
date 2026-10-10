@@ -30,7 +30,7 @@ export function rememberSource(s) {
   try { localStorage.setItem(SOURCE_KEY, s); } catch (_) {}
 }
 
-/** Mic / computer sound / both — only in the desktop app. */
+/** Mic / computer sound / both, only in the desktop app. */
 export function SourcePicker({ value, onChange, className }) {
   if (!isDesktop) return null;
   return (
@@ -190,7 +190,7 @@ export function MiniView() {
             </button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            This window floats over your other apps. While a class records, ask “catch me up” here — or press {desktop?.platform === 'darwin' ? '⌘' : 'Ctrl'}+Shift+K from anywhere.
+            This window floats over your other apps. While a class records, ask “catch me up” here, or press {desktop?.platform === 'darwin' ? '⌘' : 'Ctrl'}+Shift+K from anywhere.
           </p>
         </div>
       )}

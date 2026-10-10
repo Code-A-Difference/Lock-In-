@@ -7,7 +7,7 @@ import { RECIPES, classChatPrompt } from '@/lib/classChat';
 import { notesMarkdown } from '@/lib/lectures';
 
 /**
- * "Ask about this class" — Granola's chat, for a lecture. While recording,
+ * "Ask about this class", Granola's chat, for a lecture. While recording,
  * each question first sends the audio heard so far, so "catch me up" and
  * "I got asked a question" see the last few seconds, not the last piece.
  * The conversation is kept with the lecture.
@@ -70,7 +70,7 @@ export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onA
           <Sparkles className="mx-auto h-6 w-6 text-primary" aria-hidden="true" />
           <p className="mt-2 text-base font-semibold text-foreground">{live ? 'Ask about the class, right now' : 'Ask about this class'}</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            {live ? 'Lost focus for a second, or got put on the spot? Tap a quick ask — it reads what was just said.'
+            {live ? 'Lost focus for a second, or got put on the spot? Tap a quick ask, it reads what was just said.'
               : 'Anything from the transcript and your notes: what a term meant, what’s due, a worked example again.'}
           </p>
         </div>

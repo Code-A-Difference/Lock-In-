@@ -22,8 +22,8 @@ function Chip({ as: As = 'button', className, children, ...rest }) {
 }
 
 /**
- * One box for adding anything. Type the way you'd say it — "essay outline eng
- * fri !" — and the chips underneath show how it was read; click a chip to
+ * One box for adding anything. Type the way you'd say it, "essay outline eng
+ * fri !", and the chips underneath show how it was read; click a chip to
  * change it. Enter saves and keeps the box focused for the next one.
  */
 const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
@@ -83,7 +83,7 @@ const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Escape') { setText(''); e.currentTarget.blur(); } }}
           autoComplete="off"
-          placeholder='Add anything — "essay outline eng fri !" or "chem test oct 3"'
+          placeholder='Add anything, "essay outline eng fri !" or "chem test oct 3"'
           className="h-11 min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
         />
         <button type="submit" disabled={!ready || saving}
