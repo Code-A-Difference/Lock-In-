@@ -10,7 +10,7 @@ import { gradePrompt, GRADE_SCHEMA, normaliseGrade, scoreQuiz, askPrompt, mmss }
  *
  * - An optional time limit counts down and hands the quiz in when it runs out.
  * - Written answers are graded together (each retried once); one that still
- *   can't be graded says so, with a button to try again — never a silent gap.
+ *   can't be graded says so, with a button to try again, never a silent gap.
  * - Every question has a step-by-step worked solution, with maths rendered.
  * - "Ask about this question" opens a tutor chat that already knows the
  *   question, the student's answer, the solution and the grade.
@@ -162,7 +162,7 @@ export default function QuizRunner({ quiz, timeLimit = 0, saved = null, onSubmit
         <ReviewCard key={i} q={questions[i]} i={i} answer={questions[i].type === 'written' ? answers[`w${i}`] : answers[i]}
           grade={grades[i]} per={score.per[i]} onRegrade={() => regrade(i)} />
       ))}
-      {onlyMissed && !shown.length && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">Nothing missed — every question was right.</p>}
+      {onlyMissed && !shown.length && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">Nothing missed, every question was right.</p>}
 
       <div className="grid gap-2 sm:grid-cols-3">
         <button type="button" onClick={onRetake} className="h-12 rounded-xl border text-sm font-semibold text-foreground hover:bg-secondary">Retake these questions</button>

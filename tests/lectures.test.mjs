@@ -92,6 +92,6 @@ test('notes export as Markdown', () => {
   assert.match(md, /^# Photosynthesis/);
   assert.match(md, /_Bio · 2026-10-02_/);
   assert.match(md, /## Light reactions\n- Thylakoids/);
-  assert.match(md, /- \*\*ATP\*\* — energy carrier/);
+  assert.match(md, /- \*\*ATP\*\*, energy carrier/);
   assert.match(md, /- \[ \] Lab report \(Friday\)/);
 });

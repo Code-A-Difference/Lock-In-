@@ -20,17 +20,17 @@ import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } fr
 import { phoneWhisper, forgetReady } from '@/lib/localEar';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
-const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline — let's lock in.";
+const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline, let's lock in.";
 
 // The newest Android build, from the app's GitHub Releases (the web host deletes large .apk files).
 const APK_URL = 'https://github.com/Code-A-Difference/Lock-In-/releases/latest/download/LOCKIN-android.apk';
 
-/** Get LOCK IN! as a phone app — only shown in a browser, never inside the app. */
+/** Get LOCK IN! as a phone app, only shown in a browser, never inside the app. */
 function PhoneApp() {
   const apk = true;
   if (isNativeApp) return null;
   return (
-    <Section icon={Smartphone} title="Get the phone app" description="Same account, same work — quicker to open, and the voice assistant works in it.">
+    <Section icon={Smartphone} title="Get the phone app" description="Same account, same work, quicker to open, and the voice assistant works in it.">
       <div className="grid gap-3 sm:grid-cols-2">
         {apk && (
           <a href={APK_URL} download className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
@@ -52,9 +52,9 @@ const LANGUAGES = [
 ];
 
 export const DESKTOP_PERKS = [
-  [ShieldCheck, 'Private, free transcription', 'Classes are transcribed on your computer — the audio never leaves it, and it works even when the AI service is busy.'],
+  [ShieldCheck, 'Private, free transcription', 'Classes are transcribed on your computer, the audio never leaves it, and it works even when the AI service is busy.'],
   [PictureInPicture2, 'Floats over your other apps', 'A small window stays on top while you work: live transcript, “catch me up”, and quick answers.'],
-  [MonitorSpeaker, 'Records online classes', 'Captures your computer’s sound — Zoom, Teams, Google Meet or a lecture video — with or without your mic.'],
+  [MonitorSpeaker, 'Records online classes', 'Captures your computer’s sound, Zoom, Teams, Google Meet or a lecture video, with or without your mic.'],
   [PhoneCall, 'Notices when a call starts', 'Offers to record when Zoom, Teams or a browser call begins.'],
   [Keyboard, 'Shortcuts from any app', 'Ctrl+Shift+K catches you up, Ctrl+Shift+L opens the assistant, Ctrl+Shift+R starts recording.'],
 ];
@@ -68,7 +68,7 @@ function DesktopApp() {
 const PHONE_MODEL_NOTE = {
   base: 'Quickest, least accurate',
   small: 'Recommended: accurate and quick on most phones',
-  turbo: 'Most accurate, but slow on most phones — a few seconds per sentence',
+  turbo: 'Most accurate, but slow on most phones, a few seconds per sentence',
 };
 
 /**
@@ -115,7 +115,7 @@ function ThisPhone() {
           ))}
           {err && <p className="text-sm text-red-300" role="alert">{err}</p>}
           {!st.models[st.model]?.installed && !dl && (
-            <p className="text-xs text-amber-200">Download it to use it — best on Wi-Fi.{st.using ? ` Until then ${st.models[st.using].label.toLowerCase()} is used.` : ' Until then the phone’s own recogniser is used.'}</p>
+            <p className="text-xs text-amber-200">Download it to use it, best on Wi-Fi.{st.using ? ` Until then ${st.models[st.using].label.toLowerCase()} is used.` : ' Until then the phone’s own recogniser is used.'}</p>
           )}
           <p className="text-xs text-muted-foreground">“Hey Lock In” itself is still heard by a tiny always-on model: running Whisper all the time would drain the battery.</p>
         </div>
@@ -128,7 +128,7 @@ function GetDesktop() {
   const os = guessOS();
   const btn = 'flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold';
   return (
-    <Section icon={Monitor} title="Get the desktop app" description="LOCK IN! for Windows and Mac — same account, and a better experience in class.">
+    <Section icon={Monitor} title="Get the desktop app" description="LOCK IN! for Windows and Mac, same account, and a better experience in class.">
       <ul className="grid gap-3 sm:grid-cols-2">
         {DESKTOP_PERKS.map(([Icon, title, text]) => (
           <li key={title} className="flex gap-3">
@@ -149,7 +149,7 @@ function GetDesktop() {
         </a>
       </div>
       <p className="text-xs text-muted-foreground">
-        Windows may say it “protected your PC” — choose More info → Run anyway. On a Mac, open the app once from Finder with right-click → Open
+        Windows may say it “protected your PC”, choose More info → Run anyway. On a Mac, open the app once from Finder with right-click → Open
         (or System Settings → Privacy &amp; Security → Open Anyway). The app isn’t signed by Apple or Microsoft yet.
       </p>
     </Section>
@@ -198,7 +198,7 @@ function ThisComputer() {
                 <label htmlFor={`m-${id}`} className="min-w-0 flex-1 text-sm">
                   <span className="block font-semibold text-foreground">{m.label}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {id === 'base' ? 'Quick on any computer' : id === 'small' ? 'Better with names and terms' : 'Most accurate — the default. Steps down by itself if this computer can’t keep up'} · {m.mb} MB
+                    {id === 'base' ? 'Quick on any computer' : id === 'small' ? 'Better with names and terms' : 'Most accurate, the default. Steps down by itself if this computer can’t keep up'} · {m.mb} MB
                   </span>
                 </label>
                 {m.installed ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400"><Check className="h-3.5 w-3.5" />Ready</span>
@@ -207,7 +207,7 @@ function ThisComputer() {
               </div>
             ))}
             {err && <p className="text-sm text-red-300" role="alert">{err}</p>}
-            {!st.models[t.model]?.installed && !dl && <p className="text-xs text-amber-200">Download this one to use it — until then the online service transcribes.</p>}
+            {!st.models[t.model]?.installed && !dl && <p className="text-xs text-amber-200">Download this one to use it, until then the online service transcribes.</p>}
           </div>
           <Row id="stt-lang" label="Language spoken in class">
             <select id="stt-lang" value={t.language} onChange={e => set({ language: e.target.value })}
@@ -425,7 +425,7 @@ export default function Settings() {
           <Row id="autoFocus" label="Start the next block automatically" hint="Off means you choose when to lock back in.">
             <Switch id="autoFocus" checked={p.autoFocus} onCheckedChange={v => focus.updatePrefs({ autoFocus: v })} />
           </Row>
-          <Row id="cues" label="Spoken cues" hint="“Nice work — take five.” Voice commands are always answered.">
+          <Row id="cues" label="Spoken cues" hint="“Nice work, take five.” Voice commands are always answered.">
             <Switch id="cues" checked={p.cues} onCheckedChange={v => focus.updatePrefs({ cues: v })} />
           </Row>
           <Row id="notify" label="Desktop notification when a block ends" hint="Only while LOCK IN! is in a background tab.">

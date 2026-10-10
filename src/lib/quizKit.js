@@ -7,10 +7,10 @@
  */
 
 export const DIFFICULTIES = [
-  { id: 'easier', label: 'Easier', how: 'Easier: check the basics — key definitions and one-step questions; written answers need only a sentence or two.' },
-  { id: 'standard', label: 'Standard', how: 'Standard: like a typical class quiz — a mix of recall and applying ideas.' },
-  { id: 'challenging', label: 'Challenging', how: 'Challenging: mostly applying and connecting ideas — multi-step problems, "why" and "what would happen if" questions, plausible wrong options.' },
-  { id: 'exam', label: 'Exam-level', how: 'Exam-level: as hard as a final exam — multi-step problems that combine topics, careful distractors, written answers that need a full worked solution.' },
+  { id: 'easier', label: 'Easier', how: 'Easier: check the basics, key definitions and one-step questions; written answers need only a sentence or two.' },
+  { id: 'standard', label: 'Standard', how: 'Standard: like a typical class quiz, a mix of recall and applying ideas.' },
+  { id: 'challenging', label: 'Challenging', how: 'Challenging: mostly applying and connecting ideas, multi-step problems, "why" and "what would happen if" questions, plausible wrong options.' },
+  { id: 'exam', label: 'Exam-level', how: 'Exam-level: as hard as a final exam, multi-step problems that combine topics, careful distractors, written answers that need a full worked solution.' },
 ];
 export const QUIZ_LENGTHS = [5, 10, 15, 20];
 export const TIME_LIMITS = [0, 5, 10, 15, 20, 30, 45];   // minutes; 0 = no limit
@@ -27,15 +27,15 @@ export function writtenCount(count, includeWritten) {
 /** The rules every quiz prompt ends with, so all quizzes come back the same shape. */
 export function quizRules({ difficulty = 'standard', count = 5, written = 0 } = {}) {
   const mc = Math.max(1, count - written);
-  return `Difficulty — ${difficultyHow(difficulty)}
+  return `Difficulty, ${difficultyHow(difficulty)}
 
 Make exactly ${mc} multiple-choice question${mc === 1 ? '' : 's'}${written ? ` and ${written} written (open-ended) question${written === 1 ? '' : 's'}` : ''}.
 For every question, work it out FIRST, then write the answer from your working:
-- "steps": the worked solution as a list of short steps, one idea or one line of working per step, in order, so a student can follow it — e.g. ["Rewrite the quotient as a product: $y = (4x^2-3)(x^2+2)^{-3}$", "Differentiate each factor: …", "Apply the product rule: …", "Simplify: …"]. For a recall question, 1–2 steps explaining why.
+- "steps": the worked solution as a list of short steps, one idea or one line of working per step, in order, so a student can follow it, e.g. ["Rewrite the quotient as a product: $y = (4x^2-3)(x^2+2)^{-3}$", "Differentiate each factor: …", "Apply the product rule: …", "Simplify: …"]. For a recall question, 1–2 steps explaining why.
 - Multiple choice: "options" are 4 answers written "A) …", "B) …", "C) …", "D) …"; "correct" is the index (0–3) of the right one; "explanation" is one sentence on why it's right; "wrong_explanations" has one short reason for each option (the right one can say "Correct").
 - Written: "ideal_answer" is a short model answer (the final result); "key_points" are the 2–5 things a full-marks answer must contain.
 - The answer MUST be the result of the last step: the correct option and the ideal_answer say exactly what the steps conclude. Check the arithmetic before you write it.
-- Write ALL maths and science in LaTeX between single $ signs, everywhere — question, options, steps, answers ($x^2$, $\\frac{dy}{dx}$, $f'(1)$, $\\ce{H2O}$, $9.8\\,\\text{m/s}^2$). In JSON, double every backslash.`;
+- Write ALL maths and science in LaTeX between single $ signs, everywhere, question, options, steps, answers ($x^2$, $\\frac{dy}{dx}$, $f'(1)$, $\\ce{H2O}$, $9.8\\,\\text{m/s}^2$). In JSON, double every backslash.`;
 }
 
 export const QUIZ_SCHEMA = {
@@ -65,7 +65,7 @@ export const QUIZ_SCHEMA = {
 
 const arr = (x) => (Array.isArray(x) ? x : []);
 /* Text from the AI, tidied: inside $…$ maths, a stray \( or \) (a second set of
-   maths markers) would break the rendering — inside maths they mean brackets. */
+   maths markers) would break the rendering, inside maths they mean brackets. */
 const str = (x) => (x == null ? '' : String(x)).trim()
   .replace(/\$[^$\n]+\$/g, (m) => m.replace(/\\\(/g, '(').replace(/\\\)/g, ')'));
 
@@ -100,7 +100,7 @@ export function normaliseQuiz(raw) {
 
 /*
  * A fast model sometimes writes the answer before working it out, so a
- * question's answer key can contradict its own worked solution — and a
+ * question's answer key can contradict its own worked solution, and a
  * student who gets it right is marked wrong. A second, short pass compares
  * each key with its steps and corrects the key (never the working) where
  * they disagree.
@@ -130,7 +130,7 @@ Worked solution:
 ${q.steps.map((s, k) => `  ${k + 1}. ${s}`).join('\n')}
 ${q.type === 'written' ? `Model answer: ${q.ideal_answer}` : `Options:\n${q.options.map((o, k) => `  [${k}] ${o}`).join('\n')}\nMarked correct: [${q.correct}]`}`).join('\n\n');
   return `You are checking a practice quiz's answer key against its own worked solutions.
-For each question: redo the working carefully. The key must give the final answer the question asks for (a value at a point is a number, not a formula). If the answer key does not match the correct result — the option marked correct is a different value, or the model answer says something else — return a fix. If the right value isn't among the options at all, return "options" with the wrong one replaced by the right value (keep the "A) " style labels) and "correct" pointing at it. Fix the KEY only. Return an empty "fixes" list if every key is right. Write maths in LaTeX between $ signs.
+For each question: redo the working carefully. The key must give the final answer the question asks for (a value at a point is a number, not a formula). If the answer key does not match the correct result, the option marked correct is a different value, or the model answer says something else, return a fix. If the right value isn't among the options at all, return "options" with the wrong one replaced by the right value (keep the "A) " style labels) and "correct" pointing at it. Fix the KEY only. Return an empty "fixes" list if every key is right. Write maths in LaTeX between $ signs.
 
 ${list}`;
 }

@@ -1,6 +1,6 @@
 /**
  * Pieces of a recording that couldn't be transcribed yet, kept on this
- * device (IndexedDB) so they can be retried later — after the AI service
+ * device (IndexedDB) so they can be retried later, after the AI service
  * comes back, or after the app was closed. Once a piece is transcribed its
  * audio is deleted. Nothing here leaves the device except to be transcribed.
  */

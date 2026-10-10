@@ -59,7 +59,7 @@ export default function Classes() {
     });
   }, 'Could not add that class');
 
-  // Renaming a class has to carry its homework and tests along — they're
+  // Renaming a class has to carry its homework and tests along, they're
   // linked by name.
   const edit = (data) => run(async () => {
     const old = target.name;

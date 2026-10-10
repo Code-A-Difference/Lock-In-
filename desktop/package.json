@@ -39,7 +39,7 @@
       "hardenedRuntime": false,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "LOCK IN! records your classes so it can transcribe them and write your notes.",
-        "NSAudioCaptureUsageDescription": "LOCK IN! can record your computer's sound — an online class or a lecture video — to transcribe it.",
+        "NSAudioCaptureUsageDescription": "LOCK IN! can record your computer's sound, an online class or a lecture video, to transcribe it.",
         "NSScreenCaptureUsageDescription": "Recording your computer's sound uses macOS screen and audio capture. LOCK IN! never saves the picture."
       }
     },

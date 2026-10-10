@@ -4,7 +4,7 @@ import { classSources, gatherMaterial, classQuizPrompt, lectureMaterialText } fr
 
 const lec = (id, extra) => ({ id, title: `L${id}`, date: `2026-10-0${id}`, class_name: 'Bio', ...extra });
 
-test('a class quiz draws on notes, added material and transcripts — only for that class', () => {
+test('a class quiz draws on notes, added material and transcripts, only for that class', () => {
   const lectures = [
     lec('1', { notes: { summary: 'Cells are the unit of life.', sections: [{ heading: 'Cells', points: ['Membranes control what enters.'] }] } }),
     lec('2', { source: 'material', title: 'Handout', material_text: 'Mitosis has four phases: prophase, metaphase, anaphase, telophase.' }),

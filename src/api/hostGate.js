@@ -2,7 +2,7 @@
  * The web host (InfinityFree) puts a JavaScript check in front of the whole
  * site: a request without its "__test" cookie gets a small HTML page (status
  * 200!) whose script sets the cookie and reloads. The cookie lasts six hours,
- * so an app left open longer — the desktop app in the tray, a long class —
+ * so an app left open longer, the desktop app in the tray, a long class
  * suddenly gets that page instead of JSON from every API, and saving, the AI
  * and transcription all fail with "error (200)".
  *
@@ -26,7 +26,7 @@ export function renewGate({ timeoutMs = 10000 } = {}) {
     frame.style.display = 'none';
     frame.setAttribute('aria-hidden', 'true');
     // A PHP address (static files like robots.txt aren't checked): the check page appears
-    // in its place, sets the cookie, then forwards to it — a tiny "use POST" reply.
+    // in its place, sets the cookie, then forwards to it, a tiny "use POST" reply.
     frame.src = `${location.origin}/api/ai.php?gate=${Date.now()}`;
     const started = Date.now();
     let loads = 0;

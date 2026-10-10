@@ -1,7 +1,7 @@
 /*
  * Toasts, on Radix. The export shipped plain <div>s in their place: toasts
  * never went away, the close button did nothing, and the action was a div a
- * keyboard couldn't reach — which matters now that every delete offers Undo.
+ * keyboard couldn't reach, which matters now that every delete offers Undo.
  * Radix gives auto-dismiss (paused while hovered or focused), swipe to
  * dismiss, a real <button> for the action and an aria-live region.
  */

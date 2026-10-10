@@ -2,7 +2,7 @@
  * The assistant's voice.
  *
  * Before: `new SpeechSynthesisUtterance(reply)` with the browser's default
- * voice — usually the flat, robotic one — reading the raw markdown ("asterisk
+ * voice, usually the flat, robotic one, reading the raw markdown ("asterisk
  * asterisk important asterisk asterisk"), and Chrome silently stops long
  * utterances after about 15 seconds, so long answers were cut off mid-word.
  *
@@ -158,7 +158,7 @@ function playUrl(url, token) {
 }
 
 /**
- * Throws only if the FIRST piece can't be had — that is the caller's cue to
+ * Throws only if the FIRST piece can't be had, that is the caller's cue to
  * use the browser voice instead. Anything that fails after that has already
  * been partly spoken, so the rest continues in the browser voice rather than
  * starting the answer over.
@@ -203,7 +203,7 @@ export function speak(text, { onStart, onEnd } = {}) {
   const token = ++playToken;
   const clean = speakable(text);
   if (!clean) { onEnd?.(); return Promise.resolve(); }
-  // Resolves when the last word has been said — or when something else cut it off.
+  // Resolves when the last word has been said, or when something else cut it off.
   return new Promise((resolve) => {
     speaking++;
     let over = false;
@@ -216,7 +216,7 @@ export function speak(text, { onStart, onEnd } = {}) {
     };
     pending.set(token, finish);
     // Some browsers never fire the "ended" event (a cancelled utterance, a voice that fails to load).
-    // Without this the assistant would stay "speaking" — and deaf — for good.
+    // Without this the assistant would stay "speaking", and deaf, for good.
     setTimeout(finish, Math.max(10000, clean.length * 120));
     (async () => {
       // "auto" means fastest-good: a device voice that already sounds natural speaks

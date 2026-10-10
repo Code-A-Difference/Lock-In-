@@ -1,7 +1,7 @@
 {
   "name": "LOCK IN!",
   "short_name": "LOCK IN!",
-  "description": "Homework, tests, focus timer and lecture notes — with a voice assistant.",
+  "description": "Homework, tests, focus timer and lecture notes, with a voice assistant.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

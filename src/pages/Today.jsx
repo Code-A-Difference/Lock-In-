@@ -33,7 +33,7 @@ function greeting() {
 /**
  * Everything due, in the order it's due, with the thing to do next one click
  * away. The old home page was a dashboard of counts, a month calendar and a
- * collapsed class list — you had to open a dialog to add anything and another
+ * collapsed class list, you had to open a dialog to add anything and another
  * to change it. Here adding is typing one line, and every action is on the row.
  */
 export default function Today() {
@@ -74,7 +74,7 @@ export default function Today() {
   const focusToday = useMemo(() => sessions.filter(s => s.day === ymd(new Date())).reduce((n, s) => n + (s.minutes || 0), 0), [sessions]);
   const empty = !isLoading && homework.length === 0 && tests.length === 0;
 
-  // Mid-block, the button goes back to that block — it never swaps the task
+  // Mid-block, the button goes back to that block, it never swaps the task
   // you're on for a different one.
   const inBlock = focus.phase === 'focus' && focus.status !== 'idle';
   const lockIn = () => {
@@ -294,7 +294,7 @@ function PlanCard({ planner }) {
         <span className="block truncate text-xs text-muted-foreground">
           {next.length
             ? next.map(b => `${niceTime(b.start)} ${b.title}`).join(' · ')
-            : planner.slots.length ? `${planner.slots.length} free block${planner.slots.length === 1 ? '' : 's'} added — tap to make the plan` : 'Add when you’re free and I’ll fit your work in'}
+            : planner.slots.length ? `${planner.slots.length} free block${planner.slots.length === 1 ? '' : 's'} added, tap to make the plan` : 'Add when you’re free and I’ll fit your work in'}
         </span>
       </span>
       <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
@@ -307,7 +307,7 @@ function EmptyState({ hasClasses, onAdd }) {
     <div className="rounded-2xl border border-dashed bg-card p-6 text-center">
       <h3 className="text-base font-semibold text-foreground">Nothing here yet</h3>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-        Type your first assignment in the box above — like <em>“read chapter 4 tmr”</em> or <em>“history essay oct 10 !”</em>.
+        Type your first assignment in the box above, like <em>“read chapter 4 tmr”</em> or <em>“history essay oct 10 !”</em>.
         {!hasClasses && ' Adding your classes first lets it tag each one automatically.'}
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">

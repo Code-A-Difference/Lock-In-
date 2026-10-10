@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * LOCK IN! design tokens — Code A Difference's look: warm ink on near-black,
+ * LOCK IN! design tokens, Code A Difference's look: warm ink on near-black,
  * a calm sage (#84b3a6) as the one accent on soft charcoal, Space Grotesk.
  * Dark is the default (the site is dark by design); the light theme is warm
  * paper with a darker ember so text on it stays readable. Everything in the
@@ -46,7 +46,7 @@
     --card-foreground: 40 12% 84%;
     --popover: 220 12% 13%;
     --popover-foreground: 40 12% 84%;
-    --primary: 162 24% 60%;             /* muted sage #84b3a6 — calm on a dark screen */
+    --primary: 162 24% 60%;             /* muted sage #84b3a6, calm on a dark screen */
     --primary-foreground: 220 15% 10%;
     --secondary: 220 11% 17%;
     --secondary-foreground: 40 12% 84%;
@@ -138,7 +138,7 @@
 }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-/* Motion is decoration here, never information — honour the OS setting. */
+/* Motion is decoration here, never information, honour the OS setting. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;

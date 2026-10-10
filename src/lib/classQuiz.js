@@ -1,7 +1,7 @@
 /**
  * Quizzing on a whole class: every lecture's notes plus the material the
  * student added themselves (a teacher's PDF, a photo of the board, a study
- * guide, pasted text) — gathered fairly within the AI's size limit, so one
+ * guide, pasted text), gathered fairly within the AI's size limit, so one
  * long lecture can't crowd the rest out, and each question says where it
  * came from.
  *
@@ -64,7 +64,7 @@ export function gatherMaterial(sources = [], budget = QUIZ_MATERIAL_CHARS) {
 export function classQuizPrompt({ className = '', focus = '', material = '', count = 10, written = 0, difficulty = 'standard' }) {
   return `Write a practice quiz for a student's ${className ? `"${className}" ` : ''}class, from their own notes and class material below.
 ${focus ? `Focus especially on: ${focus}\n` : ''}
-- Spread the questions across ALL of the lectures and materials below, not just the first one — roughly in proportion to how much each covers.
+- Spread the questions across ALL of the lectures and materials below, not just the first one, roughly in proportion to how much each covers.
 - Only ask about what the material actually says. Test understanding, not trivia: definitions, how and why, worked problems, cause and effect.
 - Every question has a "source": the exact title after "Lecture:" or "Material:" that it came from.
 
@@ -101,7 +101,7 @@ export const CLASS_QUIZ_SCHEMA = {
 
 /** The prompt that reads an uploaded file (PDF, photo, text) into text the app can keep. */
 export const EXTRACT_PROMPT = `This is study material a student added for a class (a handout, slides, a textbook page, a photo of the board or of notes).
-Write out everything it teaches, faithfully and completely: all the text, in order, with headings kept. Describe each diagram, graph or table in words, including the numbers and labels on it. Write maths and science in LaTeX between $ signs. No commentary before or after — just the content.`;
+Write out everything it teaches, faithfully and completely: all the text, in order, with headings kept. Describe each diagram, graph or table in words, including the numbers and labels on it. Write maths and science in LaTeX between $ signs. No commentary before or after, just the content.`;
 
 /** Keep what an account can hold: material text is capped well under the per-record limit. */
 export const MATERIAL_MAX_CHARS = 60000;

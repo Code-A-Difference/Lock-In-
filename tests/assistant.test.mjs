@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { actionToCommand, parsePlan, spokenVersion, fastCommand, lectureContext, buildSystem, buildPrompt, transcriptOf } from '../src/lib/assistant.js';
 import { parseCommand } from '../src/lib/voiceCommands.js';
 
-test('"start a focus session for 50 minutes" starts one — it does not just change the setting', () => {
+test('"start a focus session for 50 minutes" starts one, it does not just change the setting', () => {
   assert.deepEqual(actionToCommand({ name: 'startFocus', minutes: 50 }), { action: 'startFocus', minutes: 50, taskTitle: '' });
   assert.equal(actionToCommand({ name: 'setFocusLength', minutes: 50 }).action, 'setFocus');
   assert.equal(parseCommand("let's start a focus session for 50 min").action, 'startFocus');

@@ -1,5 +1,5 @@
 /**
- * The lecture being recorded, for the whole app — like FocusContext, it sits
+ * The lecture being recorded, for the whole app, like FocusContext, it sits
  * above the pages so a recording carries on while you check your agenda.
  *
  * Each ~15 s piece goes to the transcriber in order (the end of one piece is
@@ -77,7 +77,7 @@ export function LectureProvider({ children }) {
     setActive(a => a && { ...a, queued: a.queued + 1 });
     queue.current = queue.current.then(async () => {
       const before = transcriptText(segs.current).slice(-300);
-      const hint = [className, before].filter(Boolean).join(' — ');
+      const hint = [className, before].filter(Boolean).join(', ');
       let seg;
       try {
         // live pieces don't wait long on a busy service: the next piece is coming, and this one is kept to retry
@@ -172,7 +172,7 @@ export function LectureProvider({ children }) {
    * A video or audio file the student already has (a recorded class, a
    * lesson video) becomes a lecture: the sound is decoded in the browser,
    * cut into the same 30-second pieces a live recording makes, transcribed,
-   * and turned into notes — after which the assistant can answer questions
+   * and turned into notes, after which the assistant can answer questions
    * about it like any other lecture.
    */
   const MAX_IMPORT_BYTES = 150 * 1024 * 1024;
@@ -212,7 +212,7 @@ export function LectureProvider({ children }) {
         if (!isSilent(samples)) {
           const wav = encodeWav(enhanceSpeech(samples));
           try {
-            seg.text = cleanPiece(await transcribeChunk(wav, [className, transcriptText(out).slice(-300)].filter(Boolean).join(' — ')));
+            seg.text = cleanPiece(await transcribeChunk(wav, [className, transcriptText(out).slice(-300)].filter(Boolean).join(', ')));
           } catch (e) { seg.error = e.message; keepPending(lec.id, seg.start, seg.duration, wav); }
         }
         out.push(seg);
@@ -252,7 +252,7 @@ export function LectureProvider({ children }) {
         const lecNow = lecturesRef.current.find(l => l.id === lecId);
         if (!lecNow) { await dropLecture(lecId); break; }
         const list = lecNow.segments || [];
-        const hint = [lecNow.class_name, transcriptText(list.filter(x => x.start < p.start)).slice(-300)].filter(Boolean).join(' — ');
+        const hint = [lecNow.class_name, transcriptText(list.filter(x => x.start < p.start)).slice(-300)].filter(Boolean).join(', ');
         let text;
         try { text = cleanPiece(await transcribeChunk(p.wav, hint, { tries: 2 })); } catch (e) { error = e.message; break; }
         const seg = { start: p.start, duration: p.duration, text };
@@ -272,7 +272,7 @@ export function LectureProvider({ children }) {
   /** How many pieces of a lecture are waiting on this device to be transcribed. */
   const pendingCount = useCallback(async (lectureId) => (await listPending(lectureId)).length, []);
 
-  /** Send the audio heard since the last piece and wait until the transcript has it — for "catch me up". */
+  /** Send the audio heard since the last piece and wait until the transcript has it, for "catch me up". */
   const flushNow = useCallback(async () => {
     rec.current?.flushNow();
     await Promise.race([queue.current, new Promise(r => setTimeout(r, 9000))]);
@@ -290,7 +290,7 @@ export function LectureProvider({ children }) {
   }, [!!active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
-   * Material the student adds to a class themselves — a handout, slides, a
+   * Material the student adds to a class themselves, a handout, slides, a
    * photo of the board, a study guide, or text they paste. Files are read
    * once by the AI (everything they teach, diagrams described in words) and
    * kept as text, so they don't fill up the account; then notes are written
@@ -312,7 +312,7 @@ export function LectureProvider({ children }) {
       if (String(out || '').trim()) parts.push(`${f.name}\n${String(out).trim()}`);
     }
     const material = parts.join('\n\n').slice(0, MATERIAL_MAX_CHARS);
-    if (material.trim().length < 20) throw new Error('There’s nothing in that to keep — add a file, or paste some notes.');
+    if (material.trim().length < 20) throw new Error('There’s nothing in that to keep, add a file, or paste some notes.');
     const now = new Date();
     const name = title.trim() || files[0]?.name?.replace(/\.[^.]+$/, '') || 'Class material';
     const lec = await actionsRef.current.addLecture({

@@ -37,7 +37,7 @@ export default function ClassDetailsDialog({ open, onOpenChange, classItem }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (_) {
-      setError('Copy was blocked — select the code and copy it by hand.');
+      setError('Copy was blocked, select the code and copy it by hand.');
     }
   };
 
@@ -80,7 +80,7 @@ export default function ClassDetailsDialog({ open, onOpenChange, classItem }) {
             </p>
             <p className="mb-3 text-xs text-slate-500">
               Send this code to a classmate. They paste it into <em>Add a shared class</em> and get
-              this class with its homework and tests. Added more since? Send a fresh code — pasting
+              this class with its homework and tests. Added more since? Send a fresh code, pasting
               it again only adds what's new.
             </p>
 

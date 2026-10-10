@@ -1,5 +1,5 @@
 /**
- * The focus timer, for the whole app — Ambient Voice Study's engine, moved in.
+ * The focus timer, for the whole app, Ambient Voice Study's engine, moved in.
  *
  * It lives above the pages, so it keeps running while you check your list or
  * ask the assistant something; the countdown shows in the nav and the tab
@@ -68,7 +68,7 @@ function quizPrompt(question, index, total) {
   return `Question ${index + 1} of ${total}. ${question?.question || ''} ${options ? `Your choices are: ${options}.` : ''} Say A, B, C, or D.`;
 }
 
-/** The best title match for a spoken phrase — exact, then "starts with", then "contains". */
+/** The best title match for a spoken phrase, exact, then "starts with", then "contains". */
 function findByTitle(list, spoken) {
   const q = String(spoken || '').toLowerCase().trim();
   if (!q) return { matches: [] };
@@ -211,8 +211,8 @@ export function FocusProvider({ children }) {
         chime('focusEnd', 0.35);
         const brk = Math.round(next.total / 60);
         const line = phase === 'long'
-          ? `That's ${blocks} blocks. Take a proper break — ${brk} minutes. Stand up, get some water.`
-          : `Nice work${minutes ? ` — ${minutes} minutes done` : ''}. Take ${brk}.`;
+          ? `That's ${blocks} blocks. Take a proper break, ${brk} minutes. Stand up, get some water.`
+          : `Nice work${minutes ? `, ${minutes} minutes done` : ''}. Take ${brk}.`;
         say(line);
         notify('Focus block done', `${minutes} minutes logged. ${PHASE_LABEL[phase]}: ${brk} min.`);
       }
@@ -284,7 +284,7 @@ export function FocusProvider({ children }) {
   /**
    * "Start a focus session for 50 minutes": a new block of exactly that long,
    * running now. It does not touch the default length (that is setDurations),
-   * and it does not carry on from whatever block was open before — time already
+   * and it does not carry on from whatever block was open before, time already
    * spent in that one is logged, then this one starts clean.
    */
   const startFocus = useCallback((minutes, task) => {
@@ -374,7 +374,7 @@ export function FocusProvider({ children }) {
   /* --------------------------------------------------------------- voice */
   /**
    * Carry out one command (the shape parseCommand and the assistant's actions
-   * both produce). Returns { reply, ok } — what happened, in words. Speaking
+   * both produce). Returns { reply, ok }, what happened, in words. Speaking
    * and conversation are the assistant's job (AssistantContext).
    */
   const perform = useCallback(async (cmd) => {
@@ -384,7 +384,7 @@ export function FocusProvider({ children }) {
     let reply;
     switch (cmd.action) {
       case 'start':
-        if (cur.status === 'running') reply = `Already going — ${spokenTime(leftOf(cur, Date.now()))} left.`;
+        if (cur.status === 'running') reply = `Already going, ${spokenTime(leftOf(cur, Date.now()))} left.`;
         else { start(); reply = cur.phase === 'focus' ? (item ? `Locked in on ${item.title}.` : 'Locked in. Go.') : 'Break timer running.'; }
         break;
       case 'pause': pause(); reply = 'Paused.'; break;
@@ -530,7 +530,7 @@ export function FocusProvider({ children }) {
   /* ------------------------------------------------------------- chrome */
   useEffect(() => {
     const base = 'LOCK IN!';
-    document.title = t.status === 'running' ? `${clock(remaining)} · ${PHASE_LABEL[t.phase]} — ${base}` : base;
+    document.title = t.status === 'running' ? `${clock(remaining)} · ${PHASE_LABEL[t.phase]}, ${base}` : base;
   }, [remaining, t.status, t.phase]);
 
   // Leaving (sign out): stop the sound and the voice, put the title back.

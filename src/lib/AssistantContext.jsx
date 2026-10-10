@@ -109,7 +109,7 @@ export function AssistantProvider({ children }) {
       case 'openPlanner': pl.setOpen(true); return 'Here’s your planner.';
       case 'navigate': navigate(cmd.path); return cmd.path === '/' ? 'Going to today.' : `Opening ${cmd.path.slice(1)}.`;
       case 'openPractice': navigate('/Study', { state: { tab: cmd.tab, topic: cmd.topic } }); return cmd.topic ? `Opening practice on ${cmd.topic}.` : 'Opening practice.';
-      case 'openCamera': window.dispatchEvent(new Event('lockin:camera')); return 'Camera’s open — snap your homework.';
+      case 'openCamera': window.dispatchEvent(new Event('lockin:camera')); return 'Camera’s open, snap your homework.';
       case 'graph': openGraph(cmd.expressions); return cmd.expressions.length ? 'Here’s the graph.' : 'Here’s the graphing calculator.';
 
       case 'recordLecture': {
@@ -144,7 +144,7 @@ export function AssistantProvider({ children }) {
           const sch = await pl.generate(cmd.notes);
           pl.setOpen(true);
           const first = sch.blocks[0];
-          return `Your plan is ready — ${sch.blocks.length} block${sch.blocks.length === 1 ? '' : 's'}, starting ${niceTime(first.start)} with ${first.title}.`;
+          return `Your plan is ready, ${sch.blocks.length} block${sch.blocks.length === 1 ? '' : 's'}, starting ${niceTime(first.start)} with ${first.title}.`;
         } catch (e) { return `I couldn't make the plan: ${e.message}`; }
       }
 
@@ -272,7 +272,7 @@ export function AssistantProvider({ children }) {
             reply = await execute(cmd);
             spoken = reply;
           } else {
-            reply = `I couldn’t reach my brain just now — ${e?.message || 'try again in a moment'}.`;
+            reply = `I couldn’t reach my brain just now, ${e?.message || 'try again in a moment'}.`;
             spoken = 'I couldn’t reach my brain just now. Try again in a moment.';
           }
         }

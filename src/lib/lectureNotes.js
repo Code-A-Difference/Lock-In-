@@ -2,8 +2,8 @@
  * Lectures: transcribing the recording piece by piece, and turning the
  * transcript (plus whatever you jotted down yourself) into notes.
  *
- * The notes work like Granola's: your own rough notes are the outline — what
- * you thought mattered — and the transcript fills them out, rather than the
+ * The notes work like Granola's: your own rough notes are the outline, what
+ * you thought mattered, and the transcript fills them out, rather than the
  * AI writing a generic summary over your head. Long lectures are summarised
  * in sections first (the AI proxy caps a prompt at 30,000 characters), then
  * combined.
@@ -95,7 +95,7 @@ export const STEM_RULES = `Maths and science notation (when the class has any):
 - Calculus: $f'(x)$, $\\frac{d}{dx}\\left(x^3\\right) = 3x^2$, $\\int x^2\\,dx = \\frac{x^3}{3} + C$, $\\sum_{n=1}^{\\infty}$.
 - Keep each worked step on its own point. In JSON, write every LaTeX backslash doubled (\\\\frac).`;
 
-export const GRAPH_RULES = `Graphs: when the class graphs, sketches or describes a plot of something with a known equation or data — a parabola, a line, a trig or exponential function, a derivative or area under a curve, a position/velocity–time relation, a supply/demand line — give that section a "graph" for Desmos:
+export const GRAPH_RULES = `Graphs: when the class graphs, sketches or describes a plot of something with a known equation or data, a parabola, a line, a trig or exponential function, a derivative or area under a curve, a position/velocity–time relation, a supply/demand line, give that section a "graph" for Desmos:
 - "expressions": Desmos LaTeX, one per item, in x and y (e.g. "y=x^2-4", "f(x)=\\\\sin(x)", "y=2x+1", "(2,0)", "y\\\\le x+1"). For physics or other axes, still use x and y and name the real axes in "caption" (e.g. "x is time in s, y is velocity in m/s").
 - "xmin"/"xmax"/"ymin"/"ymax": a window that shows the interesting part (roots, vertex, intersections).
 - "title": what the graph shows; "caption": one line on what to notice.
@@ -103,7 +103,7 @@ export const GRAPH_RULES = `Graphs: when the class graphs, sketches or describes
 
 export function sectionPrompt(part, index, total, className) {
   return `This is part ${index + 1} of ${total} of a transcript of a ${className ? `${className} ` : ''}class.
-Write dense study notes for just this part: the ideas taught, in order, with examples, formulas, dates and definitions kept exactly. Bullet points. Note anything the teacher said is due, coming up on a test, or important to remember. Write maths and science in LaTeX between $ signs ($x^2$, $\\ce{H2O}$, $9.8\\,\\text{m/s}^2$), turning spoken maths into notation. If a graph is drawn or described, keep its equation and what it shows. No preamble. Only what this part of the transcript says — nothing from your own knowledge; if it says little, write little.
+Write dense study notes for just this part: the ideas taught, in order, with examples, formulas, dates and definitions kept exactly. Bullet points. Note anything the teacher said is due, coming up on a test, or important to remember. Write maths and science in LaTeX between $ signs ($x^2$, $\\ce{H2O}$, $9.8\\,\\text{m/s}^2$), turning spoken maths into notation. If a graph is drawn or described, keep its equation and what it shows. No preamble. Only what this part of the transcript says, nothing from your own knowledge; if it says little, write little.
 
 Transcript:
 ${part}`;
@@ -116,8 +116,8 @@ ${myNotes.trim()
     ? `The student took these rough notes during class. Treat them as the outline of what matters to them: keep their headings and points, correct and complete them from the transcript, and add what they missed beneath them.\n--- Student's notes ---\n${myNotes.trim().slice(0, 6000)}\n--- End ---\n`
     : 'The student took no notes of their own; organise the notes by topic, in the order taught.\n'}
 Rules:
-- Use ONLY what the transcript (and the student's notes) actually say. Never add facts, examples, definitions, formulas, dates or deadlines from your own knowledge of the subject — not even standard textbook ones. The class name is context for spelling, not a topic to write about.
-- Match the notes to how much was said: a short or off-topic recording gets short notes. Empty "sections", "key_terms", "action_items" or "review_questions" are correct when nothing in the transcript fits them — never fill them in to look complete.
+- Use ONLY what the transcript (and the student's notes) actually say. Never add facts, examples, definitions, formulas, dates or deadlines from your own knowledge of the subject, not even standard textbook ones. The class name is context for spelling, not a topic to write about.
+- Match the notes to how much was said: a short or off-topic recording gets short notes. Empty "sections", "key_terms", "action_items" or "review_questions" are correct when nothing in the transcript fits them, never fill them in to look complete.
 - "summary" is 2-3 sentences a student could read the night before a test (one sentence, or a plain statement that little was covered, for a short recording).
 - "sections" follow the lesson's own structure; points are short, specific, and keep numbers, formulas and names exact.
 - "key_terms" are terms the teacher defined or emphasised.
@@ -192,11 +192,11 @@ export function notesMarkdown(notes, { title, className, date } = {}) {
   for (const s of n.sections) {
     lines.push('', `## ${s.heading || 'Notes'}`);
     for (const p of s.points) lines.push(`- ${p}`);
-    if (s.graph) lines.push(`- Graph${s.graph.title ? ` (${s.graph.title})` : ''}: ${s.graph.expressions.map(e => `$${e}$`).join(', ')}${s.graph.caption ? ` — ${s.graph.caption}` : ''}`);
+    if (s.graph) lines.push(`- Graph${s.graph.title ? ` (${s.graph.title})` : ''}: ${s.graph.expressions.map(e => `$${e}$`).join(', ')}${s.graph.caption ? `, ${s.graph.caption}` : ''}`);
   }
   if (n.key_terms.length) {
     lines.push('', '## Key terms');
-    for (const k of n.key_terms) lines.push(`- **${k.term}** — ${k.definition}`);
+    for (const k of n.key_terms) lines.push(`- **${k.term}**, ${k.definition}`);
   }
   if (n.action_items.length) {
     lines.push('', '## To do');
@@ -212,8 +212,8 @@ export function notesMarkdown(notes, { title, className, date } = {}) {
 /* ------------------------------------------------------- staying grounded */
 /*
  * The model is asked for a summary, sections, key terms and review questions.
- * Given almost nothing — five seconds of "what the hell" in a class called
- * Probability — it filled every one of them from what it knows about
+ * Given almost nothing, five seconds of "what the hell" in a class called
+ * Probability, it filled every one of them from what it knows about
  * probability. Two guards:
  *   1. Too little was said: don't ask it at all (MIN_WORDS).
  *   2. Afterwards, every point, term and question is checked against what was
@@ -273,7 +273,7 @@ export function groundNotes(notes, source, { min = 0.34 } = {}) {
     out.warning = 'Some of what the AI wrote wasn’t in the recording, so it was left out. Check these notes against the transcript.';
   }
   if (!out.summary && !out.sections.length) {
-    out.summary = 'Nothing in the recording could be turned into notes — the transcript is below.';
+    out.summary = 'Nothing in the recording could be turned into notes, the transcript is below.';
   }
   return out;
 }
@@ -282,7 +282,7 @@ export function groundNotes(notes, source, { min = 0.34 } = {}) {
 export function tooShortNotes(words) {
   return normaliseNotes({
     summary: words
-      ? `Only ${words} word${words === 1 ? ' was' : 's were'} recorded — not enough to make notes from. The transcript is below.`
+      ? `Only ${words} word${words === 1 ? ' was' : 's were'} recorded, not enough to make notes from. The transcript is below.`
       : 'Nothing was heard in this recording, so there are no notes. If the class was quiet or far away, try recording closer to the speaker.',
   });
 }

@@ -134,7 +134,7 @@ const SAFE_FAST = new Set(['pause', 'start', 'skip', 'reset', 'timeLeft', 'sound
 
 /**
  * Plain one-to-four word commands skip the model, so "pause" is instant.
- * Anything longer is language, and goes to the model — "wait, what does
+ * Anything longer is language, and goes to the model, "wait, what does
  * mitosis mean" must not pause the timer.
  */
 export function fastCommand(text, parse, { quizActive = false } = {}) {
@@ -154,7 +154,7 @@ const words = (s) => String(s || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [];
 
 /** What a lecture is, as one block of text the model can read. */
 function lectureText(l, { transcript = true, budget = 9000 } = {}) {
-  const head = `# ${l.title || 'Lecture'}${l.class_name ? ` — ${l.class_name}` : ''}${l.date ? ` (${l.date})` : ''}`;
+  const head = `# ${l.title || 'Lecture'}${l.class_name ? `, ${l.class_name}` : ''}${l.date ? ` (${l.date})` : ''}`;
   const notes = l.notes ? notesMarkdown(l.notes) : '';
   const mine = l.my_notes ? `Student's own notes:\n${l.my_notes}` : '';
   const said = transcript ? transcriptText(l.segments || []) : '';
@@ -228,10 +228,10 @@ Be a real study partner: help with homework by explaining, working through steps
 ${s.via === 'voice' ? 'This turn was SPOKEN. Keep "spoken" to one to three plain sentences (no markdown, no lists, no symbols); put any longer explanation in "reply".' : 'This turn was TYPED. "spoken" can be left empty.'}
 
 Actions (name and fields; use only these):
-- startFocus {minutes, title?} — start a NEW focus block of that length right now ("start a focus session for 50 minutes"). This starts the timer; it does not change the default. title = homework to lock in on.
+- startFocus {minutes, title?}, start a NEW focus block of that length right now ("start a focus session for 50 minutes"). This starts the timer; it does not change the default. title = homework to lock in on.
 - startBreak {minutes?}   pause   resume   skip   reset   completeStep
-- setFocusLength {minutes} / setBreakLength {minutes} — change the DEFAULT length of future blocks (only when asked to change the setting, not when asked to start).
-- addTime {minutes} — add (positive) or remove (negative) minutes from the running block.
+- setFocusLength {minutes} / setBreakLength {minutes}, change the DEFAULT length of future blocks (only when asked to change the setting, not when asked to start).
+- addTime {minutes}, add (positive) or remove (negative) minutes from the running block.
 - sound {kind: rain|brown|drone|off|last}   volume {delta: -0.15 quieter … 0.15 louder}
 - addHomework {title, date (YYYY-MM-DD), className?}   addTest {title, date (YYYY-MM-DD, required), className?}
 - completeHomework {title}   deleteItem {title, kind: homework|test}
@@ -239,11 +239,11 @@ Actions (name and fields; use only these):
 - createQuiz {topic}   quizAnswer {answer: a|b|c|d}   stopQuiz
 - openPage {path: today|classes|study|notes|settings}   openPlanner   openFocus   openCamera (to photograph homework)
 - updateHomework {title, newTitle?, date?, priority? (low|medium|high|asap), className?}   updateTest {title, newTitle?, date?, className?}
-- breakDown {title} — split a homework item into small steps
+- breakDown {title}, split a homework item into small steps
 - addClass {title}   renameClass {title, newTitle}   deleteClass {title}
 - Planner: addFreeTime {date, start, end} (24-hour HH:MM; "after school" ≈ 15:30)   removeFreeTime {date, start}   clearFreeTime {date?}   makePlan {notes?}   clearPlan
   When they tell you when they're free, add it AND, if they want a plan, also makePlan in the same turn.
-- graph {expressions: ["y=x^2-4", "y=2x+1"]} — opens Desmos with these (Desmos LaTeX, one equation per item). Use it whenever a graph helps.
+- graph {expressions: ["y=x^2-4", "y=2x+1"]}, opens Desmos with these (Desmos LaTeX, one equation per item). Use it whenever a graph helps.
 - openPractice {topic?, kind?: quiz|grading}   setGoal {minutes} (daily focus goal)   setDarkMode {on}   setAutoBreak {on}
 - pauseRecording   resumeRecording
 Write maths in LaTeX between $…$ (inline) or $$…$$ (display), chemistry with \\ce{…} inside $…$ (e.g. $\\ce{2H2 + O2 -> 2H2O}$), never bare LaTeX. In "spoken", say maths in words ("x squared over two"), no symbols.

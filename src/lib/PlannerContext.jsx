@@ -62,7 +62,7 @@ export function PlannerProvider({ children }) {
   const generate = useCallback(async (extraNotes) => {
     const slots = upcoming(ref.current.slots);
     const { homework: hw, tests: ts } = data.current;
-    if (!slots.length) throw new Error('Add some free time first — when are you free to study?');
+    if (!slots.length) throw new Error('Add some free time first, when are you free to study?');
     if (!hw.some(h => !h.is_completed) && !ts.length) throw new Error('There’s no homework or tests to plan yet.');
     setBusy(true);
     setError('');

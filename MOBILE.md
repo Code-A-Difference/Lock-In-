@@ -17,14 +17,14 @@ projects. They don't bundle a copy of the web app: their web view opens
 
 - Accounts use a same-site cookie, and the AI and transcription go through
   `/api/ai.php` on that domain. Loaded from the site, the app *is* same-site,
-  so both work exactly as in a browser — no second API, no tokens.
+  so both work exactly as in a browser, no second API, no tokens.
 - Deploying the website updates the apps. A new APK is only needed when the
   native side changes (permissions, plugins, icons).
 - With no connection, the bundled `native-shell/offline.html` explains and
   offers a retry, instead of a blank screen.
 
 Native plugins (bundled in the web app through `@capacitor/*`, and inert in
-a browser — `src/lib/native.js`):
+a browser, `src/lib/native.js`):
 
 - **Speech recognition** (`@capacitor-community/speech-recognition`):
   Android's web view has no speech API, so "Hey Lock In" and push-to-talk

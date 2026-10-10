@@ -1,5 +1,5 @@
 /**
- * Break it down — the Classroom Task Shredder, merged into LOCK IN!.
+ * Break it down, the Classroom Task Shredder, merged into LOCK IN!.
  *
  * The standalone Shredder made you pick a task type from a menu of sixteen,
  * then dealt out a fixed checklist. Here it works on the homework you
@@ -9,7 +9,7 @@
  *
  * The ten school checklists are the Shredder's, carried over. Its six
  * non-homework ones (puzzle, desk, workout, morning routine...) stayed with
- * the standalone tool, and the lab-report steps were rewritten — the
+ * the standalone tool, and the lab-report steps were rewritten, the
  * original read like machine paraphrase.
  */
 
@@ -20,7 +20,7 @@ export const TEMPLATES = {
       ['Open your doc and type just the title', 2],
       ['Find 2 sources or quotes from your notes or the library', 10],
       ['Write 3 bullet points for your introduction', 5],
-      ["Write paragraph 1 — don't worry if it's perfect, just type", 15],
+      ["Write paragraph 1, don't worry if it's perfect, just type", 15],
       ['Take a 2-minute stretch break', 2],
       ['Write paragraph 2', 15],
       ['Write paragraph 3', 15],
@@ -37,7 +37,7 @@ export const TEMPLATES = {
       ['Solve problems 4–6', 10],
       ['Stand up and move for a minute', 1],
       ['Solve the remaining problems', 15],
-      ['Check your answers — redo any that look off', 5],
+      ['Check your answers, redo any that look off', 5],
     ],
   },
   reading: {
@@ -57,7 +57,7 @@ export const TEMPLATES = {
     steps: [
       ['Open Slides or PowerPoint and pick a simple theme', 3],
       ['Write the title slide', 2],
-      ['List the 4–5 main points — one per slide', 5],
+      ['List the 4–5 main points, one per slide', 5],
       ['Fill in the slides, a few words each', 15],
       ['Add one image or chart where it helps', 8],
       ['Write speaker notes for each slide', 8],
@@ -81,7 +81,7 @@ export const TEMPLATES = {
       ['Read your notes or textbook section on it', 8],
       ['Explain it in your own words, as if to a friend', 6],
       ['Draw a diagram or example of it', 6],
-      ['Write down what still confuses you — ask about it', 4],
+      ['Write down what still confuses you, ask about it', 4],
     ],
   },
   exam: {
@@ -92,7 +92,7 @@ export const TEMPLATES = {
       ['Read through the most important topics', 15],
       ['Write a 5-question practice test from your notes', 10],
       ['Close your notes and answer it from memory', 15],
-      ['Mark it — whatever you missed is what to study next', 5],
+      ['Mark it, whatever you missed is what to study next', 5],
     ],
   },
   coding: {
