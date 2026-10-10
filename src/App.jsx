@@ -127,7 +127,6 @@ const AuthenticatedApp = () => {
     </Routes>
     <FocusSurface />
     <VoicePanel />
-    <UpdatePrompt />
     <PlannerSheet />
     <GraphPanel />
     </AssistantProvider>
@@ -146,6 +145,7 @@ function App() {
           <AuthenticatedApp />
         </Router>
         <Toaster />
+        <UpdatePrompt />{/* signed in or not: everyone with an old app hears about the update */}
       </QueryClientProvider>
     </AuthProvider>
   )
