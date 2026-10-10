@@ -29,12 +29,16 @@ test('the model replying badly still gives something', () => {
   assert.equal(parsePlan(null).reply, '');
 });
 
-test('what gets spoken', () => {
-  assert.equal(spokenVersion({ reply: 'long long', spoken: 'Short.' }), 'Short.');
+test('the whole reply is read aloud, never a summary or a cut-off', () => {
+  const reply = 'The mitochondria makes energy. It does this through respiration, which needs oxygen.';
+  // a "spoken" that's much shorter is a summary: the full reply is read instead
+  assert.equal(spokenVersion({ reply, spoken: 'It makes energy.' }), reply);
+  // a "spoken" that's the reply read aloud (maths in words) is used
+  const said = 'x squared plus two x equals zero, so x is zero or minus two.';
+  assert.equal(spokenVersion({ reply: '$x^2+2x=0$, so $x=0$ or $x=-2$.', spoken: said }), said);
   assert.equal(spokenVersion({ reply: 'Fine.', spoken: '' }), 'Fine.');
   const long = Array.from({ length: 40 }, (_, i) => `Sentence number ${i}.`).join(' ');
-  const s = spokenVersion({ reply: long, spoken: '' });
-  assert.ok(s.length < 520 && s.endsWith('The rest is in the chat.'));
+  assert.equal(spokenVersion({ reply: long, spoken: '' }), long);
 });
 
 test('only tiny commands skip the model', () => {

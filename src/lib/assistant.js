@@ -18,7 +18,7 @@ export const PLAN_SCHEMA = {
   type: 'object',
   properties: {
     reply: { type: 'string', description: 'What to show in the chat. Markdown allowed.' },
-    spoken: { type: 'string', description: 'What to say aloud: plain words, one to three sentences. Leave out if reply is already that short.' },
+    spoken: { type: 'string', description: 'The reply word for word as it should be read aloud: the same content and length, with maths and symbols said in words. Never shorter than the reply, never a summary. Leave out if the reply has no maths or symbols.' },
     actions: {
       type: 'array',
       items: {
@@ -118,14 +118,16 @@ export function parsePlan(raw) {
 }
 
 /** What to say aloud: the model's short version, else the start of the reply. */
-export function spokenVersion(plan, max = 420) {
+/**
+ * What is read aloud: the whole reply. The model's "spoken" is used only when
+ * it really is the reply read aloud (maths in words); a "spoken" that is much
+ * shorter is a summary, and summaries left out the parts that mattered.
+ */
+export function spokenVersion(plan) {
+  const reply = plan.reply.replace(/```[\s\S]*?```/g, ' ').replace(/\s+/g, ' ').trim();
   const s = (plan.spoken || '').trim();
-  if (s) return s;
-  const plain = plan.reply.replace(/```[\s\S]*?```/g, ' ').replace(/\s+/g, ' ').trim();
-  if (plain.length <= max) return plain;
-  const cut = plain.slice(0, max);
-  const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
-  return `${(end > 120 ? cut.slice(0, end + 1) : cut).trim()} The rest is in the chat.`;
+  if (s && s.length >= reply.length * 0.75) return s;
+  return reply || s;
 }
 
 /* ----------------------------------------------------------- fast path */
@@ -225,7 +227,7 @@ You do two things in every turn: answer in "reply", and DO what they asked by li
 
 Be a real study partner: help with homework by explaining, working through steps, checking their reasoning and giving worked examples; give hints first when they are practising, and the full answer when they ask for it. Hold a continuous conversation: use the recent conversation, so "why?" or "do another one" means what it meant a moment ago. When lecture notes, a transcript or an attached file is provided below or attached, answer detailed questions from it, quote or point to the part you used, and say plainly when the material doesn't cover something instead of guessing. You can't open links or watch videos from a URL: if they paste one, tell them to use the paperclip ("Add a video" for a file, or attach a PDF/photo) or paste the transcript.
 
-${s.via === 'voice' ? 'This turn was SPOKEN. Keep "spoken" to one to three plain sentences (no markdown, no lists, no symbols); put any longer explanation in "reply".' : 'This turn was TYPED. "spoken" can be left empty.'}
+${s.via === 'voice' ? 'This turn was SPOKEN, and the whole reply is read out. Keep "reply" short and direct (a few sentences, no tables), but complete: everything the student needs is in it. "spoken" is that same reply read aloud, word for word, with maths in words.' : 'This turn was TYPED. "spoken" can be left empty.'}
 
 Actions (name and fields; use only these):
 - startFocus {minutes, title?}, start a NEW focus block of that length right now ("start a focus session for 50 minutes"). This starts the timer; it does not change the default. title = homework to lock in on.
