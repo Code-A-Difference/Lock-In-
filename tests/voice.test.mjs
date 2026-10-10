@@ -49,7 +49,7 @@ test('lengths', () => {
   is('take off 5 minutes', 'adjust', { minutes: -5 });
 });
 
-test('sound — and "stop the music" is not "stop the timer"', () => {
+test('sound, and "stop the music" is not "stop the timer"', () => {
   is('stop the music', 'sound', { kind: 'off' });
   is('mute', 'sound', { kind: 'off' });
   is('play rain', 'sound', { kind: 'rain' });

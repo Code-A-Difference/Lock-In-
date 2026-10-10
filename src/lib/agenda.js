@@ -71,7 +71,7 @@ export function pickNext(homework = [], tests = [], now = new Date()) {
 /**
  * Focus stats from FocusSession records ({minutes, day: 'YYYY-MM-DD'}).
  * The streak counts consecutive days with at least one block, and survives
- * until the end of today — not having studied YET today doesn't break it.
+ * until the end of today, not having studied YET today doesn't break it.
  */
 export function focusStats(sessions = [], now = new Date()) {
   const byDay = new Map();

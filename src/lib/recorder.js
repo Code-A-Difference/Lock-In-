@@ -5,8 +5,8 @@
  * including the iPhone and Android app wrappers, records a different
  * compressed format, and a WebM piece cut from the middle of a recording has
  * no header, so it can't be sent on its own. Raw samples become a small WAV
- * every CHUNK_SECONDS instead — 16 kHz mono, which is what speech models want
- * anyway — and each one stands alone. Pieces that are only silence (a quiet
+ * every CHUNK_SECONDS instead, 16 kHz mono, which is what speech models want
+ * anyway, and each one stands alone. Pieces that are only silence (a quiet
  * gap while the teacher writes) are dropped rather than sent.
  *
  * The helpers at the top are pure, so tests/recorder.test.mjs runs them in
@@ -71,7 +71,7 @@ export function isSilent(samples) { return rms(samples) < SILENCE_RMS; }
  * reaches the microphone very quietly; speech models do far better when the
  * voice is at a normal level. So: cut the low rumble (fans, desks, traffic)
  * below ~90 Hz, find the level of the loudest stretches (the speech, not the
- * gaps), raise that to a steady target — up to 30× (about +30 dB) — and
+ * gaps), raise that to a steady target, up to 30× (about +30 dB), and
  * soft-limit so nothing clips. 16-bit PCM in and out. Pure.
  */
 export function enhanceSpeech(samples, rate = SAMPLE_RATE) {
@@ -135,8 +135,8 @@ export class LectureRecorder {
   }
 
   /**
-   * `source`: 'mic' (default), 'system' — the computer's own sound, e.g. an
-   * online class or a lecture video (desktop app only) — or 'both', mixed.
+   * `source`: 'mic' (default), 'system', the computer's own sound, e.g. an
+   * online class or a lecture video (desktop app only), or 'both', mixed.
    */
   async start({ source = 'mic' } = {}) {
     if (!canRecord) throw new Error('This device can’t record audio here.');
@@ -161,7 +161,7 @@ export class LectureRecorder {
       try {
         this.streams.push(await navigator.mediaDevices.getUserMedia({
           // with the computer's sound too, cancel the speakers out of the mic so nothing is heard twice
-          // No noise suppression: it's built for calls, where a faraway voice IS the noise to remove —
+          // No noise suppression: it's built for calls, where a faraway voice IS the noise to remove
           // in a classroom that's the teacher. enhanceSpeech() levels the sound instead.
           audio: { channelCount: 1, echoCancellation: source === 'both', noiseSuppression: false, autoGainControl: true },
         }));

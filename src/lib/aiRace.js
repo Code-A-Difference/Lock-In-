@@ -1,7 +1,7 @@
 /**
  * Seamless AI answers: if the answer is taking clearly longer than answers
- * usually do, quietly ask again on a second "lane" — the server starts that
- * request from a different key or model — and use whichever answers first.
+ * usually do, quietly ask again on a second "lane", the server starts that
+ * request from a different key or model, and use whichever answers first.
  * The other request is cancelled. The usual time is learned on this device.
  *
  * The web host can't run two AI requests at once inside one server call, but
@@ -66,7 +66,7 @@ export function raceAI(send, { long = false, usualMs = null, hedge = true, now =
           const othersRunning = lanes.some(l => !l.settled);
           if (othersRunning) return;                               // the other lane may still answer
           // The first lane failed outright before any race began: the server has already gone
-          // through every key, so asking again on another lane would only repeat that — unless
+          // through every key, so asking again on another lane would only repeat that, unless
           // it was a dropped connection, which a second lane can survive.
           if (lanes.length === 1 && hedge && !err?.final) { clearTimeout(timer); start(1); return; }
           finish(reject, errors[0]);

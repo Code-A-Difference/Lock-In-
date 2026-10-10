@@ -31,7 +31,7 @@ underbrace overbrace stackrel xrightarrow cancel square triangle`.split(/\s+/));
 /**
  * A model asked for JSON often writes LaTeX with one backslash ("\frac"),
  * which JSON reads as an escape: \f becomes a form feed, \t a tab, \b a
- * backspace, \n a newline — and \s, \c… make JSON.parse fail outright. Double
+ * backspace, \n a newline, and \s, \c… make JSON.parse fail outright. Double
  * the backslash in front of known LaTeX commands before parsing; real escapes
  * ("\n" before a word, "\"") and already-doubled ones are left alone.
  */
@@ -41,7 +41,7 @@ export function escapeLatexInJson(raw) {
       // a known command, or any letter run JSON couldn't read anyway (\sqrt, \qty…)
       return LATEX_CMDS.has(name) || !'bfnrt'.includes(name[0]) ? `\\\\${name}` : m;
     }
-    if (other) return `\\\\${other}`;     // \, \; \! \{ \% … — spacing and symbols, never valid JSON
+    if (other) return `\\\\${other}`;     // \, \; \! \{ \% …, spacing and symbols, never valid JSON
     return m;                              // \\ \uXXXX \" \/ stay as they are
   });
 }

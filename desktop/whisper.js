@@ -11,7 +11,7 @@
  * is what stops speech models "hearing" words in a quiet room.
  *
  * Two lanes, each its own server process:
- *   notes  pieces of a class (15 s), with the chosen model — turbo by default
+ *   notes  pieces of a class (15 s), with the chosen model, turbo by default
  *   ear    "Hey Lock In" and the assistant: short phrases that need an answer
  *          in about a second. Whisper always works on a 30-second window, so a
  *          2-second phrase costs as much as a long piece; this lane shrinks the
@@ -55,7 +55,7 @@ function noteSpeed(model, rtf) {
   s.n++;
   speeds[model] = s;
 }
-/** How hard a model works this computer: {rtf, n} — rtf 0.2 means 15 s of class takes 3 s. */
+/** How hard a model works this computer: {rtf, n}, rtf 0.2 means 15 s of class takes 3 s. */
 const speed = (model) => speeds[model] || null;
 let downloading = null;     // { id, got, total }
 const listeners = new Set();

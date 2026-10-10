@@ -1,5 +1,5 @@
 /**
- * Asking about a class while it's happening (and afterwards) — Granola's
+ * Asking about a class while it's happening (and afterwards), Granola's
  * chat, for a classroom. The transcript is handed over with timestamps, so
  * "catch me up" and "what was I just asked?" can look at the last few
  * minutes rather than the whole hour.
@@ -45,7 +45,7 @@ export function classChatPrompt({ question, segments = [], myNotes = '', notes =
   const hist = history.slice(-6).map(m => `${m.role === 'user' ? 'Student' : 'You'}: ${String(m.text).slice(0, 800)}`).join('\n');
   const transcript = timedTranscript(segments, notes ? 12000 : 18000);
   const system = `You are LOCK IN!, a student's quick helper ${live ? 'during a class that is happening right now' : 'for a class they recorded'}.
-${live ? `The class is ${clock(elapsed)} in. The transcript below is live and may lag by a few seconds; the newest lines are at the bottom and are what is happening now.\n` : ''}Answer fast and short — the student is reading on a phone${live ? ' in class' : ''}. Use the transcript (and their notes) as the source: if it doesn't cover something, say so in one line and then give your best general answer, marked as such. Plain text with short bullets. Write maths and science as LaTeX between single $ signs (turn spoken maths into notation: $x^2$, $\\frac{dy}{dx}$, $\\int_0^1 x\\,dx$), chemistry as $\\ce{2H2 + O2 -> 2H2O}$, and numbers with units as $9.8\\,\\text{m/s}^2$. No preamble.`;
+${live ? `The class is ${clock(elapsed)} in. The transcript below is live and may lag by a few seconds; the newest lines are at the bottom and are what is happening now.\n` : ''}Answer fast and short, the student is reading on a phone${live ? ' in class' : ''}. Use the transcript (and their notes) as the source: if it doesn't cover something, say so in one line and then give your best general answer, marked as such. Plain text with short bullets. Write maths and science as LaTeX between single $ signs (turn spoken maths into notation: $x^2$, $\\frac{dy}{dx}$, $\\int_0^1 x\\,dx$), chemistry as $\\ce{2H2 + O2 -> 2H2O}$, and numbers with units as $9.8\\,\\text{m/s}^2$. No preamble.`;
   const prompt = `${className ? `Class: ${className}\n` : ''}${title ? `Lecture: ${title}\n` : ''}${myNotes.trim() ? `\nThe student's own notes:\n${myNotes.trim().slice(0, 3000)}\n` : ''}${notes ? `\nNotes written from this class:\n${notes.slice(0, 6000)}\n` : ''}
 Transcript:
 ${transcript || '(nothing transcribed yet)'}
@@ -56,7 +56,7 @@ Student: ${question}`;
 
 /* ---------------------------------------------------------------- templates */
 
-/** How the notes are laid out — like Granola's templates, for kinds of class. */
+/** How the notes are laid out, like Granola's templates, for kinds of class. */
 export const NOTE_TEMPLATES = [
   { id: 'lecture', label: 'Lecture', how: 'Organise by topic in the order taught.' },
   { id: 'problems', label: 'Maths & problem solving',
@@ -68,7 +68,7 @@ export const NOTE_TEMPLATES = [
   { id: 'humanities', label: 'History & English',
     how: 'Keep names, dates, events, quotes and themes exact. Sections by period, text or theme; note cause and effect, and any essay or thesis ideas the teacher gave.' },
   { id: 'language', label: 'Language class',
-    how: 'Sections for vocabulary (word — meaning), grammar rules with examples, phrases, and pronunciation notes. Keep the target-language words exactly as said.' },
+    how: 'Sections for vocabulary (word, meaning), grammar rules with examples, phrases, and pronunciation notes. Keep the target-language words exactly as said.' },
 ];
 
 export function templateHow(id) {

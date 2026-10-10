@@ -1,6 +1,6 @@
 # LOCK IN! is a single-page app: /lockin/Study and /lockin/Settings are routes
 # in the browser, not files on the server. Without this, refreshing on one of
-# them — or opening a bookmark to it — is a 404. Serve index.html for anything
+# them, or opening a bookmark to it, is a 404. Serve index.html for anything
 # that isn't a real file or folder and let the app's router take it from there.
 <IfModule mod_rewrite.c>
   RewriteEngine On

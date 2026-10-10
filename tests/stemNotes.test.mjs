@@ -48,7 +48,7 @@ test('notes keep a section graph and it reaches the Markdown', () => {
   const n = normaliseNotes({ sections: [{ heading: 'Quadratics', points: ['Vertex at $(0,-4)$'], graph: { title: 'y = x² − 4', expressions: ['y=x^2-4'], caption: 'roots at ±2' } }, { heading: 'No graph', points: ['x'] }] });
   assert.equal(n.sections[0].graph.expressions[0], 'y=x^2-4');
   assert.ok(!('graph' in n.sections[1]));
-  assert.match(notesMarkdown(n), /- Graph \(y = x² − 4\): \$y=x\^2-4\$ — roots at ±2/);
+  assert.match(notesMarkdown(n), /- Graph \(y = x² − 4\): \$y=x\^2-4\$, roots at ±2/);
 });
 
 test('the notes prompt carries the notation and graph rules, with real backslashes', () => {

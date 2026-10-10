@@ -1,6 +1,6 @@
 /**
  * Dates as students say them. Everything works on local calendar days and
- * YYYY-MM-DD strings — due dates have no time of day, and treating them as
+ * YYYY-MM-DD strings, due dates have no time of day, and treating them as
  * UTC midnight would shift them a day for anyone west of Greenwich (which is
  * all of BC).
  */

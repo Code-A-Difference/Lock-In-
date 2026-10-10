@@ -1,15 +1,15 @@
 /**
- * db.js — LOCK IN!'s data layer.
+ * db.js, LOCK IN!'s data layer.
  *
  * The app was exported from base44 with its data layer stubbed out: every
  * call returned nothing. This replaces it with the same interface the pages
- * already use —
+ * already use
  *
  *   db.auth.me() / updateMe() / logout() / isAuthenticated()
  *   db.entities.<Name>.list() / filter() / get() / create() / update() / delete()
  *   db.integrations.Core.UploadFile() / InvokeLLM()
  *
- * — backed by the student's account on the Code A Difference server
+ *, backed by the student's account on the Code A Difference server
  * (/api/lockin.php). Signing in loads everything once; reads come from that
  * copy in memory, and every change goes up as a small operation ("create this
  * homework", "tick that step"), so a laptop and a phone signed in at once
@@ -120,7 +120,7 @@ function drop() {
 /*
  * Every change is queued and sent in order. A change resolves once the
  * server has it. If the connection drops it stays queued, retried with a
- * back-off, and resolves straight away so the app doesn't hang — the saving
+ * back-off, and resolves straight away so the app doesn't hang, the saving
  * indicator says it's waiting. If the server refuses a change (too big, say)
  * it rejects, and the copy here is reloaded from the server so the two
  * never drift apart.
@@ -131,7 +131,7 @@ let flushTimer = null;
 let retryIn = 0;
 let offline = false;
 
-/* Why saving is failing, for the banner — and a short record of failures that rides along
+/* Why saving is failing, for the banner, and a short record of failures that rides along
    with the next save that gets through, so the server's log shows what happened. */
 let lastError = null;             // { status, msg, snippet }
 let failures = [];                // [{ at, status, msg, snippet, ops, bytes }]
@@ -221,7 +221,7 @@ function flush() {
   return flushing;
 }
 
-/** Everything queued, sent — or given up on after a few seconds. */
+/** Everything queued, sent, or given up on after a few seconds. */
 async function settle(ms = 5000) {
   const until = Date.now() + ms;
   while (session && (outbox.length || flushing) && Date.now() < until) {
@@ -575,7 +575,7 @@ function parseJsonReply(text) {
 const integrations = {
   Core: {
     /**
-     * No file server — the file becomes a data: URL held in memory, which is
+     * No file server, the file becomes a data: URL held in memory, which is
      * all the AI features need. Capped so a phone photo of a worksheet fits
      * but a whole textbook does not.
      */
@@ -590,14 +590,14 @@ const integrations = {
     /**
      * Goes to the Code A Difference AI proxy, which attaches the AI keys
      * server-side. Returns a string, or a parsed object when the caller
-     * asked for JSON — the same contract the pages were written against.
+     * asked for JSON, the same contract the pages were written against.
      */
     async InvokeLLM({ prompt, system, response_json_schema, add_context_from_internet, file_urls, maxTokens } = {}) {
       const files = (file_urls || []).map(dataUrlToPart).filter(Boolean);
       const wantJson = !!response_json_schema;
       const body = {
         prompt: wantJson
-          ? `${prompt}\n\nReply with JSON only — no prose, no code fences — matching this JSON Schema:\n${JSON.stringify(response_json_schema)}`
+          ? `${prompt}\n\nReply with JSON only, no prose, no code fences, matching this JSON Schema:\n${JSON.stringify(response_json_schema)}`
           : prompt,
         system: system || '',
         ...(maxTokens ? { maxTokens } : {}),
@@ -624,7 +624,7 @@ const integrations = {
         let j = null;
         try { j = await r.json(); } catch (_) {}
         if (!j && r.ok) {
-          // not JSON at all: the host's check page even after renewing — a second lane may get through
+          // not JSON at all: the host's check page even after renewing, a second lane may get through
           throw new Error('LOCK IN! briefly lost its connection to the site. Try again, or reload the app if it keeps happening.');
         }
         if (!j || !j.ok) {
@@ -692,7 +692,7 @@ export const sharing = {
       if (body[0] === 'z') bytes = await inflate(bytes);
       payload = JSON.parse(new TextDecoder().decode(bytes));
     } catch (_) {
-      throw new Error('That share code is damaged or incomplete — ask for it again.');
+      throw new Error('That share code is damaged or incomplete, ask for it again.');
     }
     if (!payload?.class?.name) throw new Error('That share code has no class in it.');
 

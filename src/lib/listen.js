@@ -6,7 +6,7 @@
  *                 Study's "Companion"), then acts on what follows.
  *
  * Ambient Voice Study listened continuously from the moment you pressed start
- * and acted on anything that matched — so a classmate saying "stop" across the
+ * and acted on anything that matched, so a classmate saying "stop" across the
  * room stopped your timer. Here nothing happens without the wake phrase (or, for
  * a few seconds after the assistant has answered you, a follow-up). Hands-free is
  * asked about once, then stays on.
@@ -41,7 +41,7 @@ function friendly(err) {
     case 'not-allowed':
     case 'service-not-allowed':
       return 'Microphone access is blocked. Allow it in the address bar, then try again.';
-    case 'no-speech': return "Didn't catch anything — try again a little closer to the mic.";
+    case 'no-speech': return "Didn't catch anything, try again a little closer to the mic.";
     case 'audio-capture': return 'No microphone was found.';
     case 'network': return 'Speech recognition needs an internet connection in this browser.';
     default: return 'Listening stopped unexpectedly.';
@@ -114,7 +114,7 @@ export function listenOnce({ onInterim, onSpeech, recognition, pauseMs = 1600, q
 
 /**
  * Hands-free: listens until stopped, and calls onCommand(text) for whatever
- * follows the wake phrase — or, for a few seconds after the assistant has
+ * follows the wake phrase, or, for a few seconds after the assistant has
  * woken or answered, for anything said at all, so a conversation doesn't need
  * "Hey Lock In" before every sentence.
  *
@@ -150,7 +150,7 @@ export class HandsFree {
     this.openedAt = 0;
     this.timer = null;
     // desktop: Whisper on this computer, if it's set up. (On Android the always-on part stays
-    // with the small wake-word model; Whisper hears what's said after it — see _runNative.)
+    // with the small wake-word model; Whisper hears what's said after it, see _runNative.)
     this.local = !recognition && canHearLocally && !wakeWord;
   }
 
@@ -219,7 +219,7 @@ export class HandsFree {
       }
     };
     // Browsers end "continuous" recognition after a minute or so of quiet, or
-    // when the connection drops. Reopen it — but a session that dies at once,
+    // when the connection drops. Reopen it, but a session that dies at once,
     // again and again, is a fault, not a pause, so back off and then stop.
     rec.onend = () => {
       if (!this.running) return;

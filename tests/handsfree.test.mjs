@@ -63,7 +63,7 @@ test('a long request that arrives in pieces is sent whole, not just its first pi
   hf.stop();
 }));
 
-test('speech with no wake phrase is ignored — a classmate saying "stop" does nothing', () => {
+test('speech with no wake phrase is ignored, a classmate saying "stop" does nothing', () => {
   const { hf, log, made } = make();
   hf.start();
   made[0].say('stop the timer please', true);
@@ -104,7 +104,7 @@ test('it does not hear itself: results are dropped while muted, without closing 
   hf.stop();
 });
 
-test('a session that keeps dying backs off, then gives up — it does not flicker forever', async () => {
+test('a session that keeps dying backs off, then gives up, it does not flicker forever', async () => {
   mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   try {
     const { hf, log, made } = make();

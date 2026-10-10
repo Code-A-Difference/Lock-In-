@@ -158,7 +158,7 @@ function appIcon(size) {
 
 function updateTray() {
   if (!tray) return;
-  tray.setToolTip(recording ? 'LOCK IN! — recording' : 'LOCK IN!');
+  tray.setToolTip(recording ? 'LOCK IN!, recording' : 'LOCK IN!');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open LOCK IN!', click: () => { setMini(false); showWindow(); } },
     { label: mini ? 'Full window' : 'Float on top (mini)', click: () => setMini(!mini) },
@@ -266,8 +266,8 @@ function wireIpc() {
 }
 
 /**
- * Whisper large-v3 turbo is used for everything — classes, "Hey Lock In" and
- * the assistant — unless the student chose a model themselves, or this
+ * Whisper large-v3 turbo is used for everything, classes, "Hey Lock In" and
+ * the assistant, unless the student chose a model themselves, or this
  * computer has shown it can't keep up with turbo live (over 0.8 s of work per
  * second of class). Then it steps down to small, and from small to base.
  */
@@ -290,7 +290,7 @@ function autoTune() {
 /**
  * What hears "Hey Lock In" and the assistant. Turbo too, when this computer
  * does a 15-second piece of class in under about 2 s (a fast processor, or
- * Apple's GPU) — then a phrase is understood in about 2 s. Otherwise small:
+ * Apple's GPU), then a phrase is understood in about 2 s. Otherwise small:
  * measured on a Ryzen 7 laptop on battery, turbo took 5-6 s per phrase, small
  * about 1 s, and small still caught "Hey Lock In" every time.
  */

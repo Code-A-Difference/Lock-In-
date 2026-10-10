@@ -1,5 +1,5 @@
 /**
- * Background sound for focus blocks, generated live with Web Audio — no
+ * Background sound for focus blocks, generated live with Web Audio, no
  * audio files, nothing to download, works offline.
  *
  * Ambient Voice Study had one sound: a low synth drone that started and

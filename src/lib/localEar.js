@@ -138,7 +138,7 @@ function b64(bytes) {
   return btoa(s);
 }
 
-/** Bracketed noise tags Whisper writes for silence and sounds — never words. */
+/** Bracketed noise tags Whisper writes for silence and sounds, never words. */
 export const cleanHeard = (t) => String(t || '')
   .replace(/[[(]\s*(BLANK_AUDIO|MUSIC|NOISE|SILENCE|inaudible|unintelligible|indistinct[^\])]*)\s*[\])]/gi, ' ')
   .replace(/\s+/g, ' ').trim();

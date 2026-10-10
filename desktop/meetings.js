@@ -2,7 +2,7 @@
  * Noticing that an online class or call has started, so LOCK IN! can offer to
  * record it (as Granola does for meetings).
  *
- * Windows keeps a record of which apps are using the microphone right now —
+ * Windows keeps a record of which apps are using the microphone right now
  * it's what lights the mic icon in the taskbar. An app whose LastUsedTimeStop
  * is 0 is using it at this moment. On a Mac there's no such list, so Zoom's
  * in-meeting helper process (CptHost) is looked for instead.

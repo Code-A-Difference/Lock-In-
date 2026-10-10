@@ -1,11 +1,11 @@
 /**
- * vault.js — where LOCK IN! keeps its data: in this browser, encrypted.
+ * vault.js, where LOCK IN! keeps its data: in this browser, encrypted.
  *
  * Nothing is sent to a server. Each account's data lives in IndexedDB as one
  * encrypted blob, and the key that opens it is derived from that account's
  * password. That matters on a shared school computer: every student using
  * the same browser shares the same IndexedDB, so a sign-in screen on its own
- * would only hide the data, not protect it — anyone could read it in
+ * would only hide the data, not protect it, anyone could read it in
  * devtools. Encrypted, all they can read is ciphertext.
  *
  * The cost of that is real and the sign-up page says so: there is no
@@ -118,7 +118,7 @@ export async function sealJson(key, username, obj) {
   return { iv, ct: new Uint8Array(ct) };
 }
 
-/** Throws if the key is wrong or the data was tampered with — GCM checks both. */
+/** Throws if the key is wrong or the data was tampered with, GCM checks both. */
 export async function openJson(key, username, { iv, ct }) {
   const pt = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv, additionalData: te.encode(username) },

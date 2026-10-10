@@ -30,7 +30,7 @@ export const NAV = [
 
 function Brand({ compact = false }) {
   return (
-    <Link to="/" className="flex min-w-0 items-center gap-2.5 rounded-lg" aria-label="LOCK IN! — Today">
+    <Link to="/" className="flex min-w-0 items-center gap-2.5 rounded-lg" aria-label="LOCK IN!, Today">
       <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-primary">
         <Lock className="h-4 w-4 text-primary-foreground" aria-hidden="true" />
       </span>
@@ -107,7 +107,7 @@ export default function Layout({ children, currentPageName }) {
     const onKey = (e) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typingIn(e.target)) return;
       if (document.querySelector('[role="menu"]')) return;
-      // A dialog normally blocks every shortcut — except the Focus overlay
+      // A dialog normally blocks every shortcut, except the Focus overlay
       // itself, which wants F/M/N to keep working while it's open.
       if ([...document.querySelectorAll('[role="dialog"]')].some(d => d.getAttribute('aria-label') !== 'Focus timer')) return;
       const k = e.key.toLowerCase();

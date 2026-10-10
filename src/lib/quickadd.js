@@ -8,7 +8,7 @@
  * Adding homework used to take a dialog with four fields and a class picker.
  * This parses what a student would say out loud instead, and the Today page
  * shows the result as chips before saving, so nothing is guessed silently.
- * Pure function: no React, no storage — the tests run it in Node.
+ * Pure function: no React, no storage, the tests run it in Node.
  */
 import { addDays, startOfDay, ymd } from './dates.js';
 
@@ -68,7 +68,7 @@ function takeDate(text, now) {
     [new RegExp(`${LEAD}\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MO_ALT})\\b\\.?`, 'i'), (m) => monthDay(MONTH[m[2].toLowerCase()], Number(m[1]), today)],
     // 2026-09-30
     [new RegExp(`${LEAD}\\b(\\d{4})-(\\d{1,2})-(\\d{1,2})\\b`, 'i'), (m) => new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))],
-    // 9/30 — month first unless that is impossible (30/9)
+    // 9/30, month first unless that is impossible (30/9)
     [new RegExp(`${LEAD}\\b(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?\\b`, 'i'), (m) => {
       let a = Number(m[1]), b = Number(m[2]);
       let month = a, day = b;

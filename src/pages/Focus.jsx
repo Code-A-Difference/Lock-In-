@@ -23,7 +23,7 @@ function typingIn(el) {
 /**
  * Ambient Voice Study, rebuilt inside LOCK IN!: the timer, the background
  * sound and the voice control, now tied to the homework you're actually
- * doing — its checklist sits next to the clock, and the minutes you put in
+ * doing, its checklist sits next to the clock, and the minutes you put in
  * are logged against it.
  */
 export default function Focus() {
@@ -208,12 +208,12 @@ export default function Focus() {
               <option value="">Nothing specific</option>
               {pending.length > 0 && (
                 <optgroup label="Homework">
-                  {pending.map(h => <option key={h.id} value={`homework:${h.id}`}>{h.title}{h.due_date ? ` — due ${relativeDay(h.due_date)}` : ''}</option>)}
+                  {pending.map(h => <option key={h.id} value={`homework:${h.id}`}>{h.title}{h.due_date ? `, due ${relativeDay(h.due_date)}` : ''}</option>)}
                 </optgroup>
               )}
               {upcoming.length > 0 && (
                 <optgroup label="Tests">
-                  {upcoming.map(t => <option key={t.id} value={`test:${t.id}`}>{t.title} — {relativeDay(t.date)}</option>)}
+                  {upcoming.map(t => <option key={t.id} value={`test:${t.id}`}>{t.title}, {relativeDay(t.date)}</option>)}
                 </optgroup>
               )}
             </select>
@@ -227,7 +227,7 @@ export default function Focus() {
                 {(item.steps || []).length > 0 && (item.steps || []).every(s => s.done) && (
                   <button type="button" onClick={() => act.toggleHomework(item)}
                     className="mt-3 h-10 w-full rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700">
-                    All steps done — mark it finished
+                    All steps done, mark it finished
                   </button>
                 )}
               </div>
@@ -271,7 +271,7 @@ export default function Focus() {
                 onValueChange={([v]) => f.setVolume(v / 100)} aria-label="Volume" disabled={f.prefs.sound === 'off'} />
               <Volume2 className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Loops continuously until you choose Off or say “stop the sound.” Made live in your browser — nothing to download.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Loops continuously until you choose Off or say “stop the sound.” Made live in your browser, nothing to download.</p>
           </section>
         </aside>
       </div>

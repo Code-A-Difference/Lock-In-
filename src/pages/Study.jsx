@@ -101,7 +101,7 @@ export default function Study() {
   });
 
   // Same data, same filtering as every other page. Tests are sorted soonest
-  // first — the old list was sorted latest first, so the "upcoming test"
+  // first, the old list was sorted latest first, so the "upcoming test"
   // banner named the one furthest away.
   const { tests: myTests, classes = [], lectures = [] } = useStudyData();
   const classOptions = classes.filter(c => classSources(lectures, c.name).length);
@@ -191,7 +191,7 @@ Be constructive, encouraging, and specific.`;
       lastMake.current = handleClassQuiz;
       setSavedRun(null);
       setRunKey(k => k + 1);
-      setQuiz({ questions, title: `${quizClass}${quizFocus.trim() ? ` — ${quizFocus.trim()}` : ''}`, difficulty });
+      setQuiz({ questions, title: `${quizClass}${quizFocus.trim() ? `, ${quizFocus.trim()}` : ''}`, difficulty });
     } catch (error) {
       alert(`Couldn't make that quiz: ${error?.message || 'please try again.'}`);
     } finally {
@@ -262,7 +262,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
 
 
 
-  /** Difficulty, length, time limit and written answers — the same for every kind of quiz. */
+  /** Difficulty, length, time limit and written answers, the same for every kind of quiz. */
   const quizSettings = (idp) => (
     <div className="grid gap-3 sm:grid-cols-3">
       <div>
@@ -461,7 +461,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                     <div className="space-y-4">
                       <section className="rounded-lg border bg-card p-4" aria-labelledby="class-quiz-h">
                         <h3 id="class-quiz-h" className="mb-1 flex items-center gap-2 font-medium text-foreground"><GraduationCap className="h-4 w-4" aria-hidden="true" />Quiz me on a whole class</h3>
-                        <p className="mb-3 text-sm text-muted-foreground">Every lecture's notes for the class, plus anything you've added to it — handouts, slides, photos, pasted notes.</p>
+                        <p className="mb-3 text-sm text-muted-foreground">Every lecture's notes for the class, plus anything you've added to it, handouts, slides, photos, pasted notes.</p>
                         {classOptions.length === 0 ? (
                           <p className="text-sm text-muted-foreground">Record a lecture or add material to a class in Notes, and it can be quizzed here.</p>
                         ) : (

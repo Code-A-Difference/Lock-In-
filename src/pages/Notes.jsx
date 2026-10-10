@@ -25,7 +25,7 @@ import {
 /**
  * Lectures and their notes. One page, two views: the list (filterable by
  * class) and a single lecture (?id=…), which is also where a recording in
- * progress lives — big controls, a live transcript, and a box for your own
+ * progress lives, big controls, a live transcript, and a box for your own
  * notes, which the AI then builds on when it writes them up.
  */
 export default function Notes() {
@@ -60,7 +60,7 @@ function LectureList() {
     <div className="mx-auto max-w-3xl px-4 pb-28 pt-5 sm:px-6 lg:pb-10 lg:pt-8">
       <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Notes</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Record a class. LOCK IN! transcribes it and writes your notes — built on whatever you jot down yourself.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Record a class. LOCK IN! transcribes it and writes your notes, built on whatever you jot down yourself.</p>
       </header>
 
       {lec.active ? (
@@ -91,7 +91,7 @@ function LectureList() {
         <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent text-accent-foreground"><FilePlus className="h-5 w-5" aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-base font-semibold text-foreground">Add material</span>
-          <span className="block text-sm text-muted-foreground">A handout, slides, a photo of the board, or notes you paste — kept with the class to ask about and quiz on</span>
+          <span className="block text-sm text-muted-foreground">A handout, slides, a photo of the board, or notes you paste, kept with the class to ask about and quiz on</span>
         </span>
       </button>
       {adding && <AddMaterialSheet classes={classes} defaultClass={cls} onClose={() => setAdding(false)} onAdded={(l) => { setAdding(false); navigate(`/Notes?id=${l.id}`); }} />}
@@ -115,7 +115,7 @@ function LectureList() {
           <div className="rounded-2xl border border-dashed bg-card p-8 text-center">
             <NotebookPen className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
             <h2 className="mt-2 text-base font-semibold text-foreground">{cls ? `No ${cls} lectures yet` : 'No lectures yet'}</h2>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">Put your phone on the desk and tap Record when class starts. Type a few words whenever something matters — the notes are built around them.</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">Put your phone on the desk and tap Record when class starts. Type a few words whenever something matters, the notes are built around them.</p>
           </div>
         ) : (
           <ul className="space-y-2">
@@ -378,7 +378,7 @@ function RecorderPanel({ live, lec, lecture, onQuickAsk }) {
         ))}
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        Keep LOCK IN! open with the screen on — phones stop recording in the background. Jot in “My notes”; ask anything in “Ask”.
+        Keep LOCK IN! open with the screen on, phones stop recording in the background. Jot in “My notes”; ask anything in “Ask”.
       </p>
       {live.failed > 0 && (
         <p className="mt-2 text-xs text-amber-300" role="status">
@@ -662,7 +662,7 @@ function AddMaterialSheet({ classes, defaultClass, onClose, onAdded }) {
             className="mt-1 h-11 w-full rounded-xl border bg-card px-3 text-base text-foreground" />
         </label>
         <label className="block text-sm font-medium text-foreground">
-          Files — PDFs, photos, text
+          Files, PDFs, photos, text
           <input type="file" multiple accept="application/pdf,image/*,.txt,.md,text/plain" onChange={e => setFiles(Array.from(e.target.files || []))}
             className="mt-1 block w-full text-sm text-muted-foreground file:mr-3 file:h-10 file:rounded-lg file:border file:bg-card file:px-3 file:text-foreground" />
         </label>

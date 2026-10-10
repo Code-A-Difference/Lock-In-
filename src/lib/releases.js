@@ -6,7 +6,7 @@
  * compares the version it's running in against these and, if it's older,
  * shows "An update is available" with the notes below and a download button.
  *
- * Releasing a new app version? Update it here (and deploy the site) — see
+ * Releasing a new app version? Update it here (and deploy the site), see
  * RELEASING.md. Notes are for students, not developers: what they'll notice.
  */
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -19,7 +19,7 @@ export const RELEASES = {
     date: '2026-10-09',
     url: `${GH}/latest/download/LOCKIN-android.apk`,
     notes: [
-      'Speech is understood on your phone with Whisper — what you say to the assistant and your class recordings no longer go to Google, and work without a connection. Choose the model in Settings → This phone.',
+      'Speech is understood on your phone with Whisper, what you say to the assistant and your class recordings no longer go to Google, and work without a connection. Choose the model in Settings → This phone.',
       '“Hey Lock In” answers the moment you say it, with a chime and a glow around the screen, instead of after a pause.',
       'Asking the assistant something by voice no longer makes the phone beep.',
     ],
@@ -34,7 +34,7 @@ export const RELEASES = {
     },
     notes: [
       'Classes are transcribed with Whisper large-v3 turbo, the most accurate model, on computers fast enough for it (it steps down by itself if yours isn’t).',
-      '“Hey Lock In” and the assistant now listen on your computer too — nothing is sent anywhere — and answer in about a second.',
+      '“Hey Lock In” and the assistant now listen on your computer too, nothing is sent anywhere, and answer in about a second.',
       'A chime and a glow around the screen the moment it hears you.',
     ],
   },

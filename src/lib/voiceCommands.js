@@ -1,5 +1,5 @@
 /**
- * What a spoken command means. Pure — no audio, no React — so it is tested
+ * What a spoken command means. Pure, no audio, no React, so it is tested
  * in Node (tests/voice.test.mjs).
  *
  * Ambient Voice Study understood a fixed set of phrases ("focus block",
@@ -99,12 +99,12 @@ export function parseCommand(raw) {
     return { action: 'agenda' };
   }
 
-  // Mark a specific homework item done — different from completeStep, which
+  // Mark a specific homework item done, different from completeStep, which
   // ticks off the next checklist item of whatever's currently locked in.
   {
     // norm() strips apostrophes, so "I'm" arrives as "im". "I'm done with
     // that step" / "check it off" means the current task's next checklist
-    // item (completeStep, below) — only a named item is completeItem.
+    // item (completeStep, below), only a named item is completeItem.
     const markDone = /\b(?:check off|tick off)\s+(?:my\s+|the\s+)?(.+?)(?:\s+(?:as\s+)?(?:done|complete|finished))?\s*$/.exec(t)
       || /\bmark\s+(?:my\s+|the\s+)?(.+?)\s+(?:as\s+)?(?:done|complete|finished)\b/.exec(t)
       || /\bi(?:m| am)?\s+(?:done|finished)\s+with\s+(?:my\s+|the\s+)?(.+?)\s*$/.exec(t);

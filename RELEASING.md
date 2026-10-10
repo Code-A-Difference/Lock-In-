@@ -1,7 +1,7 @@
 # Releasing a new app version
 
 The Android and desktop apps load this web app live from the site, so most
-changes need no new app at all — deploy the site and every installed copy has
+changes need no new app at all, deploy the site and every installed copy has
 them. A new app is only needed when something in `android/` or `desktop/`
 changes (native code, plugins, the Electron main process).
 
@@ -17,7 +17,7 @@ compares the app's version with `src/lib/releases.js` and shows
 3. `npx cap sync android`, delete `android/app/build`, then with
    `JAVA_HOME` = Android Studio's `jbr` and `LOCKIN_KEYSTORE_PROPERTIES`
    pointing at the release key: `gradlew assembleRelease`.
-   The key is not in this repo (`%LOCALAPPDATA%\lockin-signing`) — an APK signed
+   The key is not in this repo (`%LOCALAPPDATA%\lockin-signing`), an APK signed
    with any other key can't update existing installs.
 4. Publish a GitHub release tagged `app-vX.Y.Z`, marked **latest**, with the APK
    attached as `LOCKIN-android.apk` (the download links use

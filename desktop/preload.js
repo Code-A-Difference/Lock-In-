@@ -1,6 +1,6 @@
 /**
  * The bridge between the LOCK IN! page and the desktop app. Only these
- * functions are exposed — the page can't run anything else on the computer.
+ * functions are exposed, the page can't run anything else on the computer.
  */
 const { contextBridge, ipcRenderer } = require('electron');
 

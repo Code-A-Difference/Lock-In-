@@ -5,16 +5,16 @@ loads `https://codeadifference.ct.ws/lockin/`, so the app itself is always
 current). What it adds, exposed to the page as `window.lockinDesktop`
 (`preload.js`, read by `src/lib/desktop.js`):
 
-- **On-device transcription** — `whisper.js` runs whisper.cpp's
+- **On-device transcription**, `whisper.js` runs whisper.cpp's
   `whisper-server` with the model kept loaded; pieces of a class go to it
   over localhost. Models download on first use into the app's data folder
   (base 57 MB automatically; small / large-v3-turbo from Settings). Silero
   VAD skips silence, so nothing is "heard" in a quiet room.
-- **Floating mini window** — the same window, shrunk and kept on top
+- **Floating mini window**, the same window, shrunk and kept on top
   (`setMini` in `main.js`; the page renders `MiniView`).
-- **Computer-sound recording** — `getDisplayMedia` answered with the system
+- **Computer-sound recording**, `getDisplayMedia` answered with the system
   loopback (`setDisplayMediaRequestHandler`); the picture is discarded.
-- **Call detection** — `meetings.js` (Windows: the microphone-in-use registry
+- **Call detection**, `meetings.js` (Windows: the microphone-in-use registry
   list; Mac: Zoom's CptHost process).
 - Global shortcuts, a tray icon, start with the computer.
 
@@ -28,7 +28,7 @@ npm test
 ```
 
 `resources/whisper/<os>-<arch>/` must hold whisper-server (and on Windows
-its DLLs) — CI fetches/builds them (`.github/workflows/desktop.yml`).
+its DLLs), CI fetches/builds them (`.github/workflows/desktop.yml`).
 
 ## Release
 
