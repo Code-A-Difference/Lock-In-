@@ -533,6 +533,9 @@ function NotesView({ lecture, onRegenerate, busy, onTemplate }) {
 
   return (
     <article className="space-y-4">
+      {n.warning && (
+        <p role="note" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">{n.warning}</p>
+      )}
       {n.summary && (
         <section className="rounded-2xl bg-accent p-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-accent-foreground/80">Summary</h2>

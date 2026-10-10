@@ -103,7 +103,7 @@ export const GRAPH_RULES = `Graphs: when the class graphs, sketches or describes
 
 export function sectionPrompt(part, index, total, className) {
   return `This is part ${index + 1} of ${total} of a transcript of a ${className ? `${className} ` : ''}class.
-Write dense study notes for just this part: the ideas taught, in order, with examples, formulas, dates and definitions kept exactly. Bullet points. Note anything the teacher said is due, coming up on a test, or important to remember. Write maths and science in LaTeX between $ signs ($x^2$, $\\ce{H2O}$, $9.8\\,\\text{m/s}^2$), turning spoken maths into notation. If a graph is drawn or described, keep its equation and what it shows. No preamble.
+Write dense study notes for just this part: the ideas taught, in order, with examples, formulas, dates and definitions kept exactly. Bullet points. Note anything the teacher said is due, coming up on a test, or important to remember. Write maths and science in LaTeX between $ signs ($x^2$, $\\ce{H2O}$, $9.8\\,\\text{m/s}^2$), turning spoken maths into notation. If a graph is drawn or described, keep its equation and what it shows. No preamble. Only what this part of the transcript says — nothing from your own knowledge; if it says little, write little.
 
 Transcript:
 ${part}`;
@@ -116,12 +116,13 @@ ${myNotes.trim()
     ? `The student took these rough notes during class. Treat them as the outline of what matters to them: keep their headings and points, correct and complete them from the transcript, and add what they missed beneath them.\n--- Student's notes ---\n${myNotes.trim().slice(0, 6000)}\n--- End ---\n`
     : 'The student took no notes of their own; organise the notes by topic, in the order taught.\n'}
 Rules:
-- Only use what the transcript says. Don't invent facts, dates or deadlines.
-- "summary" is 2-3 sentences a student could read the night before a test.
+- Use ONLY what the transcript (and the student's notes) actually say. Never add facts, examples, definitions, formulas, dates or deadlines from your own knowledge of the subject — not even standard textbook ones. The class name is context for spelling, not a topic to write about.
+- Match the notes to how much was said: a short or off-topic recording gets short notes. Empty "sections", "key_terms", "action_items" or "review_questions" are correct when nothing in the transcript fits them — never fill them in to look complete.
+- "summary" is 2-3 sentences a student could read the night before a test (one sentence, or a plain statement that little was covered, for a short recording).
 - "sections" follow the lesson's own structure; points are short, specific, and keep numbers, formulas and names exact.
 - "key_terms" are terms the teacher defined or emphasised.
 - "action_items" are only things the teacher actually said: homework, a test or quiz, or something to bring or do. "due" is the date exactly as said ("next Friday", "Oct 12"), or "".
-- "review_questions" are 3-5 questions that check understanding of this class.
+- "review_questions" are up to 5 questions about what was actually taught (none if nothing was).
 - "title" is a short name for this class's topic.
 - Write "summary", points, definitions and review questions with the notation rules below.
 
@@ -206,4 +207,82 @@ export function notesMarkdown(notes, { title, className, date } = {}) {
     for (const q of n.review_questions) lines.push(`- ${q}`);
   }
   return lines.join('\n');
+}
+
+/* ------------------------------------------------------- staying grounded */
+/*
+ * The model is asked for a summary, sections, key terms and review questions.
+ * Given almost nothing — five seconds of "what the hell" in a class called
+ * Probability — it filled every one of them from what it knows about
+ * probability. Two guards:
+ *   1. Too little was said: don't ask it at all (MIN_WORDS).
+ *   2. Afterwards, every point, term and question is checked against what was
+ *      actually said (and the student's own notes): one whose key words mostly
+ *      never came up is dropped, and the notes say so.
+ */
+
+/** Below this many spoken words there is nothing to make notes from. */
+export const MIN_WORDS = 40;
+
+export function spokenWords(text) {
+  return (String(text || '').match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length;
+}
+
+const STOP = new Set(('about above after again against also because been before being below between both but called could does doing down during each even every from further have having here hers herself himself into itself just like make made many more most much must myself only other ought ours over same should some such than that their theirs them themselves then there these they this those through under until very want were what when where which while whom with would your yours yourself thing things means mean used using uses use example examples called known way ways part parts also first second third number numbers between important note notes class lesson teacher today said says explained explains discussed covered introduced talked will can may might lecture lectures topic topics concept concepts idea ideas basic basics fundamental fundamentals including include includes introduce introduces introduction define defined defines definition represent represented representation describe described explain understand understanding calculate calculated calculating formula formulas key main simple overview review question questions answer one two three each the and for are was not you all any how its our out who why get got let put see set too').split(' '));
+
+function stemWord(w) {
+  return w.length > 4 ? w.replace(/(ations|ation|ings|ing|ers|er|ies|es|s|ed|ly|al)$/, '') || w : w;
+}
+
+/** The meaningful words of a piece of text (LaTeX commands stripped), stemmed. */
+export function contentWords(text) {
+  const plain = String(text || '')
+    .replace(/\\[a-zA-Z]+/g, ' ')        // \frac, \text, \Delta …
+    .replace(/[{}$^_\\]/g, ' ')
+    .toLowerCase();
+  const words = plain.match(/[a-z]{4,}|\d+(?:\.\d+)?/g) || [];
+  return words.filter(w => !STOP.has(w)).map(stemWord);
+}
+
+/** 0..1: how much of `text` is made of words that occur in the source. */
+export function support(text, sourceSet) {
+  const w = contentWords(text);
+  if (!w.length) return 1;                           // nothing to judge ("Q1", "x = 2")
+  if (w.length < 3) return w.some(x => sourceSet.has(x)) ? 1 : 0;   // short ("Due Friday"): one of its words was said
+  return w.filter(x => sourceSet.has(x)).length / w.length;
+}
+
+/**
+ * Drop what the recording doesn't back up. Returns the notes with a
+ * `checked: { kept, dropped }` record, and a `warning` when much was dropped.
+ */
+export function groundNotes(notes, source, { min = 0.34 } = {}) {
+  const set = new Set(contentWords(source));
+  let kept = 0, dropped = 0;
+  const keep = (text) => { const ok = support(text, set) >= min; if (ok) kept++; else dropped++; return ok; };
+  const out = { ...notes };
+  out.sections = notes.sections
+    .map(s => ({ ...s, points: s.points.filter(keep) }))
+    .filter(s => s.points.length);
+  out.key_terms = notes.key_terms.filter(k => keep(`${k.term} ${k.definition}`));
+  out.review_questions = notes.review_questions.filter(keep);
+  out.action_items = notes.action_items.filter(a => keep(a.title));
+  if (notes.summary && !keep(notes.summary)) out.summary = '';
+  out.checked = { kept, dropped };
+  if (dropped && dropped >= (kept + dropped) * 0.3) {
+    out.warning = 'Some of what the AI wrote wasn’t in the recording, so it was left out. Check these notes against the transcript.';
+  }
+  if (!out.summary && !out.sections.length) {
+    out.summary = 'Nothing in the recording could be turned into notes — the transcript is below.';
+  }
+  return out;
+}
+
+/** The notes for a recording with too little in it to make any. */
+export function tooShortNotes(words) {
+  return normaliseNotes({
+    summary: words
+      ? `Only ${words} word${words === 1 ? ' was' : 's were'} recorded — not enough to make notes from. The transcript is below.`
+      : 'Nothing was heard in this recording, so there are no notes. If the class was quiet or far away, try recording closer to the speaker.',
+  });
 }
