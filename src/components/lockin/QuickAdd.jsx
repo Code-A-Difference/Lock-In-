@@ -145,11 +145,7 @@ const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
             {ready ? <>Saving as <strong className="font-semibold text-foreground">{title}</strong></> : ambiguous.length ? 'Which class did you mean?' : 'Type a title too'}
           </span>
         </div>
-      ) : (
-        <p className="px-3 pb-1 pt-1.5 text-xs text-muted-foreground">
-          Dates like <em>fri</em>, <em>tmr</em>, <em>sep 30</em> · <em>!</em> for high priority, <em>!!!</em> for ASAP · the word <em>test</em> makes it a test<span className="kbd-hint"> · press <kbd className="rounded border px-1">N</kbd> from anywhere</span>
-        </p>
-      )}
+      ) : null}
     </form>
   );
 });

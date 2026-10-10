@@ -16,11 +16,6 @@ import EditTestDialog from '@/components/tests/EditTestDialog';
 import { usePlanner } from '@/lib/PlannerContext';
 import { niceTime } from '@/lib/planner';
 
-function inDays(day) {
-  const n = daysUntil(parseDay(day));
-  return n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
-}
-
 function greeting() {
   const h = new Date().getHours();
   if (h < 5) return 'Still up';
@@ -69,9 +64,7 @@ export default function Today() {
   );
 
   const dueToday = agenda.overdue.length + agenda.today.filter(e => e.kind === 'homework').length;
-  const weekCount = agenda.overdue.length + agenda.today.length + agenda.tomorrow.length + agenda.week.length;
   const firstName = (user?.full_name || '').split(' ')[0];
-  const focusToday = useMemo(() => sessions.filter(s => s.day === ymd(new Date())).reduce((n, s) => n + (s.minutes || 0), 0), [sessions]);
   const empty = !isLoading && homework.length === 0 && tests.length === 0;
 
   // Mid-block, the button goes back to that block, it never swaps the task
@@ -93,18 +86,13 @@ export default function Today() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <header className="mb-5">
-        <p className="text-sm font-medium text-muted-foreground">
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
-        <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           {greeting()}{firstName ? `, ${firstName}` : ''}
         </h1>
         {!isLoading && !empty && (
           <p className="mt-1 text-sm text-muted-foreground">
-            {dueToday ? `${dueToday} due today${agenda.overdue.length ? ` (${agenda.overdue.length} overdue)` : ''}` : 'Nothing due today'}
-            {' · '}{weekCount} this week
-            {upcomingTests[0] && <> · <span className="font-medium text-foreground">{upcomingTests[0].title}</span> {inDays(upcomingTests[0].date)}</>}
-            <span className="lg:hidden"> · {formatMinutes(focusToday) || '0m'} focused</span>
+            {dueToday ? `${dueToday} due today` : 'Nothing due today'}
+            {agenda.overdue.length ? <span className="text-red-700 dark:text-red-400"> · {agenda.overdue.length} overdue</span> : null}
           </p>
         )}
       </header>
@@ -127,15 +115,12 @@ export default function Today() {
                 <span className="block text-lg font-extrabold tracking-tight">
                   {inBlock ? 'Back to your block' : 'Lock in'}
                 </span>
-                <span className="block truncate text-sm text-primary-foreground/85">
-                  {inBlock
-                    ? `${clock(focus.remaining)} ${focus.status === 'paused' ? 'left, paused' : 'left'}${focus.taskItem ? ` · ${focus.taskItem.title}` : ''}`
-                    : next
-                    ? <>{next.kind === 'test' ? 'Study for ' : ''}{next.item.title}{next.item.class_name ? ` · ${next.item.class_name}` : ''} · {next.kind === 'test' ? '' : 'due '}{relativeDay(next.kind === 'test' ? next.item.date : next.item.due_date).toLowerCase() || 'no date'}</>
-                    : `${focus.prefs.focusMin} minutes, no distractions`}
-                </span>
+                {(inBlock || next) && (
+                  <span className="block truncate text-sm text-primary-foreground/85">
+                    {inBlock ? `${clock(focus.remaining)} left${focus.taskItem ? ` · ${focus.taskItem.title}` : ''}` : `${next.kind === 'test' ? 'Study for ' : ''}${next.item.title}`}
+                  </span>
+                )}
               </span>
-              <span className="hidden text-sm font-semibold text-primary-foreground/90 sm:block">{inBlock ? 'Open →' : `${focus.prefs.focusMin} min →`}</span>
             </button>
           )}
 
@@ -197,7 +182,7 @@ export default function Today() {
                 {BUCKETS.every(b => agenda[b.id].length === 0) && (
                   <div className="flex items-center gap-3 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
                     <PartyPopper className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-                    All caught up. Add what's next above, or lock in on something ahead of time.
+                    All caught up
                   </div>
                 )}
                 {agenda.done.length > 0 && (
@@ -254,7 +239,7 @@ export default function Today() {
                 })}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">None scheduled. Type “bio test oct 3” above to add one.</p>
+              <p className="mt-2 text-sm text-muted-foreground">None coming up</p>
             )}
           </section>
 
@@ -290,12 +275,8 @@ function PlanCard({ planner }) {
         <CalendarClock className="h-5 w-5" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-foreground">{next.length ? 'Today’s plan' : 'Plan your day'}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {next.length
-            ? next.map(b => `${niceTime(b.start)} ${b.title}`).join(' · ')
-            : planner.slots.length ? `${planner.slots.length} free block${planner.slots.length === 1 ? '' : 's'} added, tap to make the plan` : 'Add when you’re free and I’ll fit your work in'}
-        </span>
+        <span className="block text-sm font-semibold text-foreground">{next.length ? 'Today’s plan' : 'Plan my day'}</span>
+        {next.length > 0 && <span className="block truncate text-xs text-muted-foreground">{next.map(b => `${niceTime(b.start)} ${b.title}`).join(' · ')}</span>}
       </span>
       <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
     </button>
@@ -305,11 +286,7 @@ function PlanCard({ planner }) {
 function EmptyState({ hasClasses, onAdd }) {
   return (
     <div className="rounded-2xl border border-dashed bg-card p-6 text-center">
-      <h3 className="text-base font-semibold text-foreground">Nothing here yet</h3>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-        Type your first assignment in the box above, like <em>“read chapter 4 tmr”</em> or <em>“history essay oct 10 !”</em>.
-        {!hasClasses && ' Adding your classes first lets it tag each one automatically.'}
-      </p>
+      <h3 className="text-base font-semibold text-foreground">Nothing due</h3>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         <button type="button" onClick={onAdd} className="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Add homework</button>
         {!hasClasses && (
