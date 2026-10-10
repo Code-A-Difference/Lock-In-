@@ -305,10 +305,21 @@ export class HandsFree {
       return;
     }
     if (!this.running) return;
-    this.pauseMs = 500;                    // an utterance arrives already finished: no need to wait for more
+    this.pauseMs = 300;                    // an utterance arrives already finished: no need to wait for more
     let seq = 0, queue = Promise.resolve(), failures = 0;
     const woken = new Set();
     this.ear = new LocalEar({
+      // The first ~1.3 s of speech: if it's "Hey Lock In", chime now, while they're still talking.
+      onPeek: (pcm) => {
+        if (this._deaf() || this.collecting || this.armed) return;
+        const i = seq;
+        hearLocally(pcm).then((text) => {
+          if (!this.running || woken.has(i) || this.collecting || afterWake(text) === null) return;
+          woken.add(i);
+          this.armedUntil = Date.now() + 8000;
+          this.onWake?.({ inline: true });
+        }).catch(() => {});
+      },
       onUtterance: (pcm) => {
         if (this._deaf()) return;           // the assistant talking, or its echo
         const i = seq++;
@@ -352,7 +363,7 @@ export class HandsFree {
     else this.armedUntil = Date.now() + 8000;        // the wake phrase alone: wait for the request
   }
 
-  get pauseMs() { return this._pauseMs || 1300; }
+  get pauseMs() { return this._pauseMs || 1000; }
   set pauseMs(v) { this._pauseMs = v; }
 
   _interim(i, text, woken) {

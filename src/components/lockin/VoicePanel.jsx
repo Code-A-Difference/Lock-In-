@@ -223,6 +223,18 @@ export default function VoicePanel() {
   const lecturesReady = lectures.filter(l => l.notes || (l.segments || []).some(s => s.text));
 
   return (
+    <>
+    {/* The moment "Hey Lock In" is heard: a glow around the screen and a pill up top, so it's
+        obvious it's listening even with the assistant closed or the app in another tab. */}
+    {(armed || (listening && hearing)) && !a.busy && !a.speaking && (
+      <>
+        <div className="lockin-listen-glow" aria-hidden="true" />
+        <div className="lockin-listen-pill" role="status" aria-live="polite">
+          <span className="lockin-listen-bars" aria-hidden="true"><i /><i /><i /><i /></span>
+          {heard ? <span className="max-w-[60vw] truncate">{heard}</span> : 'Listening…'}
+        </div>
+      </>
+    )}
     <div className="lockin-voice-dock fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-2 lg:bottom-5">
       {pref === null && canHandsFree && !expanded && (
         <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask w-[min(20rem,calc(100vw-2rem))] rounded-2xl border bg-card p-4 shadow-2xl">
@@ -395,5 +407,6 @@ export default function VoicePanel() {
         {handsFree && !armed && <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" title="Listening for Hey Lock In" />}
       </button>
     </div>
+    </>
   );
 }

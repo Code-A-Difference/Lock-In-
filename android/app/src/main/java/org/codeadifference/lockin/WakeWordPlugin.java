@@ -145,12 +145,23 @@ public class WakeWordPlugin extends Plugin {
             recognizer.setWords(true);
             rec.startRecording();
             state("listening", 1);
-            short[] buf = new short[RATE / 4];
+            // 1/8 s at a time, and the partial result is checked as it grows: the chime comes
+            // as soon as "Hey Lock In" is said, not after a pause at the end of the sentence.
+            short[] buf = new short[RATE / 8];
+            String lastPartial = "";
             while (running) {
                 int n = rec.read(buf, 0, buf.length);
                 if (n < 0) { fail("The microphone stopped."); return; }
                 if (n == 0) continue;
-                if (recognizer.acceptWaveForm(buf, n) && heardWake(recognizer.getResult())) { woke = true; running = false; }
+                if (recognizer.acceptWaveForm(buf, n)) {
+                    lastPartial = "";
+                    if (heardWake(recognizer.getResult())) { woke = true; running = false; }
+                } else {
+                    // a partial has no confidence scores, so it must say the phrase on two reads running
+                    String p = wakeIn(recognizer.getPartialResult());
+                    if (p != null && p.equals(lastPartial)) { woke = true; running = false; }
+                    lastPartial = p == null ? "" : p;
+                }
             }
         } catch (Throwable e) {
             fail("Wake-word listening failed: " + e.getMessage());
@@ -163,6 +174,19 @@ public class WakeWordPlugin extends Plugin {
                 o.put("text", "hey lock in");
                 notifyListeners("wake", o);
             }
+        }
+    }
+
+    private static final java.util.regex.Pattern WAKE =
+        java.util.regex.Pattern.compile("^(hey|hay|hi|hello|okay|ok)\\s+(lock in|locking|look in|log in|luck in|locked in|lock it|lockin)\\b.*");
+
+    /** The wake phrase in a partial result ({"partial": "..."}), or null. */
+    private String wakeIn(String json) {
+        try {
+            String text = new JSONObject(json).optString("partial", "").replace("[unk]", "").trim();
+            return WAKE.matcher(text).matches() ? text : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 

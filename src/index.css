@@ -157,3 +157,32 @@
 /* ---- desktop app: the floating mini window ------------------------------ */
 .lockin-mini .lockin-handsfree-ask { display: none; }
 .lockin-mini .lockin-voice-dock { bottom: 12px; right: 12px; }
+
+/* "Hey Lock In" heard: listening (VoicePanel). Calm, not flashy: a soft edge glow that
+   breathes, and a small pill with level bars. */
+.lockin-listen-glow{
+  position:fixed; inset:0; z-index:60; pointer-events:none;
+  box-shadow: inset 0 0 0 2px rgba(110,231,183,.55), inset 0 0 48px 6px rgba(110,231,183,.28);
+  border-radius: 0;
+  animation: lockin-glow-in .18s ease-out both, lockin-glow-breathe 2.4s ease-in-out .18s infinite;
+}
+.lockin-listen-pill{
+  position:fixed; z-index:61; left:50%; top:calc(12px + env(safe-area-inset-top));
+  transform:translateX(-50%);
+  display:flex; align-items:center; gap:10px; max-width:calc(100vw - 32px);
+  padding:8px 14px 8px 12px; border-radius:999px;
+  background:#16181d; color:#e8fff4; font-size:14px; font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(110,231,183,.35);
+  animation: lockin-pill-in .2s cubic-bezier(.2,.9,.3,1.2) both;
+}
+.lockin-listen-bars{ display:inline-flex; align-items:center; gap:3px; height:16px; }
+.lockin-listen-bars i{ width:3px; height:100%; border-radius:2px; background:#6ee7b7; transform-origin:center; animation: lockin-bar 0.9s ease-in-out infinite; }
+.lockin-listen-bars i:nth-child(2){ animation-delay:.15s } .lockin-listen-bars i:nth-child(3){ animation-delay:.3s } .lockin-listen-bars i:nth-child(4){ animation-delay:.45s }
+@keyframes lockin-glow-in{ from{ opacity:0 } to{ opacity:1 } }
+@keyframes lockin-glow-breathe{ 0%,100%{ opacity:1 } 50%{ opacity:.55 } }
+@keyframes lockin-pill-in{ from{ opacity:0; transform:translate(-50%,-8px) scale(.96) } to{ opacity:1; transform:translate(-50%,0) scale(1) } }
+@keyframes lockin-bar{ 0%,100%{ transform:scaleY(.3) } 50%{ transform:scaleY(1) } }
+@media (prefers-reduced-motion: reduce){
+  .lockin-listen-glow, .lockin-listen-pill, .lockin-listen-bars i{ animation:none; }
+  .lockin-listen-bars i{ transform:scaleY(.6); }
+}
