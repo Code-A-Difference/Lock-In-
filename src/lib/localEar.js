@@ -1,5 +1,5 @@
 /**
- * Listening on this computer, for the desktop app: "Hey Lock In", the
+ * Listening on the device itself, for the desktop app and the Android app: "Hey Lock In", the
  * assistant's push-to-talk, and its conversation all go through the same
  * Whisper engine (whisper.cpp) that transcribes classes: turbo on a fast
  * computer, small where turbo would keep you waiting (desktop/main.js,
@@ -19,7 +19,13 @@
  * Segmenter is pure, so tests/localEar.test.mjs runs it in Node.
  */
 import { SAMPLE_RATE, downsample, encodeWav, rms, enhanceSpeech } from './recorder.js';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { desktop, isDesktop } from './desktop.js';
+
+// Android app 1.3+: whisper.cpp on the phone (android/.../WhisperPlugin.java). Older
+// installs load this same web code, so only use it if the app really has it.
+export const phoneWhisper = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('Whisper')
+  ? registerPlugin('Whisper') : null;
 
 const FRAME = 1024;                       // samples per detector step at 16 kHz: 64 ms
 
@@ -98,30 +104,67 @@ export class Segmenter {
 
 let readyCache = null;
 
-/** Is the on-computer engine set up (switched on, a model downloaded)? Cached for a minute. */
+/** Is the on-device engine set up (switched on, a model downloaded)? Cached for a minute. */
 export function localReady() {
-  if (!isDesktop || !desktop?.whisper?.status || !desktop.transcribe) return Promise.resolve(false);
   if (readyCache && Date.now() - readyCache.at < 60000) return readyCache.p;
-  const p = desktop.whisper.status()
-    .then(s => !!(s?.available && s.settings?.enabled !== false && Object.values(s.models || {}).some(m => m.installed)))
-    .catch(() => false);
+  let p;
+  if (phoneWhisper) {
+    p = phoneWhisper.status().then(s => !!(s?.available && s.enabled !== false && s.using)).catch(() => false);
+  } else if (isDesktop && desktop?.whisper?.status && desktop.transcribe) {
+    p = desktop.whisper.status()
+      .then(s => !!(s?.available && s.settings?.enabled !== false && Object.values(s.models || {}).some(m => m.installed)))
+      .catch(() => false);
+  } else return Promise.resolve(false);
   readyCache = { at: Date.now(), p };
   return p;
 }
-export const canHearLocally = isDesktop && !!desktop?.transcribe;
+export const forgetReady = () => { readyCache = null; };
+export const canHearLocally = !!phoneWhisper || (isDesktop && !!desktop?.transcribe);
+
+/** WAV bytes -> base64, for the phone's plugin bridge. */
+function b64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** Bracketed noise tags Whisper writes for silence and sounds — never words. */
+export const cleanHeard = (t) => String(t || '')
+  .replace(/[[(]\s*(BLANK_AUDIO|MUSIC|NOISE|SILENCE|inaudible|unintelligible|indistinct[^\])]*)\s*[\])]/gi, ' ')
+  .replace(/\s+/g, ' ').trim();
+
+/**
+ * One WAV through whichever on-device engine this is. Resolves to the text, or
+ * null when it isn't set up (switched off, no model) so the caller can use the
+ * online service or the phone's recogniser instead. Throws on a real failure.
+ */
+export async function transcribeOnDevice(wav, hint = '', { phrase = false } = {}) {
+  if (phoneWhisper) {
+    try {
+      const r = await phoneWhisper.transcribe({ wav: b64(wav), hint });
+      return cleanHeard(r?.text);
+    } catch (e) {
+      if (/^(off|no-model|not-available)$/.test(e?.message || '')) { readyCache = null; return null; }
+      throw e;
+    }
+  }
+  if (!isDesktop) return null;
+  // desktop 1.0.2+ has a quick lane for phrases; older apps share the class transcriber
+  const r = await (phrase && desktop.hear ? desktop.hear(wav, hint) : desktop.transcribe(wav, hint));
+  if (r?.ok) return r.text;
+  if (r?.error === 'off' || r?.error === 'no-model') { readyCache = null; return null; }
+  throw new Error(r?.error || 'On-device transcription failed.');
+}
 
 // Spelling the name helps Whisper write "Lock In" rather than "locking". Not "Hey Lock In, ":
 // Whisper reads the hint as words already said, and then leaves the wake phrase out.
 const HINT = 'Glossary: Lock In (the study app).';
 
-/** One utterance -> its words, on this computer. '' when nothing was said. */
+/** One utterance -> its words, on this device. '' when nothing was said. */
 export async function hearLocally(pcm, hint = HINT) {
-  const wav = encodeWav(enhanceSpeech(pcm));
-  // desktop 1.0.2+ has a quick lane for phrases; older apps share the class transcriber
-  const r = await (desktop.hear ? desktop.hear(wav, hint) : desktop.transcribe(wav, hint));
-  if (r?.ok) return String(r.text || '').trim();
-  if (r?.error === 'off' || r?.error === 'no-model') { readyCache = null; throw Object.assign(new Error('On-device listening is off.'), { off: true }); }
-  throw new Error(r?.error || 'On-device listening failed.');
+  const text = await transcribeOnDevice(encodeWav(enhanceSpeech(pcm)), hint, { phrase: true });
+  if (text === null) throw Object.assign(new Error('On-device listening is off.'), { off: true });
+  return String(text).trim();
 }
 
 /**

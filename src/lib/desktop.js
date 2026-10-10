@@ -32,16 +32,14 @@ export function guessOS() {
 }
 
 /**
- * Transcribe one WAV piece on this computer. Resolves to the text, or null
+ * Transcribe one WAV piece on this device (computer or Android phone). Resolves to the text, or null
  * when on-device transcription isn't set up (no model yet, switched off) so
  * the caller uses the online service instead. Throws on a real failure.
  */
 export async function transcribeLocally(wav, hint) {
-  if (!isDesktop) return null;
-  const r = await desktop.transcribe(wav, hint);
-  if (r?.ok) return r.text;
-  if (r?.error === 'off' || r?.error === 'no-model') return null;
-  throw new Error(r?.error || 'On-device transcription failed.');
+  // the desktop app's engine, or whisper.cpp in the Android app (localEar.js)
+  const { transcribeOnDevice } = await import('./localEar.js');
+  return transcribeOnDevice(wav, hint);
 }
 
 if (isDesktop && typeof document !== 'undefined') {

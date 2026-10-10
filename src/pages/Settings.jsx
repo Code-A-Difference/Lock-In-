@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { formatMinutes } from '@/lib/agenda';
 import { isNativeApp } from '@/lib/native';
 import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } from '@/lib/desktop';
+import { phoneWhisper, forgetReady } from '@/lib/localEar';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
 const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline — let's lock in.";
@@ -58,10 +59,69 @@ export const DESKTOP_PERKS = [
   [Keyboard, 'Shortcuts from any app', 'Ctrl+Shift+K catches you up, Ctrl+Shift+L opens the assistant, Ctrl+Shift+R starts recording.'],
 ];
 
-/** In a browser: the pitch and the downloads. In the desktop app: its settings. */
+/** In a browser: the pitch and the downloads. In the desktop app: its settings. In the Android app: its speech engine. */
 function DesktopApp() {
-  if (isNativeApp) return null;
+  if (isNativeApp) return phoneWhisper ? <ThisPhone /> : null;
   return isDesktop ? <ThisComputer /> : <GetDesktop />;
+}
+
+const PHONE_MODEL_NOTE = {
+  base: 'Quickest, least accurate',
+  small: 'Recommended: accurate and quick on most phones',
+  turbo: 'Most accurate, but slow on most phones — a few seconds per sentence',
+};
+
+/**
+ * Android: whisper.cpp on the phone (android/.../WhisperPlugin.java). Commands to the
+ * assistant, push-to-talk and class recordings are understood here instead of by
+ * Android's recogniser, which beeps and sends the audio to Google.
+ */
+function ThisPhone() {
+  const [st, setSt] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    phoneWhisper.status().then(setSt).catch(() => {});
+    let h;
+    phoneWhisper.addListener('status', setSt).then(x => { h = x; });
+    return () => { h?.remove?.(); };
+  }, []);
+  if (!st) return null;
+  const set = async (patch) => { forgetReady(); setSt(await phoneWhisper.set(patch)); };
+  const get = async (id) => {
+    setErr('');
+    try { setSt(await phoneWhisper.download({ id })); forgetReady(); } catch (e) { setErr(e?.message || String(e)); }
+  };
+  const dl = st.downloading;
+  return (
+    <Section icon={Smartphone} title="This phone" description="Speech is understood on the phone itself, with Whisper.">
+      {!st.available && <p className="text-sm text-amber-200">This phone’s processor can’t run the speech engine, so the phone’s own recogniser is used instead.</p>}
+      <Row id="phone-stt" label="Understand speech on this phone" hint="What you say to the assistant and your class recordings stay on the phone and need no connection. Off: the online service is used.">
+        <Switch id="phone-stt" checked={st.enabled} disabled={!st.available} onCheckedChange={(v) => set({ enabled: v })} />
+      </Row>
+      {st.available && st.enabled && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">Quality</p>
+          {Object.entries(st.models).map(([id, m]) => (
+            <div key={id} className="flex items-center gap-3 rounded-xl border p-3">
+              <input type="radio" name="phone-model" id={`pm-${id}`} checked={st.model === id} onChange={() => set({ model: id })} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+              <label htmlFor={`pm-${id}`} className="min-w-0 flex-1 text-sm">
+                <span className="block font-semibold text-foreground">{m.label}</span>
+                <span className="block text-xs text-muted-foreground">{PHONE_MODEL_NOTE[id]} · {m.mb} MB</span>
+              </label>
+              {m.installed ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400"><Check className="h-3.5 w-3.5" />Ready</span>
+                : dl?.id === id ? <span className="text-xs tabular-nums text-muted-foreground">{Math.round((dl.progress || 0) * 100)}%</span>
+                : <Button size="sm" variant="outline" disabled={!!dl} onClick={() => get(id)}><Download className="mr-1.5 h-3.5 w-3.5" />Get</Button>}
+            </div>
+          ))}
+          {err && <p className="text-sm text-red-300" role="alert">{err}</p>}
+          {!st.models[st.model]?.installed && !dl && (
+            <p className="text-xs text-amber-200">Download it to use it — best on Wi-Fi.{st.using ? ` Until then ${st.models[st.using].label.toLowerCase()} is used.` : ' Until then the phone’s own recogniser is used.'}</p>
+          )}
+          <p className="text-xs text-muted-foreground">“Hey Lock In” itself is still heard by a tiny always-on model: running Whisper all the time would drain the battery.</p>
+        </div>
+      )}
+    </Section>
+  );
 }
 
 function GetDesktop() {
