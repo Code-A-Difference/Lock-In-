@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import QuickAdd from '@/components/lockin/QuickAdd';
 import AgendaRow from '@/components/lockin/AgendaRow';
 import StatsCard from '@/components/lockin/StatsCard';
+import { BadgesButton } from '@/components/lockin/Badges';
 import CalendarView from '@/components/calendar/CalendarView';
 import EditHomeworkDialog from '@/components/homework/EditHomeworkDialog';
 import EditTestDialog from '@/components/tests/EditTestDialog';
@@ -86,9 +87,12 @@ export default function Today() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <header className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {greeting()}{firstName ? `, ${firstName}` : ''}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            {greeting()}{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <BadgesButton className="mt-0.5 flex-none" />
+        </div>
         {!isLoading && !empty && (
           <p className="mt-1 text-sm text-muted-foreground">
             {dueToday ? `${dueToday} due today` : 'Nothing due today'}
