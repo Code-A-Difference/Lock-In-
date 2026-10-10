@@ -23,7 +23,7 @@ export function breakDownToast(r) {
     title: `${r.steps.length} steps`,
     description: r.source === 'ai'
       ? 'Broken down by the AI. Edit anything that doesn\'t fit.'
-      : `Used a ready-made checklist — ${r.reason || 'the AI was unavailable.'}`,
+      : `Used a ready-made checklist, ${r.reason || 'the AI was unavailable.'}`,
   });
 }
 

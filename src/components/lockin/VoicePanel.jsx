@@ -23,7 +23,7 @@ const IDEAS = [
   'Start a focus session for 50 minutes',
   'What’s due this week?',
   'Help me with my homework',
-  'I’m free 4 to 6 today — plan my day',
+  'I’m free 4 to 6 today, plan my day',
   'Graph y = x² − 4',
 ];
 
@@ -240,7 +240,7 @@ export default function VoicePanel() {
         <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask w-[min(20rem,calc(100vw-2rem))] rounded-2xl border bg-card p-4 shadow-2xl">
           <p className="text-sm font-semibold text-foreground">Go hands-free?</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : (isDesktop ? 'It listens while LOCK IN! is open, even in the background, and the speech is understood on this computer by Whisper — nothing is sent anywhere.' : 'I’ll ask your browser for the microphone once and remember your answer.')}
+            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : (isDesktop ? 'It listens while LOCK IN! is open, even in the background, and the speech is understood on this computer by Whisper, nothing is sent anywhere.' : 'I’ll ask your browser for the microphone once and remember your answer.')}
           </p>
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={() => choose(true)} className="h-10 flex-1 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700">Turn on</button>
@@ -278,7 +278,7 @@ export default function VoicePanel() {
             {!a.messages.length && (
               <div className="py-4 text-center">
                 <p className="text-sm font-medium text-foreground">What are we working on?</p>
-                <p className="mx-auto mt-1 max-w-[18rem] text-xs text-muted-foreground">Talk to me like a person — I’ll start timers, add homework, explain things, and answer questions about your lectures and files.</p>
+                <p className="mx-auto mt-1 max-w-[18rem] text-xs text-muted-foreground">Talk to me like a person. I’ll start timers, add homework, explain things, and answer questions about your lectures and files.</p>
                 <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                   {IDEAS.map(i => <button key={i} type="button" onClick={() => submit(i)}
                     className="rounded-full border bg-background px-3 py-1.5 text-xs text-foreground hover:border-indigo-300 hover:bg-accent">{i}</button>)}
@@ -303,7 +303,7 @@ export default function VoicePanel() {
                       <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
                         {[0, 1, 2, 3].map(i => <span key={i} className={cn('w-1 rounded-full bg-indigo-500', hearing ? 'animate-[voicebar_0.9s_ease-in-out_infinite]' : 'h-1 opacity-50')} style={hearing ? { animationDelay: `${i * 0.12}s`, height: '100%' } : undefined} />)}
                       </span>
-                      {hearing ? 'Hearing you…' : 'Listening — go ahead'}
+                      {hearing ? 'Hearing you…' : 'Listening, go ahead'}
                     </span>
                   )}
                 </div>
@@ -356,7 +356,7 @@ export default function VoicePanel() {
             {[
               [Camera, 'Take a photo of your homework', () => setCamera(true), false],
               [Paperclip, 'Attach a photo, PDF or text file', () => fileRef.current?.click(), false],
-              [Film, 'Add a video or audio file — I’ll transcribe it so you can ask about it', () => mediaRef.current?.click(), !!lecture.importing],
+              [Film, 'Add a video or audio file. I’ll transcribe it so you can ask about it', () => mediaRef.current?.click(), !!lecture.importing],
               [Sigma, 'Maths, science and chemistry symbols', () => setSymbols(v => !v), false, symbols],
               [LineChart, 'Open the graphing calculator', () => openGraph([]), false],
               [BookOpen, 'Choose lecture notes to ask about', () => setShowSources(v => !v), false, showSources || a.pinned.length > 0],
@@ -384,7 +384,7 @@ export default function VoicePanel() {
 
           {canHandsFree && (
             <label className="flex items-center justify-between gap-2 border-t bg-secondary/40 px-4 py-2 text-xs text-muted-foreground">
-              <span>Hands-free “Hey Lock In” <span className="opacity-70">{isNativeApp ? '— listens on your phone while the app is open' : isDesktop ? '— understood on this computer, never sent anywhere' : '— your browser may send speech to its recognition service'}</span></span>
+              <span>Hands-free “Hey Lock In” <span className="opacity-70">{isNativeApp ? '(listens on your phone while the app is open)' : isDesktop ? '(understood on this computer, never sent anywhere)' : '(your browser may send speech to its recognition service)'}</span></span>
               <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} aria-label="Listen for Hey Lock In" />
             </label>
           )}
@@ -392,7 +392,7 @@ export default function VoicePanel() {
             <p className="border-t bg-secondary/40 px-4 py-2 text-xs text-muted-foreground">
               Hands-free “Hey Lock In” needs the newest version of the app.{' '}
               <a href={APK_URL} className="font-semibold text-indigo-700 underline dark:text-indigo-300">Download the update</a>
-              {' '}— it installs over this one and keeps your account.
+              {' '}It installs over this one and keeps your account.
             </p>
           )}
         </section>

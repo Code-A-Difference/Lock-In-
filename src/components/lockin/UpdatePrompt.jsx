@@ -1,5 +1,5 @@
 /**
- * "An update is available" — shown in the Android and desktop apps when the
+ * "An update is available", shown in the Android and desktop apps when the
  * installed app is older than the newest release (lib/releases.js), with what's
  * new and a download button. "Later" hides it until the next release; it comes
  * back once a day so an important fix isn't missed for good.
@@ -53,7 +53,7 @@ export default function UpdatePrompt() {
           <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-primary/15 text-primary"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
           <div className="min-w-0 flex-1">
             <h2 id="updTitle" className="text-lg font-bold text-foreground">An update is available</h2>
-            <p className="text-sm text-muted-foreground">LOCK IN! {offer.to} — you have {offer.from}.</p>
+            <p className="text-sm text-muted-foreground">LOCK IN! {offer.to} is out. You have {offer.from}.</p>
           </div>
           <button type="button" onClick={later} aria-label="Remind me later" className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-accent"><X className="h-4 w-4" /></button>
         </div>

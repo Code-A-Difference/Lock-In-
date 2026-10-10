@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * The countdown ring. Focus is indigo, breaks are emerald — the colour is
+ * The countdown ring. Focus is indigo, breaks are emerald, the colour is
  * backed by the phase name in the middle, never the only signal. It scales
  * down to fit narrow phones (aspect-ratio, not a fixed height).
  */

@@ -28,7 +28,7 @@ import java.util.concurrent.Executors;
  * phone.
  *
  * Models are downloaded the first time they're needed (too big for the APK):
- * small (190 MB) by default — accurate and quick enough on a phone — or turbo
+ * small (190 MB) by default, accurate and quick enough on a phone, or turbo
  * (547 MB, large-v3 turbo) for the best accuracy on a fast phone.
  *
  * The web app sends a 16 kHz mono 16-bit WAV (base64) and gets the text back.

@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { normaliseMath } from '@/lib/mathText';
 
 /**
- * Markdown with real maths and chemistry. The AI writes LaTeX — "$\frac{1}{2}$",
- * "\(x^2\)", "\ce{2H2 + O2 -> 2H2O}" — which used to show up as dollar signs
+ * Markdown with real maths and chemistry. The AI writes LaTeX, "$\frac{1}{2}$",
+ * "\(x^2\)", "\ce{2H2 + O2 -> 2H2O}", which used to show up as dollar signs
  * and backslashes. KaTeX turns it into proper notation.
  */
 const plugins = { remarkPlugins: [remarkMath], rehypePlugins: [[rehypeKatex, { throwOnError: false, strict: 'ignore' }]] };

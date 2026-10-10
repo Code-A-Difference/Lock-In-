@@ -5,7 +5,7 @@ import { makeStep, stepProgress } from '@/lib/shredder';
 import { formatMinutes } from '@/lib/agenda';
 
 /**
- * A homework item's checklist — Task Shredder's output, editable. The next
+ * A homework item's checklist, Task Shredder's output, editable. The next
  * step is highlighted, because "what do I do now" is the whole point.
  */
 export default function StepList({ steps = [], onChange, onRedo, redoing = false, compact = false }) {

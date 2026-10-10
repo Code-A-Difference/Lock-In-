@@ -7,7 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // "Hey Lock In", listened for on the phone itself. If the speech engine can't load on
-        // some device, the app must still open — it just won't offer hands-free.
+        // some device, the app must still open, it just won't offer hands-free.
         try { registerPlugin(WakeWordPlugin.class); } catch (Throwable ignored) { }
         // Speech to text with whisper.cpp on the phone (commands, push-to-talk, classes)
         try { registerPlugin(WhisperPlugin.class); } catch (Throwable ignored) { }
