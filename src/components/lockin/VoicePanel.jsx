@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, Camera, Film, LineChart, Loader2, Mic, MicOff, Paperclip, Radio, Send, Sigma, Square, Trash2, Volume2, VolumeX, X } from 'lucide-react';
+import { BookOpen, Camera, ChevronUp, Film, Globe, LineChart, Loader2, Mic, MicOff, Paperclip, Radio, Send, Sigma, Square, Trash2, Volume2, VolumeX, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import RichText from '@/components/lockin/RichText';
 import CameraCapture from '@/components/lockin/CameraCapture';
 import SymbolPad from '@/components/lockin/SymbolPad';
@@ -11,26 +12,29 @@ import { useLecture } from '@/lib/LectureContext';
 import { useStudyData } from '@/lib/data';
 import { listenOnce, HandsFree, canListen, canHandsFree } from '@/lib/listen';
 import { isNativeApp, appNeedsUpdate, APK_URL } from '@/lib/native';
-import { isDesktop } from '@/lib/desktop';
 import { chime, unlockAudio } from '@/lib/soundscape';
 import { stopSpeaking } from '@/lib/voice';
+import { useAllowOutside } from '@/lib/aiPrefs';
 
 const PREF = 'lockin.handsfree';
 const readPref = () => { try { return localStorage.getItem(PREF); } catch (_) { return null; } };
 const writePref = (v) => { try { localStorage.setItem(PREF, v); } catch (_) {} };
 
 const IDEAS = [
-  'Start a focus session for 50 minutes',
   'What’s due this week?',
+  'Start a 50 minute focus session',
   'Help me with my homework',
-  'I’m free 4 to 6 today, plan my day',
-  'Graph y = x² − 4',
+  'Plan my afternoon',
 ];
+const LECTURE_IDEAS = ['Catch me up', 'Explain that last part simply', 'What will be on the test?', 'Quiz me on this'];
+const NOTES_IDEAS = ['What did we cover in my last class?', 'Find where we talked about…', 'What should I review this week?'];
 
 /**
- * The assistant, anywhere in the app: a chat you can type to or talk to, with
- * "Hey Lock In" listening in the background once you've said yes to it.
- * One conversation, whichever way each message arrives.
+ * The assistant: a bar at the bottom of every page that you type or talk to,
+ * with "Hey Lock In" listening in the background once you've said yes to it.
+ * It answers about whatever's in front of you: the lecture being recorded or
+ * open on screen first, all your notes on the Notes page, and by default only
+ * from your own material (outside knowledge is one switch away).
  */
 export default function VoicePanel() {
   const a = useAssistant();
@@ -57,8 +61,16 @@ export default function VoicePanel() {
   const scroller = useRef(null);
   const fileRef = useRef(null);
   const mediaRef = useRef(null);
+  const location = useLocation();
+  const [outside, setOutside] = useAllowOutside();
+  const onNotes = location.pathname.startsWith('/Notes');
+  const pageLecture = onNotes ? new URLSearchParams(location.search).get('id') : null;
+  const focusId = pageLecture || lecture.active?.id || '';
+  const focusLec = focusId ? lectures.find(l => l.id === focusId) : null;
+  const focusRef = useRef(focusId);
+  focusRef.current = focusId;
   const sendRef = useRef(a.send);
-  sendRef.current = a.send;
+  sendRef.current = (text, opts = {}) => a.send(text, { ...opts, focusId: focusRef.current });
 
   // Every time the assistant opens it's a new conversation.
   useEffect(() => {
@@ -193,8 +205,18 @@ export default function VoicePanel() {
     setInput('');
     setError('');
     unlockAudio();
-    a.send(t, { via: 'text' });
+    setExpanded(true);
+    sendRef.current(t, { via: 'text' });
   };
+
+  // Something else asks a question through the bar (the desktop app's "catch me up" shortcut)
+  const submitRef = useRef(submit);
+  submitRef.current = submit;
+  useEffect(() => {
+    const onAsk = (e) => { if (e.detail) submitRef.current(String(e.detail)); };
+    window.addEventListener('lockin:ask', onAsk);
+    return () => window.removeEventListener('lockin:ask', onAsk);
+  }, []);
 
   useEffect(() => {
     const el = scroller.current;
@@ -219,8 +241,10 @@ export default function VoicePanel() {
     } catch (err) { setError(err.message); }
   };
 
-  const status = !canListen ? '' : handsFree ? (armed ? 'Listening…' : 'Say “Hey Lock In”') : '';
-  const lecturesReady = lectures.filter(l => l.notes || (l.segments || []).some(s => s.text));
+  const status = !canListen ? '' : handsFree ? (armed ? 'Listening' : 'Say “Hey Lock In”') : '';
+  const lecturesReady = lectures.filter(l => l.notes || l.my_notes || (l.segments || []).some(s => s.text));
+  const ideas = focusLec ? LECTURE_IDEAS : onNotes ? NOTES_IDEAS : IDEAS;
+  const placeholder = listening ? 'Listening…' : focusLec ? `Ask about ${focusLec.title}` : onNotes ? 'Search your notes' : 'Ask anything';
 
   return (
     <>
@@ -235,178 +259,163 @@ export default function VoicePanel() {
         </div>
       </>
     )}
-    <div className="lockin-voice-dock fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex flex-col items-end gap-2 lg:bottom-5">
-      {pref === null && canHandsFree && !expanded && (
-        <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask w-[min(20rem,calc(100vw-2rem))] rounded-2xl border bg-card p-4 shadow-2xl">
-          <p className="text-sm font-semibold text-foreground">Go hands-free?</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Just say “Hey Lock In” from anywhere in the app, like a phone assistant. {isNativeApp ? 'It listens on your phone while the app is open; the first time, it downloads a small speech model (about 40 MB).' : (isDesktop ? 'It listens while LOCK IN! is open, even in the background, and the speech is understood on this computer by Whisper, nothing is sent anywhere.' : 'I’ll ask your browser for the microphone once and remember your answer.')}
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => choose(true)} className="h-10 flex-1 rounded-lg bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700">Turn on</button>
-            <button type="button" onClick={() => choose(false)} className="h-10 flex-1 rounded-lg border text-sm font-medium text-foreground hover:bg-accent">Not now</button>
-          </div>
-        </div>
-      )}
 
-      {expanded && (
-        <section className="flex h-[min(36rem,calc(100dvh-9rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl" aria-labelledby="assistant-title">
-          <header className="flex items-center justify-between gap-2 border-b px-4 py-3">
-            <div className="min-w-0">
-              <h2 id="assistant-title" className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                Lock In
-                {status && <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', armed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-secondary text-muted-foreground')}>
-                  <Radio className={cn('h-3 w-3', armed && 'animate-pulse')} />{status}
-                </span>}
-              </h2>
-              <p className="truncate text-xs text-muted-foreground">Ask, talk, or have me do things</p>
+    {/* The assistant is a bar at the bottom of every page: ask about the lecture you're
+        recording or reading, search your notes, or have it do things. It opens upward. */}
+    <div className="lockin-voice-dock pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 px-3 lg:bottom-4 lg:left-60 lg:px-6">
+      <div className="pointer-events-auto mx-auto w-full max-w-2xl">
+        {pref === null && canHandsFree && !expanded && (
+          <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask mb-2 rounded-2xl border bg-card p-4 shadow-2xl">
+            <p className="text-sm font-semibold text-foreground">Say “Hey Lock In” to talk hands-free?</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => choose(true)} className="h-10 flex-1 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">Turn on</button>
+              <button type="button" onClick={() => choose(false)} className="h-10 flex-1 rounded-lg border text-sm font-medium text-foreground hover:bg-accent">Not now</button>
             </div>
-            <div className="flex items-center gap-0.5">
+          </div>
+        )}
+
+        {expanded && (
+          <section className="mb-2 flex max-h-[min(34rem,calc(100dvh-11rem))] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2" aria-label="Lock In assistant">
+            <header className="flex items-center gap-1 border-b px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
+                {focusLec ? <><BookOpen className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />{focusLec.title}{lecture.active?.id === focusLec.id ? ' (live)' : ''}</>
+                  : onNotes ? 'All your notes' : 'Lock In'}
+                {status && <span className={cn('ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', armed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-secondary text-muted-foreground')}>
+                  <Radio className={cn('h-3 w-3', armed && 'animate-pulse')} aria-hidden="true" />{status}
+                </span>}
+              </span>
+              <button type="button" onClick={() => setOutside(!outside)} aria-pressed={outside}
+                title={outside ? 'Using outside knowledge as well as your notes' : 'Only your lectures, notes and slides'}
+                className={cn('inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium hover:bg-secondary', outside ? 'text-primary' : 'text-muted-foreground')}>
+                <Globe className="h-3.5 w-3.5" aria-hidden="true" />{outside ? 'Outside knowledge on' : 'Notes only'}
+              </button>
               <button type="button" onClick={() => a.setReadAloud(!a.readAloud)} aria-pressed={a.readAloud} aria-label={a.readAloud ? 'Stop reading typed answers aloud' : 'Read answers aloud'}
-                title={a.readAloud ? 'Reading answers aloud' : 'Answers stay silent unless you speak'}
-                className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground">
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground">
                 {a.readAloud ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </button>
-              <button type="button" onClick={a.clear} disabled={!a.messages.length} aria-label="Clear the conversation" title="Clear the conversation"
-                className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40"><Trash2 className="h-4 w-4" /></button>
-              <button type="button" onClick={() => setExpanded(false)} aria-label="Close assistant"
-                className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"><X className="h-4 w-4" /></button>
-            </div>
-          </header>
+              <button type="button" onClick={a.clear} disabled={!a.messages.length} aria-label="Clear the conversation"
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40"><Trash2 className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setExpanded(false)} aria-label="Close"
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"><X className="h-4 w-4" /></button>
+            </header>
 
-          <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3" aria-live="polite">
-            {!a.messages.length && (
-              <div className="py-4 text-center">
-                <p className="text-sm font-medium text-foreground">What are we working on?</p>
-                <p className="mx-auto mt-1 max-w-[18rem] text-xs text-muted-foreground">Talk to me like a person. I’ll start timers, add homework, explain things, and answer questions about your lectures and files.</p>
-                <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-                  {IDEAS.map(i => <button key={i} type="button" onClick={() => submit(i)}
-                    className="rounded-full border bg-background px-3 py-1.5 text-xs text-foreground hover:border-indigo-300 hover:bg-accent">{i}</button>)}
+            <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3" aria-live="polite">
+              {!a.messages.length && !listening && !heard && (
+                <div className="flex flex-wrap gap-1.5 py-1">
+                  {ideas.map(i => <button key={i} type="button" onClick={() => submit(i)}
+                    className="rounded-full border bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/50 hover:bg-accent">{i}</button>)}
                 </div>
-              </div>
-            )}
-            {a.messages.map(m => (
-              <div key={m.id} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                <div className={cn('max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
-                  m.role === 'user' ? 'rounded-br-md bg-indigo-600 text-white' : 'rounded-bl-md bg-secondary text-foreground')}>
-                  {m.role === 'user'
-                    ? <span className="whitespace-pre-wrap">{m.text}</span>
-                    : <RichText text={m.text} />}
+              )}
+              {a.messages.map(m => (
+                <div key={m.id} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                  <div className={cn('max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                    m.role === 'user' ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md bg-secondary text-foreground')}>
+                    {m.role === 'user' ? <span className="whitespace-pre-wrap">{m.text}</span> : <RichText text={m.text} />}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {(heard || listening || (armed && !a.busy && !a.speaking)) && (
-              <div className="flex justify-end">
-                <div className="max-w-[88%] rounded-2xl rounded-br-md border border-dashed border-indigo-300 px-3.5 py-2 text-sm text-muted-foreground" aria-live="polite">
-                  {heard || (
-                    <span className="inline-flex items-center gap-2">
-                      <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
-                        {[0, 1, 2, 3].map(i => <span key={i} className={cn('w-1 rounded-full bg-indigo-500', hearing ? 'animate-[voicebar_0.9s_ease-in-out_infinite]' : 'h-1 opacity-50')} style={hearing ? { animationDelay: `${i * 0.12}s`, height: '100%' } : undefined} />)}
-                      </span>
-                      {hearing ? 'Hearing you…' : 'Listening, go ahead'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            {a.busy && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-secondary px-3.5 py-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Thinking…</div></div>}
-            {a.speaking && <div className="flex justify-start">
-              <button type="button" onClick={a.stop} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-accent"><Square className="h-3 w-3 fill-current" />Stop talking</button>
-            </div>}
-          </div>
-
-          {(a.attachments.length > 0 || a.pinned.length > 0 || lecture.importing) && (
-            <div className="flex flex-wrap gap-1.5 border-t px-3 pt-2">
-              {lecture.importing && <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
-                <Loader2 className="h-3 w-3 animate-spin" />Listening to “{lecture.importing.title}” {lecture.importing.done}/{lecture.importing.total}</span>}
-              {a.pinned.map(id => { const l = lectures.find(x => x.id === id); return l && (
-                <span key={id} className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-1 text-xs text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-200">
-                  <BookOpen className="h-3 w-3" />{l.title}
-                  <button type="button" onClick={() => a.togglePinned(id)} aria-label={`Stop using ${l.title}`}><X className="h-3 w-3" /></button></span>); })}
-              {a.attachments.map((f, i) => (
-                <span key={`${f.name}${i}`} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs text-foreground">
-                  <Paperclip className="h-3 w-3" />{f.name}
-                  <button type="button" onClick={() => a.removeAttachment(i)} aria-label={`Remove ${f.name}`}><X className="h-3 w-3" /></button></span>
               ))}
+              {(heard || listening) && (
+                <div className="flex justify-end">
+                  <div className="max-w-[88%] rounded-2xl rounded-br-md border border-dashed border-primary/40 px-3.5 py-2 text-sm text-muted-foreground">
+                    {heard || (hearing ? 'Hearing you…' : 'Go ahead')}
+                  </div>
+                </div>
+              )}
+              {a.busy && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-secondary px-3.5 py-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Thinking…</div></div>}
+              {a.speaking && <div className="flex justify-start">
+                <button type="button" onClick={a.stop} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-accent"><Square className="h-3 w-3 fill-current" />Stop talking</button>
+              </div>}
             </div>
-          )}
 
-          {showSources && (
-            <div className="max-h-40 space-y-1 overflow-y-auto border-t px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">Ask about specific lectures (otherwise I look for the right one):</p>
-              {lecturesReady.length === 0 && <p className="text-xs text-muted-foreground">No lecture notes yet. Record a class, or add a video.</p>}
-              {lecturesReady.slice(0, 20).map(l => (
-                <label key={l.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-secondary">
-                  <input type="checkbox" checked={a.pinned.includes(l.id)} onChange={() => a.togglePinned(l.id)} />
-                  <span className="min-w-0 flex-1 truncate text-foreground">{l.title}</span>
-                  {l.class_name && <span className="text-muted-foreground">{l.class_name}</span>}
+            {(a.attachments.length > 0 || a.pinned.length > 0 || lecture.importing) && (
+              <div className="flex flex-wrap gap-1.5 border-t px-3 pt-2">
+                {lecture.importing && <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+                  <Loader2 className="h-3 w-3 animate-spin" />Listening to “{lecture.importing.title}” {lecture.importing.done}/{lecture.importing.total}</span>}
+                {a.pinned.map(id => { const l = lectures.find(x => x.id === id); return l && (
+                  <span key={id} className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs text-accent-foreground">
+                    <BookOpen className="h-3 w-3" />{l.title}
+                    <button type="button" onClick={() => a.togglePinned(id)} aria-label={`Stop using ${l.title}`}><X className="h-3 w-3" /></button></span>); })}
+                {a.attachments.map((f, i) => (
+                  <span key={`${f.name}${i}`} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs text-foreground">
+                    <Paperclip className="h-3 w-3" />{f.name}
+                    <button type="button" onClick={() => a.removeAttachment(i)} aria-label={`Remove ${f.name}`}><X className="h-3 w-3" /></button></span>
+                ))}
+              </div>
+            )}
+
+            {showSources && (
+              <div className="max-h-40 space-y-1 overflow-y-auto border-t px-3 py-2">
+                {lecturesReady.length === 0 && <p className="text-xs text-muted-foreground">No lectures yet.</p>}
+                {lecturesReady.slice(0, 30).map(l => (
+                  <label key={l.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-secondary">
+                    <input type="checkbox" checked={a.pinned.includes(l.id)} onChange={() => a.togglePinned(l.id)} />
+                    <span className="min-w-0 flex-1 truncate text-foreground">{l.title}</span>
+                    {l.class_name && <span className="text-muted-foreground">{l.class_name}</span>}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {note && <p className="border-t px-4 py-2 text-xs text-muted-foreground">{note}</p>}
+            {error && <p className="border-t px-4 py-2 text-xs text-red-700 dark:text-red-400" role="alert">{error}</p>}
+            {symbols && <SymbolPad onInsert={insert} />}
+
+            <div className="flex items-center gap-0.5 border-t px-2 py-1" role="toolbar" aria-label="Add to your message">
+              {[
+                [Camera, 'Take a photo', () => setCamera(true), false],
+                [Paperclip, 'Attach a photo, PDF or text file', () => fileRef.current?.click(), false],
+                [Film, 'Add a video or audio file', () => mediaRef.current?.click(), !!lecture.importing],
+                [Sigma, 'Maths and science symbols', () => setSymbols(v => !v), false, symbols],
+                [LineChart, 'Graphing calculator', () => openGraph([]), false],
+                [BookOpen, 'Choose lectures to ask about', () => setShowSources(v => !v), false, showSources || a.pinned.length > 0],
+              ].map(([Icon, label, onClick, disabled, on]) => (
+                <button key={label} type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label} aria-pressed={on === undefined ? undefined : !!on}
+                  className={cn('grid h-9 w-9 place-items-center rounded-lg hover:bg-secondary hover:text-foreground disabled:opacity-40', on ? 'text-primary' : 'text-muted-foreground')}>
+                  <Icon className="h-4 w-4" />
+                </button>
+              ))}
+              {canHandsFree && (
+                <label className="ml-auto flex items-center gap-2 px-2 text-xs text-muted-foreground" title="Listen for “Hey Lock In”">
+                  <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} />Hey Lock In
                 </label>
-              ))}
+              )}
             </div>
-          )}
+            {appNeedsUpdate && (
+              <p className="border-t px-4 py-2 text-xs text-muted-foreground">
+                “Hey Lock In” needs the newest app. <a href={APK_URL} className="font-semibold text-primary underline">Update</a>
+              </p>
+            )}
+          </section>
+        )}
 
-          {note && <p className="border-t px-4 py-2 text-xs text-muted-foreground">{note}</p>}
-          {error && <p className="border-t px-4 py-2 text-xs text-red-700 dark:text-red-400" role="alert">{error}</p>}
+        <input ref={fileRef} type="file" hidden multiple accept="image/*,application/pdf,text/plain" onChange={onFiles} />
+        <input ref={mediaRef} type="file" hidden accept="video/*,audio/*" onChange={onMedia} />
 
-          {symbols && <SymbolPad onInsert={insert} />}
-
-          <div className="flex items-center gap-0.5 border-t px-2 pt-1.5" role="toolbar" aria-label="Add to your message">
-            <input ref={fileRef} type="file" hidden multiple accept="image/*,application/pdf,text/plain" onChange={onFiles} />
-            <input ref={mediaRef} type="file" hidden accept="video/*,audio/*" onChange={onMedia} />
-            {[
-              [Camera, 'Take a photo of your homework', () => setCamera(true), false],
-              [Paperclip, 'Attach a photo, PDF or text file', () => fileRef.current?.click(), false],
-              [Film, 'Add a video or audio file. I’ll transcribe it so you can ask about it', () => mediaRef.current?.click(), !!lecture.importing],
-              [Sigma, 'Maths, science and chemistry symbols', () => setSymbols(v => !v), false, symbols],
-              [LineChart, 'Open the graphing calculator', () => openGraph([]), false],
-              [BookOpen, 'Choose lecture notes to ask about', () => setShowSources(v => !v), false, showSources || a.pinned.length > 0],
-            ].map(([Icon, label, onClick, disabled, on]) => (
-              <button key={label} type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label} aria-pressed={on === undefined ? undefined : !!on}
-                className={cn('grid h-9 w-9 place-items-center rounded-lg hover:bg-secondary hover:text-foreground disabled:opacity-40', on ? 'text-indigo-600' : 'text-muted-foreground')}>
-                <Icon className="h-4 w-4" />
+        <form className="flex items-end gap-1.5 rounded-2xl border bg-card/95 p-1.5 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/85"
+          onSubmit={(e) => { e.preventDefault(); submit(); }}>
+          {canListen
+            ? <button type="button" onClick={() => { setExpanded(true); talk(); }} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Talk to Lock In'}
+                className={cn('relative grid h-10 w-10 flex-none place-items-center rounded-xl',
+                  listening ? 'bg-red-600 text-white hover:bg-red-700' : armed ? 'bg-mint text-[#16181d]' : 'bg-secondary text-foreground hover:bg-secondary/70')}>
+                {listening ? <MicOff className="h-4 w-4" /> : armed ? <Radio className="h-4 w-4 animate-pulse" /> : <Mic className="h-4 w-4" />}
+                {handsFree && !armed && !listening && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-400" title="Listening for Hey Lock In" />}
               </button>
-            ))}
-          </div>
-
-          <form className="flex items-end gap-1.5 p-2.5 pt-1.5" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-            <textarea ref={box} value={input} onChange={e => setInput(e.target.value)} rows={1} placeholder={listening ? 'Listening…' : 'Message Lock In'}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
-              aria-label="Message Lock In"
-              className="max-h-28 min-h-10 min-w-0 flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400" />
-            {input.trim()
-              ? <button type="submit" aria-label="Send" className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"><Send className="h-4 w-4" /></button>
-              : canListen
-                ? <button type="button" onClick={talk} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Talk to Lock In'} title={listening ? 'Stop listening' : 'Talk'}
-                    className={cn('grid h-10 w-10 flex-none place-items-center rounded-xl text-white', listening ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700')}>
-                    {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}</button>
-                : <span className="grid h-10 w-10 flex-none place-items-center text-muted-foreground" title="Voice needs Chrome, Edge or Safari"><MicOff className="h-4 w-4" /></span>}
-          </form>
-
-          {canHandsFree && (
-            <label className="flex items-center justify-between gap-2 border-t bg-secondary/40 px-4 py-2 text-xs text-muted-foreground">
-              <span>Hands-free “Hey Lock In” <span className="opacity-70">{isNativeApp ? '(listens on your phone while the app is open)' : isDesktop ? '(understood on this computer, never sent anywhere)' : '(your browser may send speech to its recognition service)'}</span></span>
-              <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} aria-label="Listen for Hey Lock In" />
-            </label>
+            : null}
+          <textarea ref={box} value={input} onChange={e => setInput(e.target.value)} rows={1} placeholder={placeholder}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } if (e.key === 'Escape') setExpanded(false); }}
+            onFocus={() => unlockAudio()}
+            aria-label={placeholder}
+            className="max-h-28 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-sm" />
+          {!expanded && (a.messages.length > 0 || a.busy) && (
+            <button type="button" onClick={() => setExpanded(true)} aria-label="Show the conversation"
+              className="grid h-10 w-10 flex-none place-items-center rounded-xl text-muted-foreground hover:bg-secondary"><ChevronUp className="h-4 w-4" /></button>
           )}
-          {appNeedsUpdate && (
-            <p className="border-t bg-secondary/40 px-4 py-2 text-xs text-muted-foreground">
-              Hands-free “Hey Lock In” needs the newest version of the app.{' '}
-              <a href={APK_URL} className="font-semibold text-indigo-700 underline dark:text-indigo-300">Download the update</a>
-              {' '}It installs over this one and keeps your account.
-            </p>
-          )}
-        </section>
-      )}
-
-      <CameraCapture open={camera} onClose={() => setCamera(false)} onPhoto={(url) => a.addPhoto(url)} />
-
-      <button type="button" onClick={() => { setExpanded(open => !open); unlockAudio(); }} aria-expanded={expanded} aria-label={expanded ? 'Close the Lock In assistant' : 'Open the Lock In assistant'}
-        className={cn('relative grid h-14 w-14 place-items-center rounded-full shadow-lg ring-4 ring-background transition-transform hover:scale-105 active:scale-95',
-          armed || listening ? 'bg-mint text-[#16181d]' : 'bg-primary text-primary-foreground')}>
-        {armed || listening ? <Radio className="h-6 w-6 animate-pulse" /> : <Mic className="h-6 w-6" />}
-        {handsFree && !armed && <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" title="Listening for Hey Lock In" />}
-      </button>
+          <button type="submit" disabled={!input.trim()} aria-label="Send"
+            className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"><Send className="h-4 w-4" /></button>
+        </form>
+      </div>
     </div>
+    <CameraCapture open={camera} onClose={() => setCamera(false)} onPhoto={(url) => { a.addPhoto(url); setExpanded(true); }} />
     </>
   );
 }

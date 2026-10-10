@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 
 /*
- * LOCK IN! no longer depends on base44 at all — the backend is src/api/db.js
+ * LOCK IN! no longer depends on base44 at all, the backend is src/api/db.js
  * and runs in the browser. The base44 plugin was also what provided the
  * "@/" import alias every file uses, so that is declared here now.
  *

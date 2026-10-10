@@ -18,7 +18,7 @@ const ToastViewport = React.forwardRef(({ className, ...props }, ref) => (
     ref={ref}
     className={cn(
       // Above the phone tab bar; bottom-right on desktop.
-      "fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 lg:bottom-0 lg:left-auto lg:max-w-[400px]",
+      "fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 lg:bottom-20 lg:left-auto lg:max-w-[400px]",
       className
     )}
     {...props}

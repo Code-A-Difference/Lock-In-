@@ -62,10 +62,10 @@ export async function transcribeChunk(wav, hint = '', { tries = 4 } = {}) {
  * request; long ones are condensed section by section first, then combined.
  * `onProgress(text)` reports what it's doing.
  */
-export async function generateNotes({ transcript, myNotes, className, title, date, how }, onProgress) {
+export async function generateNotes({ transcript, myNotes, className, title, date, how, slides = '', outside = false }, onProgress) {
   // Too little was said to make notes from: say so, rather than let the AI write a lesson of its own.
   const said = spokenWords(transcript);
-  if (said < MIN_WORDS && spokenWords(myNotes) < MIN_WORDS) return tooShortNotes(said);
+  if (said < MIN_WORDS && spokenWords(myNotes) < MIN_WORDS && spokenWords(slides) < MIN_WORDS) return tooShortNotes(said);
   let material = transcript;
   const parts = sections(transcript);
   if (parts.length > 1) {
@@ -78,9 +78,9 @@ export async function generateNotes({ transcript, myNotes, className, title, dat
   }
   onProgress?.('Writing your notes…');
   const raw = await ask({
-    prompt: notesPrompt({ transcript: material.slice(0, 22000), myNotes, className, title, date, how }),
+    prompt: notesPrompt({ transcript: material.slice(0, 22000), myNotes, className, title, date, how, slides: slides.slice(0, 12000), outside }),
     response_json_schema: NOTES_SCHEMA,
   });
   // anything the recording (or the student's notes) doesn't back up is left out
-  return groundNotes(normaliseNotes(raw), [transcript, myNotes || ''].join('\n'));
+  return groundNotes(normaliseNotes(raw), [transcript, myNotes || '', slides].join('\n'));
 }

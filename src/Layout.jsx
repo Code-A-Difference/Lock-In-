@@ -55,7 +55,7 @@ function SaveStatus() {
   useEffect(() => sync.onChange(setSt), []);
   if (!st.offline || !st.pending) return null;
   return (
-    <div role="status" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-lg lg:bottom-4 lg:left-[calc(50%+7.5rem)]">
+    <div role="status" className="fixed bottom-[calc(9.75rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-lg lg:bottom-24 lg:left-[calc(50%+7.5rem)]">
       <CloudOff className="h-4 w-4 flex-none text-amber-600" aria-hidden="true" />
       <span>Not saved yet{st.reason ? ` (${st.reason})` : ''}. Trying again…</span>
     </div>
@@ -223,7 +223,7 @@ export default function Layout({ children, currentPageName }) {
         </DropdownMenu>
       </header>
 
-      <main id="main" tabIndex={-1} className="pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none lg:pb-0 lg:pl-60">
+      <main id="main" tabIndex={-1} className="pb-[calc(10rem+env(safe-area-inset-bottom))] outline-none lg:pb-24 lg:pl-60">
         {children}
       </main>
 
