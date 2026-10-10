@@ -56,4 +56,18 @@ const quiet = (ms) => tone(ms, 0.001);
   assert.equal(s.flush(), true); assert.equal(got.length, 1);
   assert.equal(s.flush(), false);
 }
+// the first ~1.3 s of a longer utterance is handed over early, once (to spot "Hey Lock In")
+{
+  const peeks = [], got = [];
+  const s = new Segmenter({ onUtterance: (p) => got.push(p), onPeek: (p) => peeks.push(p) });
+  s.push(quiet(800)); s.push(tone(3000, 0.06)); s.push(quiet(1200));
+  assert.equal(peeks.length, 1);
+  const ms = peeks[0].length / RATE * 1000;
+  assert.ok(ms > 1200 && ms < 1500, `peek ${ms}`);
+  assert.equal(got.length, 1);
+  const short = [];
+  const s2 = new Segmenter({ onUtterance: () => {}, onPeek: (p) => short.push(p) });
+  s2.push(quiet(800)); s2.push(tone(700, 0.06)); s2.push(quiet(1200));
+  assert.equal(short.length, 0);
+}
 console.log('localEar: all passed');

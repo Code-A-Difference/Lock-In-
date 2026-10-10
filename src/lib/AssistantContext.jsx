@@ -262,7 +262,7 @@ export function AssistantProvider({ children }) {
             prompt: buildPrompt({ text: said, history, material, attachments: L.attachments }),
             file_urls: L.attachments.map(a => a.dataUrl),
             response_json_schema: PLAN_SCHEMA,
-            maxTokens: via === 'voice' ? 1200 : 3000,   // a spoken answer is short; shorter comes back sooner
+            maxTokens: via === 'voice' ? 700 : 3000,   // a spoken answer is short; shorter comes back sooner
           });
           plan = parsePlan(raw);
         } catch (e) {

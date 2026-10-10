@@ -164,8 +164,8 @@ function playUrl(url, token) {
  * starting the answer over.
  */
 async function speakAi(text, token, onStart, onEnd) {
-  // A short first piece starts playing sooner; the rest is fetched while it plays.
-  const small = chunks(text, 200);
+  // A short first piece (about a sentence) starts playing sooner; the rest is fetched while it plays.
+  const small = chunks(text, 110);
   const parts = small.length > 1 ? [small[0], ...chunks(small.slice(1).join(' '), 600)] : small;
   const fetchPart = (i) => { const p = aiAudioUrl(parts[i]); p.catch(() => {}); return p; };
   let next = fetchPart(0);

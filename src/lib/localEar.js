@@ -34,9 +34,13 @@ const FRAME = 1024;                       // samples per detector step at 16 kHz
  * begins and onUtterance(pcm) when it ends.
  */
 export class Segmenter {
-  constructor({ onUtterance, onStart, rate = SAMPLE_RATE, endMs = 750, maxMs = 15000, minMs = 350, preMs = 300 } = {}) {
+  constructor({ onUtterance, onStart, onPeek, rate = SAMPLE_RATE, endMs = 600, maxMs = 15000, minMs = 350, preMs = 300, peekMs = 1300 } = {}) {
     this.onUtterance = onUtterance;
     this.onStart = onStart;
+    // "Hey Lock In" takes under a second to say: hand over the first ~1.3 s of speech so it can
+    // be recognised (and the chime played) while the person is still talking.
+    this.onPeek = onPeek;
+    this.peekFrames = Math.ceil(peekMs / 64);
     this.frame = Math.round(rate * FRAME / SAMPLE_RATE);
     this.endFrames = Math.ceil(endMs / 64);
     this.maxFrames = Math.ceil(maxMs / 64);
@@ -73,6 +77,7 @@ export class Segmenter {
       this.loud = loud ? this.loud + 1 : 0;
       if (this.loud >= 2) {
         this.cur = this.pre.slice();
+        this.peeked = false;
         this.pre = [];
         this.quiet = 0;
         this.voiced = 2;
@@ -82,6 +87,8 @@ export class Segmenter {
     }
     this.cur.push(f);
     if (loud) { this.quiet = 0; this.voiced++; } else this.quiet++;
+    // only while they're still talking: a short phrase that already ended is handed over whole anyway
+    if (this.onPeek && !this.peeked && loud && this.cur.length >= this.peekFrames) { this.peeked = true; this.onPeek(this._join(this.cur)); }
     if (this.quiet >= this.endFrames || this.cur.length >= this.maxFrames) this.flush();
   }
 
@@ -91,12 +98,15 @@ export class Segmenter {
     this.cur = null;
     this.loud = 0;
     if (!frames || this.voiced < this.minFrames) return false;
-    const n = frames.reduce((s, f) => s + f.length, 0);
-    const out = new Int16Array(n);
+    this.onUtterance?.(this._join(frames));
+    return true;
+  }
+
+  _join(frames) {
+    const out = new Int16Array(frames.reduce((s, f) => s + f.length, 0));
     let o = 0;
     for (const f of frames) { out.set(f, o); o += f.length; }
-    this.onUtterance?.(out);
-    return true;
+    return out;
   }
 }
 
@@ -172,8 +182,9 @@ export async function hearLocally(pcm, hint = HINT) {
  * onSpeech(true|false) as speaking starts and the utterance is handed over.
  */
 export class LocalEar {
-  constructor({ onUtterance, onSpeech, onError } = {}) {
+  constructor({ onUtterance, onSpeech, onError, onPeek } = {}) {
     this.onUtterance = onUtterance;
+    this.onPeek = onPeek;
     this.onSpeech = onSpeech;
     this.onError = onError;
     this.running = false;
@@ -199,6 +210,7 @@ export class LocalEar {
     this.ctx = new Ctx();
     this.seg = new Segmenter({
       onStart: () => this.onSpeech?.(true),
+      onPeek: this.onPeek ? (pcm) => this.onPeek(pcm) : null,
       onUtterance: (pcm) => { this.onSpeech?.(false); this.onUtterance?.(pcm); },
     });
     this.src = this.ctx.createMediaStreamSource(this.stream);
