@@ -13,6 +13,7 @@ const on = (channel) => (cb) => {
 contextBridge.exposeInMainWorld('lockinDesktop', {
   version: (process.argv.find(a => a.startsWith('--lockin-version=')) || '').split('=')[1] || '0',
   platform: process.platform,
+  arch: process.arch,
   /** One WAV piece (Uint8Array) -> {ok, text} | {ok:false, error}. */
   transcribe: (wav, hint) => ipcRenderer.invoke('whisper:transcribe', wav, hint || ''),
   hear: (wav, hint) => ipcRenderer.invoke('whisper:hear', wav, hint || ''),
