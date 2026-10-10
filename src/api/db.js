@@ -725,6 +725,18 @@ export const sharing = {
   },
 };
 
+/* ---------------------------------------------------------------- badges */
+
+// Badges only one student can have ("the first to ..."). The server checks the
+// student's saved work, claims any they've reached first, and says which they hold.
+export const badgesApi = {
+  async firsts() {
+    need();
+    const r = await call('firsts');
+    return r.firsts || {};
+  },
+};
+
 /* ----------------------------------------------------------------- export */
 
 export const db = {
@@ -735,6 +747,7 @@ export const db = {
   accounts,
   sharing,
   sync,
+  badges: badgesApi,
 };
 
 export default db;

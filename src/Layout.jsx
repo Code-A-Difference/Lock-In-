@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { sync } from '@/api/db';
 import { cn } from '@/lib/utils';
 import TimerPill from '@/components/lockin/TimerPill';
+import { BadgeWatcher } from '@/components/lockin/Badges';
 import { useFocus } from '@/lib/FocusContext';
 import { useLecture } from '@/lib/LectureContext';
 import { clock } from '@/lib/lectureNotes';
@@ -134,6 +135,7 @@ export default function Layout({ children, currentPageName }) {
   return (
     <div className="min-h-dvh bg-background">
       {isDesktop && <DesktopBridge />}
+      <BadgeWatcher />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-card focus:px-4 focus:py-2 focus:shadow">
         Skip to content
       </a>
