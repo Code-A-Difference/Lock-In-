@@ -55,10 +55,11 @@ function friendly(err) {
  */
 export function listenOnce({ onInterim, onSpeech, recognition, pauseMs = 1600, quietMs = 8000 } = {}) {
   const Rec = recognition || SR;
-  if (nativeSpeech && !recognition) return nativeListenOnce({ onInterim, onSpeech });
+  if (nativeSpeech && !recognition && !canHearLocally) return nativeListenOnce({ onInterim, onSpeech });
   if (canHearLocally && !recognition) {
     return deferredListen(() => localReady().then(ok => (ok
       ? listenOnceLocally({ onInterim, onSpeech, quietMs })
+      : nativeSpeech ? nativeListenOnce({ onInterim, onSpeech })
       : SR ? listenOnce({ onInterim, onSpeech, recognition: SR, pauseMs, quietMs })
         : { promise: Promise.reject(new Error('Turn on on-device transcription in Settings to talk to Lock In.')), stop() {} })));
   }
@@ -148,7 +149,9 @@ export class HandsFree {
     this.rapid = 0;
     this.openedAt = 0;
     this.timer = null;
-    this.local = !recognition && canHearLocally;   // desktop: Whisper on this computer, if it's set up
+    // desktop: Whisper on this computer, if it's set up. (On Android the always-on part stays
+    // with the small wake-word model; Whisper hears what's said after it — see _runNative.)
+    this.local = !recognition && canHearLocally && !wakeWord;
   }
 
   get armed() { return Date.now() < this.armedUntil; }
@@ -268,7 +271,9 @@ export class HandsFree {
         let quiet = 0;
         while (this.running && quiet < 2) {
           let said = '';
-          try { said = await nativeListenOnce({ onInterim: (t) => this.onHeard?.(t) }).promise; }
+          // Whisper on the phone when it's set up: no beep, nothing sent to Google
+          const once = (await localReady()) ? listenOnceLocally : nativeListenOnce;
+          try { said = await once({ onInterim: (t) => this.onHeard?.(t) }).promise; }
           catch (e) { this.onError?.(e?.message || String(e)); this.stop(); break; }
           if (!this.running) break;
           if (!said) { quiet++; continue; }
