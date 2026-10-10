@@ -6,7 +6,7 @@ import { AI_ENDPOINT, db } from '@/api/db';
 import { gateFetch } from '@/api/hostGate';
 import { toBase64 } from './recorder.js';
 import { transcribeLocally } from './desktop.js';
-import { sections, sectionPrompt, notesPrompt, normaliseNotes, NOTES_SCHEMA } from './lectureNotes.js';
+import { sections, sectionPrompt, notesPrompt, normaliseNotes, NOTES_SCHEMA, spokenWords, MIN_WORDS, tooShortNotes, groundNotes } from './lectureNotes.js';
 
 export * from './lectureNotes.js';
 
@@ -63,7 +63,9 @@ export async function transcribeChunk(wav, hint = '', { tries = 4 } = {}) {
  * `onProgress(text)` reports what it's doing.
  */
 export async function generateNotes({ transcript, myNotes, className, title, date, how }, onProgress) {
-  if (!transcript.trim()) throw new Error('There is no transcript yet to make notes from.');
+  // Too little was said to make notes from: say so, rather than let the AI write a lesson of its own.
+  const said = spokenWords(transcript);
+  if (said < MIN_WORDS && spokenWords(myNotes) < MIN_WORDS) return tooShortNotes(said);
   let material = transcript;
   const parts = sections(transcript);
   if (parts.length > 1) {
@@ -79,5 +81,6 @@ export async function generateNotes({ transcript, myNotes, className, title, dat
     prompt: notesPrompt({ transcript: material.slice(0, 22000), myNotes, className, title, date, how }),
     response_json_schema: NOTES_SCHEMA,
   });
-  return normaliseNotes(raw);
+  // anything the recording (or the student's notes) doesn't back up is left out
+  return groundNotes(normaliseNotes(raw), [transcript, myNotes || ''].join('\n'));
 }
