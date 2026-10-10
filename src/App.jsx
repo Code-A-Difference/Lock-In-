@@ -12,6 +12,7 @@ import { FocusProvider, useFocus } from '@/lib/FocusContext';
 import { LectureProvider } from '@/lib/LectureContext';
 import Focus from '@/pages/Focus';
 import VoicePanel from '@/components/lockin/VoicePanel';
+import UpdatePrompt from '@/components/lockin/UpdatePrompt';
 import { AssistantProvider } from '@/lib/AssistantContext';
 import { PlannerProvider } from '@/lib/PlannerContext';
 import PlannerSheet from '@/components/lockin/PlannerSheet';
@@ -126,6 +127,7 @@ const AuthenticatedApp = () => {
     </Routes>
     <FocusSurface />
     <VoicePanel />
+    <UpdatePrompt />
     <PlannerSheet />
     <GraphPanel />
     </AssistantProvider>

@@ -4,23 +4,14 @@
  * window.lockinDesktop on the page; in a browser it's absent and everything
  * here reports "not available".
  */
+import { RELEASES, newer } from './releases.js';
+
 export const desktop = typeof window !== 'undefined' ? window.lockinDesktop || null : null;
 export const isDesktop = !!desktop;
 
-/** The newest desktop app. Older ones still work (the page is loaded live); this just offers the update. */
-export const DESKTOP_VERSION = '1.0.1';
-const REL = 'https://github.com/Code-A-Difference/Lock-In-/releases/download/desktop-v1.0.1';
-export const DESKTOP_DOWNLOADS = {
-  windows: `${REL}/LOCKIN-win-x64.exe`,
-  macArm: `${REL}/LOCKIN-mac-arm64.dmg`,
-  macIntel: `${REL}/LOCKIN-mac-x64.dmg`,
-};
-
-function newer(a, b) {
-  const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
-  for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
-  return false;
-}
+/** The newest desktop app (lib/releases.js). Older ones still work (the page is loaded live); UpdatePrompt offers the update. */
+export const DESKTOP_VERSION = RELEASES.desktop.version;
+export const DESKTOP_DOWNLOADS = RELEASES.desktop.urls;
 export const desktopNeedsUpdate = isDesktop && newer(DESKTOP_VERSION, desktop.version);
 
 /** What this computer is, for picking the right download. */
