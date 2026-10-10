@@ -21,6 +21,7 @@ import { usePlanner } from './PlannerContext.jsx';
 import { niceTime } from './planner.js';
 import { parseCommand } from './voiceCommands.js';
 import { speak, stopSpeaking } from './voice.js';
+import { allowOutside } from './aiPrefs.js';
 import {
   PLAN_SCHEMA, actionToCommand, parsePlan, spokenVersion, fastCommand,
   lectureContext, buildSystem, buildPrompt,
@@ -226,7 +227,7 @@ export function AssistantProvider({ children }) {
    * `finished` settles once the answer has been spoken (or at once if it
    * isn't being).
    */
-  const send = useCallback(async (text, { via = 'text' } = {}) => {
+  const send = useCallback(async (text, { via = 'text', focusId = '' } = {}) => {
     const said = String(text || '').trim();
     if (!said) return { reply: '', finished: Promise.resolve() };
     const L = live.current;
@@ -245,7 +246,8 @@ export function AssistantProvider({ children }) {
       } else {
         let plan = null;
         try {
-          const material = lectureContext(said, L.lectures, L.pinned);
+          // the lecture being recorded, or the one open on screen, is what "this lecture" means
+          const material = lectureContext(said, L.lectures, L.pinned, 14000, focusId || L.lecture?.active?.id || '');
           const raw = await ask({
             system: buildSystem({
               now: new Date(), via,
@@ -259,7 +261,7 @@ export function AssistantProvider({ children }) {
                 today: L.planner.today.map(b => `${b.start}-${b.end} ${b.title}`).join('; '),
               },
             }),
-            prompt: buildPrompt({ text: said, history, material, attachments: L.attachments }),
+            prompt: buildPrompt({ text: said, history, material, attachments: L.attachments, outside: allowOutside() }),
             file_urls: L.attachments.map(a => a.dataUrl),
             response_json_schema: PLAN_SCHEMA,
             maxTokens: via === 'voice' ? 700 : 3000,   // a spoken answer is short; shorter comes back sooner

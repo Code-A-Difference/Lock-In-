@@ -8,10 +8,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Upload, Target, Sparkles, Loader2, GraduationCap, FileText, NotebookPen } from "lucide-react";
+import { Brain, Upload, Target, Sparkles, Loader2, GraduationCap, FileText, NotebookPen, Layers } from "lucide-react";
 import { classSources, gatherMaterial, classQuizPrompt } from '@/lib/classQuiz';
 import { DIFFICULTIES, QUIZ_LENGTHS, TIME_LIMITS, QUIZ_SCHEMA, quizRules, normaliseQuiz, writtenCount, checkPrompt, CHECK_SCHEMA, applyChecks } from '@/lib/quizKit';
 import QuizRunner from '@/components/study/QuizRunner';
+import Flashcards from '@/components/study/Flashcards';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,7 @@ import StudyHistorySidebar from "../components/study/StudyHistorySidebar";
 // voice from anywhere (FocusContext.handleVoice), not as a typed chat.
 export default function Study() {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(['quiz', 'grading'].includes(location.state?.tab) ? location.state.tab : 'quiz');
+  const [activeTab, setActiveTab] = useState(['quiz', 'grading', 'cards'].includes(location.state?.tab) ? location.state.tab : 'quiz');
 
   // Homework grading state
   const [selectedFile, setSelectedFile] = useState(null);
@@ -299,7 +300,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Practice</h1>
-            <p className="text-sm text-muted-foreground">Create quizzes and get feedback on homework. Ask Lock In questions by voice anywhere in the app.</p>
+            <p className="text-sm text-muted-foreground">Quizzes, flashcards and homework feedback.</p>
           </div>
         </div>
 
@@ -330,7 +331,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4 grid h-12 w-full grid-cols-2 sm:mb-6 dark:bg-slate-800 dark:border-slate-700">
+          <TabsList className="mb-4 grid h-12 w-full grid-cols-3 sm:mb-6 dark:bg-slate-800 dark:border-slate-700">
             <TabsTrigger value="grading" className="h-10 dark:text-slate-300 dark:data-[state=active]:bg-purple-600 dark:data-[state=active]:text-white">
               <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Grade HW</span>
@@ -341,7 +342,16 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
               <span className="hidden sm:inline">Quiz</span>
               <span className="sm:hidden">Quiz</span>
             </TabsTrigger>
+            <TabsTrigger value="cards" className="h-10 dark:text-slate-300 dark:data-[state=active]:bg-indigo-600 dark:data-[state=active]:text-white">
+              <Layers className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Flashcards</span>
+              <span className="sm:hidden">Cards</span>
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="cards">
+            <Flashcards initial={location.state?.tab === 'cards' || location.state?.className ? location.state : null} />
+          </TabsContent>
 
           <TabsContent value="grading">
             <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-purple-100 dark:border-purple-900">
@@ -637,7 +647,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           
           <div className="hidden lg:block">
             <StudyHistorySidebar
-              history={studyHistory}
+              history={studyHistory.filter(h => h.type !== 'flashcards')}
               activeType={activeTab === 'grading' ? 'grading' : activeTab === 'quiz' ? 'quiz' : 'all'}
               isLoading={historyLoading}
               onSelectItem={(item) => {

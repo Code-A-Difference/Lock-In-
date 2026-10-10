@@ -154,13 +154,22 @@ const STOP = new Set('the and for are but not you your with that this from have 
 
 const words = (s) => String(s || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [];
 
+/** The lecture's slides as text, each page labelled so answers can point to it ("Slide 4"). */
+export function slidesText(l, budget = 4000) {
+  const decks = (l.slides || []).filter(d => d && d.text);
+  if (!decks.length) return '';
+  const out = decks.map(d => `Slides${d.name ? ` (${d.name})` : ''}:\n${d.text}`).join('\n\n');
+  return out.length > budget ? `${out.slice(0, budget)} …` : out;
+}
+
 /** What a lecture is, as one block of text the model can read. */
 function lectureText(l, { transcript = true, budget = 9000 } = {}) {
   const head = `# ${l.title || 'Lecture'}${l.class_name ? `, ${l.class_name}` : ''}${l.date ? ` (${l.date})` : ''}`;
   const notes = l.notes ? notesMarkdown(l.notes) : '';
   const mine = l.my_notes ? `Student's own notes:\n${l.my_notes}` : '';
   const said = transcript ? transcriptText(l.segments || []) : '';
-  const parts = [head, notes, mine];
+  const slides = slidesText(l, Math.floor(budget * 0.35));
+  const parts = [head, notes, mine, slides];
   let text = parts.filter(Boolean).join('\n\n');
   const room = budget - text.length;
   if (said && room > 800) text += `\n\nTranscript:\n${said.slice(0, room)}${said.length > room ? ' …' : ''}`;
@@ -172,12 +181,13 @@ function lectureText(l, { transcript = true, budget = 9000 } = {}) {
  * come first; otherwise the ones whose title, class or notes share words with
  * the question; "the last lecture" means the newest. Returns text, or ''.
  */
-export function lectureContext(question, lectures, pinnedIds = [], budget = 14000) {
-  const ready = (lectures || []).filter(l => l && (l.notes || (l.segments || []).some(s => s.text)));
+export function lectureContext(question, lectures, pinnedIds = [], budget = 14000, focusId = '') {
+  const ready = (lectures || []).filter(l => l && (l.notes || l.my_notes || (l.slides || []).length || (l.segments || []).some(s => s.text)));
   if (!ready.length) return '';
   const byNew = [...ready].sort((a, b) => String(b.started_at || b.date || '').localeCompare(String(a.started_at || a.date || '')));
   const chosen = [];
-  for (const id of pinnedIds) { const l = ready.find(x => x.id === id); if (l) chosen.push(l); }
+  // the lecture being recorded, or open on screen, comes first
+  for (const id of [focusId, ...pinnedIds].filter(Boolean)) { const l = ready.find(x => x.id === id); if (l && !chosen.includes(l)) chosen.push(l); }
 
   if (chosen.length === 0) {
     const q = new Set(words(question).filter(w => !STOP.has(w)));
@@ -263,9 +273,14 @@ ${lect || '(none)'}`;
 }
 
 /** The whole prompt for one turn, trimmed to fit what the server accepts. */
-export function buildPrompt({ text, history, material, attachments = [], limit = 24000 }) {
+export function buildPrompt({ text, history, material, attachments = [], limit = 24000, outside = false }) {
   const parts = [];
-  if (material) parts.push(`Relevant lecture material:\n${material}`);
+  if (material) {
+    parts.push(`Relevant lecture material:\n${material}`);
+    parts.push(outside
+      ? 'Answer from the lecture material first. You may add background from your own knowledge to help them understand, but mark it clearly with "Beyond the lecture:". When you use a slide, name it ("Slide 4").'
+      : 'Answer ONLY from the lecture material above: the transcript, the notes, the student\'s own notes and the slides. Do not add facts, examples or definitions from your own knowledge. When you use a slide, name it ("Slide 4"). If the material doesn\'t cover the question, say "That wasn\'t covered in this lecture", and that they can turn on outside knowledge for a general answer.');
+  }
   if (attachments.length) parts.push(`The student has attached: ${attachments.map(a => a.name).join(', ')}. Use them to answer.`);
   const script = transcriptOf(history);
   if (script) parts.push(`Conversation so far:\n${script}`);

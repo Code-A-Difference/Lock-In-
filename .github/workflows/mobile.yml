@@ -5,7 +5,7 @@
 #           see MOBILE.md.)
 #  ios      the iPhone app, on one of GitHub's Macs: an unsigned .ipa, plus a
 #           Simulator build. Installing on a real iPhone needs it signed with
-#           an Apple Developer account — MOBILE.md has the steps.
+#           an Apple Developer account, MOBILE.md has the steps.
 #
 # Runs on pushes that touch the app, by hand, and on app-v* tags, which also
 # attach the build to a GitHub release.

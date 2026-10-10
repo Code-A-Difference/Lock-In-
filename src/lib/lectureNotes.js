@@ -109,14 +109,14 @@ Transcript:
 ${part}`;
 }
 
-export function notesPrompt({ transcript, myNotes = '', className = '', title = '', date = '', how = '' }) {
+export function notesPrompt({ transcript, myNotes = '', className = '', title = '', date = '', how = '', slides = '', outside = false }) {
   return `You are turning a recorded class into a student's study notes.
 ${className ? `Class: ${className}\n` : ''}${date ? `Date: ${date}\n` : ''}${title ? `Working title: ${title}\n` : ''}${how ? `Layout for this kind of class: ${how}\n` : ''}
 ${myNotes.trim()
     ? `The student took these rough notes during class. Treat them as the outline of what matters to them: keep their headings and points, correct and complete them from the transcript, and add what they missed beneath them.\n--- Student's notes ---\n${myNotes.trim().slice(0, 6000)}\n--- End ---\n`
     : 'The student took no notes of their own; organise the notes by topic, in the order taught.\n'}
-Rules:
-- Use ONLY what the transcript (and the student's notes) actually say. Never add facts, examples, definitions, formulas, dates or deadlines from your own knowledge of the subject, not even standard textbook ones. The class name is context for spelling, not a topic to write about.
+${slides.trim() ? `The lecture's slides (use them to structure the notes and spell terms right; when a point comes from a slide, end it with "(Slide N)"):\n--- Slides ---\n${slides.trim()}\n--- End ---\n` : ''}Rules:
+${outside ? '- The student allows background from outside the lecture. Base the notes on the transcript, notes and slides; where a short piece of background genuinely helps understanding, add it as its own point starting with "Beyond the lecture:". Never mix it into points about what was taught.\n' : ''}- Use ONLY what the transcript (and the student's notes and slides) actually say. Never add facts, examples, definitions, formulas, dates or deadlines from your own knowledge of the subject, not even standard textbook ones. The class name is context for spelling, not a topic to write about.
 - Match the notes to how much was said: a short or off-topic recording gets short notes. Empty "sections", "key_terms", "action_items" or "review_questions" are correct when nothing in the transcript fits them, never fill them in to look complete.
 - "summary" is 2-3 sentences a student could read the night before a test (one sentence, or a plain statement that little was covered, for a short recording).
 - "sections" follow the lesson's own structure; points are short, specific, and keep numbers, formulas and names exact.
@@ -259,7 +259,8 @@ export function support(text, sourceSet) {
 export function groundNotes(notes, source, { min = 0.34 } = {}) {
   const set = new Set(contentWords(source));
   let kept = 0, dropped = 0;
-  const keep = (text) => { const ok = support(text, set) >= min; if (ok) kept++; else dropped++; return ok; };
+  // background the student allowed is marked, and kept: it was never meant to come from the recording
+  const keep = (text) => { const ok = /^\s*Beyond the lecture:/i.test(text) || support(text, set) >= min; if (ok) kept++; else dropped++; return ok; };
   const out = { ...notes };
   out.sections = notes.sections
     .map(s => ({ ...s, points: s.points.filter(keep) }))

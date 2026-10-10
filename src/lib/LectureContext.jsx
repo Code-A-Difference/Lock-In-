@@ -18,6 +18,10 @@ import { desktop } from './desktop.js';
 import { EXTRACT_PROMPT, MATERIAL_MAX_CHARS } from './classQuiz.js';
 import { db } from '@/api/db';
 import { chime, unlockAudio } from './soundscape.js';
+import { allowOutside } from './aiPrefs.js';
+
+/** How slides are read: every page, labelled, so notes and answers can point to "Slide 4". */
+const SLIDES_PROMPT = `These are lecture slides. Write out the text of every slide in order, each starting on its own line with "Slide N:" (N is the page or slide number). Keep headings, bullet points, formulas (in LaTeX between $ signs) and numbers exactly. Describe each diagram, chart or image in one short sentence in square brackets. Don't add anything that isn't on the slides.`;
 import { keepPending, dropPending, listPending, dropLecture } from './pendingAudio.js';
 
 
@@ -60,6 +64,8 @@ export function LectureProvider({ children }) {
       const notes = await generateNotes({
         transcript, myNotes: lec.my_notes, className: lec.class_name, title: lec.title, date: lec.date,
         how: templateHow(lec.template),
+        slides: (lec.slides || []).map(d => `Slides${d.name ? ` (${d.name})` : ''}:\n${d.text}`).join('\n\n'),
+        outside: allowOutside(),
       }, (msg) => setWriting(w => ({ ...w, [lec.id]: msg })));
       const patch = { notes, status: 'ready', notes_at: new Date().toISOString() };
       if (lec.auto_title && notes.title) patch.title = notes.title;
@@ -325,8 +331,32 @@ export function LectureProvider({ children }) {
     return lec;
   }, [writeNotes]);
 
+  /**
+   * Slides for a lecture (PDF or photos): read once by the AI into labelled text
+   * and kept with the lecture, so notes and answers can use and cite them.
+   * Returns the lecture's updated slide list.
+   */
+  const addSlides = useCallback(async (lec, files, onProgress) => {
+    const decks = [...(lec.slides || [])];
+    for (const f of files) {
+      if (!/^image\/|application\/pdf/.test(f.type)) throw new Error(`${f.name}: add the slides as a PDF or photos.`);
+      if (f.size > 4 * 1024 * 1024) throw new Error(`${f.name} is over 4 MB. Export the slides as a smaller PDF, or add them a few pages at a time.`);
+      onProgress?.(`Reading ${f.name}…`);
+      const { file_url } = await db.integrations.Core.UploadFile({ file: f });
+      const text = String(await db.integrations.Core.InvokeLLM({ prompt: SLIDES_PROMPT, file_urls: [file_url] }) || '').trim();
+      if (text) decks.push({ name: f.name.replace(/\.[^.]+$/, ''), text: text.slice(0, 40000), added: new Date().toISOString() });
+    }
+    await actionsRef.current.updateLecture(lec.id, { slides: decks });
+    return decks;
+  }, []);
+
+  const removeSlides = useCallback((lec, i) => {
+    const decks = (lec.slides || []).filter((_, k) => k !== i);
+    return actionsRef.current.updateLecture(lec.id, { slides: decks });
+  }, []);
+
   const value = {
-    canRecord, active, error, writing, importing, retrying, importMedia, addMaterial, start, pause, resume, stop, retryFailed, pendingCount, flushNow, writeNotes,
+    canRecord, active, error, writing, importing, retrying, importMedia, addMaterial, addSlides, removeSlides, start, pause, resume, stop, retryFailed, pendingCount, flushNow, writeNotes,
     hasFailed: (active?.failed || 0) > 0 || failedChunks.current.size > 0,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

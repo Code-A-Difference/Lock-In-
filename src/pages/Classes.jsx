@@ -1,7 +1,8 @@
+import AddMaterialSheet from '@/components/lockin/AddMaterialSheet';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Share2, MoreHorizontal, Pencil, Trash2, User, Clock, BookOpen, Calculator, Atom, Landmark, Palette, Music, Code, Languages, Dumbbell, GraduationCap, ClipboardList, NotebookPen } from 'lucide-react';
+import { Plus, Share2, MoreHorizontal, Pencil, Trash2, User, Clock, BookOpen, Calculator, Atom, Landmark, Palette, Music, Code, Languages, Dumbbell, GraduationCap, ClipboardList, NotebookPen, FilePlus } from 'lucide-react';
 import { db, sharing } from '@/api/db';
 import { cn } from '@/lib/utils';
 import { useStudyData, KEYS } from '@/lib/data';
@@ -26,6 +27,7 @@ const ICONS = { Calculator, Atom, BookOpen, Landmark, Palette, Music, Code, Lang
  * section below the planner, and sharing one took three clicks into a card.
  */
 export default function Classes() {
+  const [materialFor, setMaterialFor] = useState(null);   // a class name while adding material to it
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { user, classes, allClasses, allHomework, allTests, lectures, isLoading } = useStudyData();
@@ -95,10 +97,13 @@ export default function Classes() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      {materialFor !== null && (
+        <AddMaterialSheet classes={classes} defaultClass={materialFor} onClose={() => setMaterialFor(null)}
+          onAdded={(l) => { setMaterialFor(null); navigate(`/Notes?id=${l.id}`); }} />
+      )}
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Classes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Share a class and a classmate gets its homework and tests in their own LOCK IN!.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => open('join')}
@@ -118,9 +123,6 @@ export default function Classes() {
         <div className="rounded-2xl border border-dashed bg-card p-8 text-center">
           <GraduationCap className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
           <h2 className="mt-2 text-base font-semibold text-foreground">No classes yet</h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Add the classes you're taking. Then “essay eng fri” knows it means English.
-          </p>
           <button type="button" onClick={() => open('add')} className="mt-4 h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
             Add your first class
           </button>
@@ -166,9 +168,9 @@ export default function Classes() {
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
                     <NotebookPen className="h-4 w-4" />{c.lectures ? `${c.lectures} lecture${c.lectures === 1 ? '' : 's'}` : 'Lectures'}
                   </button>
-                  <button type="button" onClick={() => open('share', cls)}
+                  <button type="button" onClick={() => setMaterialFor(cls.name)}
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
-                    <Share2 className="h-4 w-4" />Share
+                    <FilePlus className="h-4 w-4" />Add material
                   </button>
                 </div>
               </li>

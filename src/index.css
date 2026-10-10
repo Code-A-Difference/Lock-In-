@@ -186,3 +186,22 @@
   .lockin-listen-glow, .lockin-listen-pill, .lockin-listen-bars i{ animation:none; }
   .lockin-listen-bars i{ transform:scaleY(.6); }
 }
+
+/* Flashcards (Practice): a card that flips over. Reduced motion swaps instead of turning. */
+.lockin-card { perspective: 1200px; }
+.lockin-card__face {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; text-align: center;
+  border-radius: 1rem; border: 1px solid hsl(var(--border)); background: hsl(var(--card));
+  backface-visibility: hidden; transition: transform .45s cubic-bezier(.2,.8,.2,1);
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.lockin-card__back { transform: rotateY(180deg); background: hsl(var(--secondary)); }
+.lockin-card[data-flipped="1"] .lockin-card__front { transform: rotateY(-180deg); }
+.lockin-card[data-flipped="1"] .lockin-card__back { transform: rotateY(0deg); }
+.lockin-card:focus-visible { outline: none; }
+.lockin-card:focus-visible .lockin-card__face { outline: 3px solid hsl(var(--primary)); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .lockin-card__face { transition: none; }
+  .lockin-card[data-flipped="1"] .lockin-card__front { visibility: hidden; }
+  .lockin-card[data-flipped="0"] .lockin-card__back { visibility: hidden; }
+}
