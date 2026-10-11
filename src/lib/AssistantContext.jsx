@@ -265,6 +265,10 @@ export function AssistantProvider({ children }) {
             file_urls: L.attachments.map(a => a.dataUrl),
             response_json_schema: PLAN_SCHEMA,
             maxTokens: via === 'voice' ? 700 : 3000,   // a spoken answer is short; shorter comes back sooner
+            // Careful, not creative: a low temperature, and typed questions get a moment to think first
+            // (a spoken one can't wait, so it doesn't).
+            temperature: 0.25,
+            thinking: via === 'voice' ? 0 : 1024,
           });
           plan = parsePlan(raw);
         } catch (e) {

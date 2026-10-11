@@ -385,7 +385,8 @@ export class HandsFree {
     const live = `${this.buffer || ''} ${interim}`.trim();
     if (live) this.onHeard?.(live);
     clearTimeout(this.flushTimer);
-    this.flushTimer = setTimeout(() => this._flush(), interim ? this.pauseMs * 2 : this.pauseMs);
+    // words still arriving (interim) get a longer gap before we call it done; a finished piece, a short one
+    this.flushTimer = setTimeout(() => this._flush(), interim ? Math.max(this.pauseMs * 2, 2000) : this.pauseMs);
   }
 
   _flush() {
@@ -397,7 +398,7 @@ export class HandsFree {
     else this.armedUntil = Date.now() + 8000;        // the wake phrase alone: wait for the request
   }
 
-  get pauseMs() { return this._pauseMs || 1000; }
+  get pauseMs() { return this._pauseMs || 650; }
   set pauseMs(v) { this._pauseMs = v; }
 
   _interim(i, text, woken) {

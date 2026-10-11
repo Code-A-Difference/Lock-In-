@@ -167,13 +167,14 @@ public class WakeWordPlugin extends Plugin {
             fail("Wake-word listening failed: " + e.getMessage());
         } finally {
             try { if (rec != null) { rec.stop(); rec.release(); } } catch (Throwable ignored) { }   // free the mic before the web app opens it
-            if (recognizer != null) recognizer.close();
-            state("stopped", 0);
+            // say so now: closing the recogniser can take a moment, and the chime shouldn't wait for it
             if (woke) {
                 JSObject o = new JSObject();
                 o.put("text", "hey lock in");
                 notifyListeners("wake", o);
             }
+            if (recognizer != null) recognizer.close();
+            state("stopped", 0);
         }
     }
 
