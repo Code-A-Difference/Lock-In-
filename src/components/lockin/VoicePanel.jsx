@@ -14,6 +14,7 @@ import { listenOnce, HandsFree, canListen, canHandsFree } from '@/lib/listen';
 import { isNativeApp, appNeedsUpdate, APK_URL } from '@/lib/native';
 import { chime, unlockAudio } from '@/lib/soundscape';
 import { stopSpeaking } from '@/lib/voice';
+import { isDismissal, expectsAnswer } from '@/lib/dismiss';
 import { useAllowOutside } from '@/lib/aiPrefs';
 
 const PREF = 'lockin.handsfree';
@@ -85,16 +86,33 @@ export default function VoicePanel() {
   }, []);
 
   /* ---------------------------------------------------- sending, by voice */
+  /** "Stop", "that's all": end whatever is going on, talk and listen both. */
+  const dismiss = useCallback(() => {
+    loopRef.current = false;
+    stopRef.current?.();
+    a.stop();
+    hf.current?.disarm();
+    setArmed(false);
+    setHeard('');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const sendVoice = useCallback(async (text) => {
     setHeard('');
     setArmed(false);
+    if (isDismissal(text)) { dismiss(); return { followUp: false }; }
     const r = await sendRef.current(text, { via: 'voice' });
     await r.finished;
-    hf.current?.extend(10000);          // a follow-up needs no "Hey Lock In"
+    // A follow-up needs no "Hey Lock In", but only when one is expected: after a question it waits a
+    // while, after a plain answer only a moment. It never keeps itself open round after round.
+    const asked = expectsAnswer(r.reply);
+    hf.current?.extend(asked ? 12000 : 4000);
     if (hf.current?.running) setArmed(true);
-  }, []);
+    return { followUp: asked };
+  }, [dismiss]);
   const voiceRef = useRef(sendVoice);
   voiceRef.current = sendVoice;
+  const dismissRef = useRef(dismiss);
+  dismissRef.current = dismiss;
 
   /* ------------------------------------------------------------ hands-free */
   const startHandsFree = useCallback(() => {
@@ -110,6 +128,7 @@ export default function VoicePanel() {
           chime('wake', 0.3);                       // "I'm listening", like saying "Hey Google"
         },
         onHeard: setHeard,
+        onDismiss: () => dismissRef.current?.(),
         onNote: (s) => setNote(s?.state === 'downloading' ? `Getting the wake-word model… ${Math.round((s.progress || 0) * 100)}% (one time, about 40 MB)`
           : s?.state === 'unpacking' ? 'Unpacking the wake-word model…' : s?.state === 'loading' ? 'Starting up…' : ''),
         onState: setHandsFree,
@@ -173,13 +192,15 @@ export default function VoicePanel() {
       if (!text) { if (++silent >= 2) break; continue; }   // two quiet turns end the conversation
       silent = 0;
       setHeard('');
+      if (isDismissal(text)) { dismiss(); break; }
       const r = await sendRef.current(text, { via: 'voice' });
       await r.finished;
+      if (!expectsAnswer(r.reply)) break;     // answered: done, unless it asked a question back
     }
     loopRef.current = false;
     setHeard('');
     if (resume) startHandsFree();
-  }, [listening, startHandsFree]);
+  }, [listening, startHandsFree, dismiss]);
 
   useEffect(() => {
     const onTalk = () => { setExpanded(true); talk(); };
@@ -323,7 +344,7 @@ export default function VoicePanel() {
               )}
               {a.busy && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-secondary px-3.5 py-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Thinking…</div></div>}
               {a.speaking && <div className="flex justify-start">
-                <button type="button" onClick={a.stop} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-accent"><Square className="h-3 w-3 fill-current" />Stop talking</button>
+                <button type="button" onClick={dismiss} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-accent"><Square className="h-3 w-3 fill-current" />Stop talking</button>
               </div>}
             </div>
 

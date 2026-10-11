@@ -18,6 +18,7 @@
  * down; no audio goes anywhere.
  */
 import { findWake } from './wake.js';
+import { isDismissal, STOP_PHRASES } from './dismiss.js';
 
 const MODEL_URL = 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz';
 const CACHE = 'lockin-wake-model-v1';
@@ -25,7 +26,8 @@ const RATE = 16000;
 // What people say, and how recognisers hear "lock in". Anything else is [unk].
 const GRAMMAR = JSON.stringify([
   'hey lock in', 'hey locking', 'hey look in', 'hey log in', 'hey luck in', 'hay lock in', 'hi lock in',
-  'okay lock in', 'ok lock in', 'okay locking', 'hello lock in', 'hey locked in', 'hey lock it', 'hey lockin', '[unk]',
+  'okay lock in', 'ok lock in', 'okay locking', 'hello lock in', 'hey locked in', 'hey lock it', 'hey lockin',
+  ...STOP_PHRASES, '[unk]',     // "stop" is heard too, so the assistant can be told to be quiet while it talks
 ]);
 
 /** The model's bytes as a blob: URL, from the cache if we've fetched it before. */
@@ -62,8 +64,9 @@ const toFloat = (pcm) => {
 
 export class WakeSpotter {
   /** onWake() fires the moment the phrase is heard; onNote({state, progress}) reports the first download. */
-  constructor({ onWake, onNote } = {}) {
+  constructor({ onWake, onNote, onStop } = {}) {
     this.onWake = onWake;
+    this.onStop = onStop;
     this.onNote = onNote;
     this.ready = false;
     this.lastFire = 0;
@@ -103,6 +106,11 @@ export class WakeSpotter {
   }
 
   _heard(text) {
+    if (text && !findWake(text) && isDismissal(text)) {
+      const now = Date.now();
+      if (now - (this.lastStop || 0) > 1500) { this.lastStop = now; this.onStop?.(); }
+      return;
+    }
     if (!text || !findWake(text)) return;
     const now = Date.now();
     if (now - this.lastFire < 2500) return;        // one phrase shows up in many partial results

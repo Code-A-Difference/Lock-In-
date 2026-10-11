@@ -22,6 +22,7 @@ import { soundscape, chime, unlockAudio, SOUNDS } from './soundscape.js';
 import { speak, configureVoice } from './voice.js';
 import { clock, spokenTime } from './agenda.js';
 import { ymd, addDays, relativeDay } from './dates.js';
+import { findByTitle, describeChoices } from './itemMatch.js';
 
 export const DEFAULT_FOCUS = {
   focusMin: 25, breakMin: 5, longMin: 15, longEvery: 4,
@@ -69,18 +70,6 @@ function quizPrompt(question, index, total) {
 }
 
 /** The best title match for a spoken phrase, exact, then "starts with", then "contains". */
-function findByTitle(list, spoken) {
-  const q = String(spoken || '').toLowerCase().trim();
-  if (!q) return { matches: [] };
-  const norm = s => String(s || '').toLowerCase().trim();
-  const exact = list.filter(x => norm(x.title) === q);
-  if (exact.length) return { matches: exact };
-  const starts = list.filter(x => norm(x.title).startsWith(q) || q.startsWith(norm(x.title)));
-  if (starts.length) return { matches: starts };
-  const contains = list.filter(x => norm(x.title).includes(q) || q.includes(norm(x.title)));
-  return { matches: contains };
-}
-
 export function FocusProvider({ children }) {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -464,22 +453,25 @@ export function FocusProvider({ children }) {
         break;
       }
       case 'completeItem': {
-        const { matches } = findByTitle(homework.filter(h => !h.is_completed), cmd.title);
+        const { matches, duplicates } = findByTitle(homework.filter(h => !h.is_completed), cmd.title);
         if (!matches.length) reply = `I don't see any open homework called "${cmd.title}".`;
-        else if (matches.length > 1) reply = `A few match "${cmd.title}": ${matches.slice(0, 3).map(m => m.title).join(', ')}. Which one?`;
-        else { await actions.toggleHomework(matches[0]); reply = `Marked "${matches[0].title}" done. Nice work.`; }
+        else if (matches.length > 1) reply = `A few match "${cmd.title}": ${describeChoices(matches)}. Which one?`;
+        else {
+          await actions.toggleHomework(matches[0]);
+          reply = `Marked "${matches[0].title}" done. Nice work.${duplicates ? ` You had it ${duplicates + 1} times, so ${duplicates === 1 ? 'one is' : `${duplicates} are`} still open.` : ''}`;
+        }
         break;
       }
       case 'deleteItem': {
         const pool = cmd.kind === 'test' ? tests : cmd.kind === 'homework' ? homework : [...homework, ...tests];
-        const { matches } = findByTitle(pool, cmd.title);
+        const { matches, duplicates } = findByTitle(pool, cmd.title);
         if (!matches.length) reply = `I don't see anything called "${cmd.title}".`;
-        else if (matches.length > 1) reply = `A few match "${cmd.title}": ${matches.slice(0, 3).map(m => m.title).join(', ')}. Which one?`;
+        else if (matches.length > 1) reply = `A few match "${cmd.title}": ${describeChoices(matches)}. Which one?`;
         else {
           const match = matches[0];
           const isTest = tests.some(x => x.id === match.id);
           if (isTest) await actions.deleteTest(match); else await actions.deleteHomework(match);
-          reply = `Deleted "${match.title}". Say undo on the notification if that was a mistake.`;
+          reply = `Deleted "${match.title}"${duplicates ? ` (you had it ${duplicates + 1} times, ${duplicates === 1 ? 'one is' : `${duplicates} are`} still there)` : ''}. Say undo on the notification if that was a mistake.`;
         }
         break;
       }

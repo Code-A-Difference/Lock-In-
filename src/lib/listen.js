@@ -20,6 +20,7 @@ import { afterWake } from './wake.js';
 import { nativeSpeech, wakeWord } from './native.js';
 import { canHearLocally, localReady, LocalEar, hearLocally, listenOnceLocally } from './localEar.js';
 import { WakeSpotter } from './instantWake.js';
+import { isDismissal } from './dismiss.js';
 
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
@@ -132,7 +133,8 @@ export function listenOnce({ onInterim, onSpeech, recognition, pauseMs = 1600, q
  *    chime comes the moment you say it.
  */
 export class HandsFree {
-  constructor({ onCommand, onWake, onState, onError, onHeard, onNote, recognition } = {}) {
+  constructor({ onCommand, onWake, onState, onError, onHeard, onNote, onDismiss, recognition } = {}) {
+    this.onDismiss = onDismiss;              // "stop" heard while the assistant is talking or listening for a follow-up
     // In the Android app the web view may expose a speech API that doesn't really work; the
     // on-device model is what hands-free uses there.
     this.SR = recognition || (wakeWord ? null : SR);
@@ -193,6 +195,15 @@ export class HandsFree {
     if (!on) this.mutedUntil = Date.now() + 700;   // its own voice echoes for a moment
   }
 
+  /** Stop treating plain speech as a request: back to waiting for the wake phrase. */
+  disarm() {
+    this.armedUntil = 0;
+    this.buffer = '';
+    this.collecting = false;
+    clearTimeout(this.flushTimer);
+    this.onHeard?.('');
+  }
+
   /** Keep accepting plain speech (no wake phrase) for `ms` more. */
   extend(ms = 10000) { this.armedUntil = Math.max(this.armedUntil, Date.now() + ms); }
 
@@ -206,11 +217,15 @@ export class HandsFree {
     rec.interimResults = true;
     const woken = new Set();                       // results the wake phrase was already announced for
     rec.onresult = (e) => {
-      if (this._deaf()) return;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
         const text = String(r[0].transcript || '').trim();
         if (!text) continue;
+        if (this._deaf()) {
+          // The assistant is talking: ignore everything except being told to stop
+          if (this.muted && isDismissal(text)) this.onDismiss?.();
+          continue;
+        }
         if (r.isFinal) { this._final(i, text, woken); woken.delete(i); }
         else this._interim(i, text, woken);
       }
@@ -281,7 +296,8 @@ export class HandsFree {
           if (!this.running) break;
           if (!said) { quiet++; continue; }
           quiet = 0;
-          await this.onCommand?.(said);                         // answered and spoken before it returns
+          const done = await this.onCommand?.(said);            // answered and spoken before it returns
+          if (done && done.followUp === false) break;           // nothing more was asked: back to waiting for the wake phrase
         }
       }
     } catch (e) {
@@ -316,6 +332,7 @@ export class HandsFree {
     // the slower peek below does the job.
     this.spotter = new WakeSpotter({
       onNote: (s) => this.onNote?.(s),
+      onStop: () => { if (this.running && (this.muted || this.armed || this.collecting)) this.onDismiss?.(); },
       onWake: () => {
         if (!this.running || this._deaf() || this.collecting || this.armed) return;
         woken.add(seq);                       // the utterance being said now: its own result won't chime again
