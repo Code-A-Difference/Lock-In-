@@ -15,6 +15,7 @@ import { db } from '@/api/db';
 import { openGraph } from '@/components/lockin/GraphPanel';
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from './FocusContext.jsx';
+import { findByTitle, describeChoices, uniqueNotes } from './itemMatch.js';
 import { useLecture } from './LectureContext.jsx';
 import { useStudyData, useActions, KEYS } from './data.js';
 import { usePlanner } from './PlannerContext.jsx';
@@ -90,10 +91,9 @@ export function AssistantProvider({ children }) {
   const pick = (list, title, what) => {
     const q = String(title || '').toLowerCase().trim();
     const norm = (x) => String(x.title || x.name || '').toLowerCase();
-    const exact = list.filter(x => norm(x) === q);
-    const m = exact.length ? exact : list.filter(x => norm(x) && (norm(x).includes(q) || q.includes(norm(x))));
+    const { matches: m } = findByTitle(list, q, (x) => x.title || x.name);
     if (!m.length) return { reply: `I don't see a ${what} called "${title}".` };
-    if (m.length > 1) return { reply: `A few ${what}s match "${title}": ${m.slice(0, 3).map(x => x.title || x.name).join(', ')}. Which one?` };
+    if (m.length > 1) return { reply: `A few ${what}s match "${title}": ${describeChoices(m, (x) => x.title || x.name)}. Which one?` };
     return { item: m[0] };
   };
 
@@ -286,8 +286,11 @@ export function AssistantProvider({ children }) {
             const r = await execute(cmd);
             if (PROBLEM.test(r || '')) notes.push(r);
           }
-          reply = [plan.reply, ...notes].filter(Boolean).join('\n\n') || (plan.actions.length ? 'Done.' : 'Sorry, I didn’t get that.');
-          spoken = notes.length ? [spokenVersion(plan), ...notes].join(' ') : spokenVersion({ ...plan, reply: plan.reply || reply });
+          // When something the model said it did didn't happen, the truth replaces its claim: "I've removed it"
+          // followed by "A few match, which one?" is a false claim and a question in one breath.
+          const problems = uniqueNotes(notes);
+          reply = problems.length ? problems.join('\n\n') : (plan.reply || (plan.actions.length ? 'Done.' : 'Sorry, I didn’t get that.'));
+          spoken = problems.length ? problems.join(' ') : spokenVersion({ ...plan, reply: plan.reply || reply });
         }
       }
     } catch (e) {
