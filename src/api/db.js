@@ -592,7 +592,7 @@ const integrations = {
      * server-side. Returns a string, or a parsed object when the caller
      * asked for JSON, the same contract the pages were written against.
      */
-    async InvokeLLM({ prompt, system, response_json_schema, add_context_from_internet, file_urls, maxTokens } = {}) {
+    async InvokeLLM({ prompt, system, response_json_schema, add_context_from_internet, file_urls, maxTokens, temperature, thinking } = {}) {
       const files = (file_urls || []).map(dataUrlToPart).filter(Boolean);
       const wantJson = !!response_json_schema;
       const body = {
@@ -601,6 +601,8 @@ const integrations = {
           : prompt,
         system: system || '',
         ...(maxTokens ? { maxTokens } : {}),
+        ...(temperature !== undefined ? { temperature } : {}),
+        ...(thinking !== undefined ? { thinking } : {}),
         json: wantJson,
         search: !!add_context_from_internet && !wantJson,
         files,
