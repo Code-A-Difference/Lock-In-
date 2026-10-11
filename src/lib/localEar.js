@@ -182,8 +182,9 @@ export async function hearLocally(pcm, hint = HINT) {
  * onSpeech(true|false) as speaking starts and the utterance is handed over.
  */
 export class LocalEar {
-  constructor({ onUtterance, onSpeech, onError, onPeek } = {}) {
+  constructor({ onUtterance, onSpeech, onError, onPeek, onPcm } = {}) {
     this.onUtterance = onUtterance;
+    this.onPcm = onPcm;                    // every piece of microphone audio, for a streaming listener (instantWake.js)
     this.onPeek = onPeek;
     this.onSpeech = onSpeech;
     this.onError = onError;
@@ -216,7 +217,10 @@ export class LocalEar {
     this.src = this.ctx.createMediaStreamSource(this.stream);
     this.node = this.ctx.createScriptProcessor(2048, 1, 1);
     this.node.onaudioprocess = (e) => {
-      if (this.running) this.seg.push(downsample(e.inputBuffer.getChannelData(0), this.ctx.sampleRate));
+      if (!this.running) return;
+      const pcm = downsample(e.inputBuffer.getChannelData(0), this.ctx.sampleRate);
+      this.onPcm?.(pcm);
+      this.seg.push(pcm);
     };
     this.mute = this.ctx.createGain();
     this.mute.gain.value = 0;

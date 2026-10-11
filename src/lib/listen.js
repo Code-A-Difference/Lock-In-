@@ -19,6 +19,7 @@
 import { afterWake } from './wake.js';
 import { nativeSpeech, wakeWord } from './native.js';
 import { canHearLocally, localReady, LocalEar, hearLocally, listenOnceLocally } from './localEar.js';
+import { WakeSpotter } from './instantWake.js';
 
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
@@ -176,6 +177,8 @@ export class HandsFree {
     if (wakeWord && !this.SR) wakeWord.stop().catch(() => {});
     this.ear?.stop();
     this.ear = null;
+    this.spotter?.stop();
+    this.spotter = null;
     if (nativeSpeech) nativeSpeech.stop().catch(() => {});
     this.armedUntil = 0;
     const r = this.rec;
@@ -308,10 +311,24 @@ export class HandsFree {
     this.pauseMs = 300;                    // an utterance arrives already finished: no need to wait for more
     let seq = 0, queue = Promise.resolve(), failures = 0;
     const woken = new Set();
+    // The instant way: a streaming model that hears "Hey Lock In" as it is said (instantWake.js).
+    // Whisper only writes down what comes after. Until the model is loaded (or if it can't be),
+    // the slower peek below does the job.
+    this.spotter = new WakeSpotter({
+      onNote: (s) => this.onNote?.(s),
+      onWake: () => {
+        if (!this.running || this._deaf() || this.collecting || this.armed) return;
+        woken.add(seq);                       // the utterance being said now: its own result won't chime again
+        this.armedUntil = Date.now() + 8000;
+        this.onWake?.({ inline: true });
+      },
+    });
+    this.spotter.load();
     this.ear = new LocalEar({
+      onPcm: (pcm) => this.spotter?.feed(pcm),
       // The first ~1.3 s of speech: if it's "Hey Lock In", chime now, while they're still talking.
       onPeek: (pcm) => {
-        if (this._deaf() || this.collecting || this.armed) return;
+        if (this.spotter?.ready || this._deaf() || this.collecting || this.armed) return;
         const i = seq;
         hearLocally(pcm).then((text) => {
           if (!this.running || woken.has(i) || this.collecting || afterWake(text) === null) return;
