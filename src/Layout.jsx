@@ -183,7 +183,7 @@ export default function Layout({ children, currentPageName }) {
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Code A Difference
           </a>}
           <div className="flex items-center gap-2 rounded-lg border p-2">
-            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white">{initial(user)}</span>
+            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{initial(user)}</span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-foreground">{user?.full_name}</p>
               <p className="truncate text-xs text-muted-foreground">@{user?.username}</p>
@@ -204,13 +204,13 @@ export default function Layout({ children, currentPageName }) {
       <header className="app-topbar sticky top-0 z-30 flex items-center gap-2 border-b bg-card/95 px-3 backdrop-blur lg:hidden">
         <Brand compact />
         <div className="flex min-w-0 flex-1 items-center justify-center gap-2"><RecordingPill /><TimerPill /></div>
-        <button type="button" onClick={focus.openFocus} aria-label="Open focus mode" className="grid h-11 w-11 flex-none place-items-center rounded-full text-indigo-700 hover:bg-accent active:bg-accent dark:text-indigo-300">
+        <button type="button" onClick={focus.openFocus} aria-label="Open focus mode" className="grid h-11 w-11 flex-none place-items-center rounded-full text-primary hover:bg-accent active:bg-accent">
           <Timer className="h-5 w-5" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Account" className="grid h-11 w-11 flex-none place-items-center rounded-full">
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white">
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               {initial(user)}</span>
             </button>
           </DropdownMenuTrigger>
@@ -240,7 +240,7 @@ export default function Layout({ children, currentPageName }) {
                 to={page === 'Today' ? '/' : `/${page}`}
                 aria-current={on ? 'page' : undefined}
                 className={cn('flex min-h-[56px] select-none flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-150 active:scale-95',
-                  on ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground hover:text-foreground')}
+                  on ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}
               >
                 <span className={cn('grid h-7 w-12 place-items-center rounded-full transition-colors duration-150', on && 'bg-accent')}>
                   <Icon className="h-5 w-5" aria-hidden="true" />

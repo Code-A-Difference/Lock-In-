@@ -19,7 +19,7 @@ export default function TimerRing({ progress = 0, phase = 'focus', size = 280, s
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={c * (1 - p)}
           className={cn('transition-[stroke-dashoffset] duration-300 ease-linear',
-            isBreak ? 'stroke-emerald-500 dark:stroke-emerald-400' : 'stroke-indigo-600 dark:stroke-indigo-400')} />
+            isBreak ? 'stroke-emerald-500 dark:stroke-emerald-400' : 'stroke-primary')} />
       </svg>
       <div className="relative flex flex-col items-center text-center">{children}</div>
     </div>

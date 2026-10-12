@@ -305,19 +305,19 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
         </div>
 
         {upcomingTest && activeTab === "quiz" && (
-          <Card className="mb-6 border-purple-200 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-800">
+          <Card className="mb-6 border-primary/40 bg-accent">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5" />
+                <Sparkles className="w-5 h-5 text-primary mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-purple-900 dark:text-purple-300">Upcoming Test Alert</p>
-                  <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
+                  <p className="text-sm font-medium text-primary">Upcoming Test Alert</p>
+                  <p className="text-sm text-primary mt-1">
                     You have <strong>{upcomingTest.title}</strong>{upcomingTest.class_name ? ` (${upcomingTest.class_name})` : ''} on {format(parseDay(upcomingTest.date), 'MMMM d')}. 
                     Want to practice with an AI-generated quiz?
                   </p>
                   <Button 
                     size="sm" 
-                    className="mt-3 bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800"
+                    className="mt-3 bg-primary hover:bg-primary/90"
                     onClick={() => setSelectedTest(upcomingTest)}
                   >
                     Practise for it
@@ -332,17 +332,17 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           <div className="lg:col-span-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4 grid h-12 w-full grid-cols-3 sm:mb-6 dark:bg-slate-800 dark:border-slate-700">
-            <TabsTrigger value="grading" className="h-10 dark:text-slate-300 dark:data-[state=active]:bg-purple-600 dark:data-[state=active]:text-white">
+            <TabsTrigger value="grading" className="h-10 dark:text-slate-300 dark:data-[state=active]:text-white">
               <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Grade HW</span>
               <span className="sm:hidden">Grade</span>
             </TabsTrigger>
-            <TabsTrigger value="quiz" className="h-10 dark:text-slate-300 dark:data-[state=active]:bg-indigo-600 dark:data-[state=active]:text-white">
+            <TabsTrigger value="quiz" className="h-10 dark:text-slate-300 dark:data-[state=active]:text-white">
               <Target className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Quiz</span>
               <span className="sm:hidden">Quiz</span>
             </TabsTrigger>
-            <TabsTrigger value="cards" className="h-10 dark:text-slate-300 dark:data-[state=active]:bg-indigo-600 dark:data-[state=active]:text-white">
+            <TabsTrigger value="cards" className="h-10 dark:text-slate-300 dark:data-[state=active]:text-white">
               <Layers className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Flashcards</span>
               <span className="sm:hidden">Cards</span>
@@ -354,11 +354,11 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           </TabsContent>
 
           <TabsContent value="grading">
-            <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-purple-100 dark:border-purple-900">
+            <Card className="border-0 shadow-none sm:border sm:shadow-sm border-primary/40">
               <CardHeader className="hidden sm:flex bg-card">
                 <CardTitle className="flex items-center gap-2 text-foreground">
-                  <Upload className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  AI Homework Grading
+                  <Upload className="w-5 h-5 text-primary" />
+                  Grade my homework
                 </CardTitle>
                 <CardDescription className="text-muted-foreground">Get instant feedback on your work</CardDescription>
               </CardHeader>
@@ -394,8 +394,8 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                 {!useTextInput ? (
                   <div className="space-y-2">
                     <Label htmlFor="homework-file" className="text-base font-semibold text-foreground">Upload Your Work</Label>
-                    <div className="border-2 border-dashed border-purple-200 dark:border-purple-800 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-purple-400 dark:text-purple-300" />
+                    <div className="border-2 border-dashed border-primary/40 rounded-lg p-6 text-center hover:border-primary/40 transition-colors">
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
                       <Input
                         id="homework-file"
                         type="file"
@@ -443,7 +443,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                 </Button>
                 
                 {gradingResult && (
-                  <Card className="mt-6 border-2 border-green-200 dark:border-green-800 bg-card">
+                  <Card className="mt-6 border border-green-200 dark:border-green-800 bg-card">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2 text-foreground">
                         <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -460,7 +460,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           </TabsContent>
 
           <TabsContent value="quiz">
-            <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-indigo-100 dark:border-indigo-900">
+            <Card className="border-0 shadow-none sm:border sm:shadow-sm border-primary/40">
               <CardHeader className="hidden sm:flex bg-card">
                 <CardTitle className="text-foreground">Practice Quizzes</CardTitle>
                 <CardDescription className="text-muted-foreground">Test your knowledge with AI-generated questions</CardDescription>
@@ -516,7 +516,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                         )}
                       </section>
 
-                      <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                      <div className="p-4 bg-accent rounded-lg border border-primary/40">
                         <h3 className="font-medium text-foreground mb-3">Create Custom Quiz</h3>
                         <div className="space-y-3">
                           <div>
@@ -541,7 +541,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                           <Button 
                             onClick={() => handleGenerateQuiz(null, lectureNotes.slice(0, 12000), [], includeWritten)}
                             disabled={!customQuizTopic.trim()}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700"
+                            className="w-full bg-primary hover:bg-primary/90"
                           >
                             Generate Quiz
                           </Button>
@@ -561,14 +561,14 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                           
                           <div className="space-y-2">
                             {tests.map(test => (
-                              <Card key={test.id} className="hover:border-indigo-300 transition-colors cursor-pointer dark:bg-slate-800 dark:border-slate-700 dark:hover:border-indigo-600" onClick={() => setSelectedTest(test)}>
+                              <Card key={test.id} className="hover:border-primary/40 transition-colors cursor-pointer dark:bg-slate-800 dark:border-slate-700" onClick={() => setSelectedTest(test)}>
                                 <CardContent className="pt-4">
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <p className="font-medium text-foreground">{test.title}</p>
                                       <p className="text-sm text-muted-foreground">{test.class_name} • {format(new Date(test.date + 'T00:00:00'), 'MMM d')}</p>
                                     </div>
-                                    <Button size="sm" className="dark:bg-indigo-600 dark:hover:bg-indigo-700">Select</Button>
+                                    <Button size="sm" className="">Select</Button>
                                   </div>
                                 </CardContent>
                               </Card>
@@ -618,7 +618,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                     
                     <Button 
                       onClick={() => handleGenerateQuiz(selectedTest, quizDescription, quizFiles, includeWritten)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800"
+                      className="w-full bg-primary hover:bg-primary/90"
                     >
                       Generate Quiz
                     </Button>
@@ -627,7 +627,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                 
                 {isGeneratingQuiz && (
                   <div className="text-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-500" />
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary" />
                     <p className="text-muted-foreground">{makingStep || 'Writing your quiz…'}</p>
                   </div>
                 )}

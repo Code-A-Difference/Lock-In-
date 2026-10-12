@@ -137,9 +137,9 @@ export default function SignIn() {
           </p>
 
           {legacy.length > 0 && (
-            <div className="mt-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-100">
+            <div className="mt-6 rounded-xl border border-primary/40 bg-accent p-4 text-sm text-primary">
               <p className="font-semibold">Your work from this browser is still here.</p>
-              <p className="mt-1 text-indigo-900/80 dark:text-indigo-200/80">
+              <p className="mt-1 text-primary/80">
                 LOCK IN! now saves to an account online. Create one with the <strong>same username and password</strong> you
                 used here, and your classes and homework come across.
               </p>
@@ -150,8 +150,8 @@ export default function SignIn() {
                       className={cn(
                         'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                         username === a.username
-                          ? 'border-indigo-500 bg-white text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200'
-                          : 'border-indigo-200 bg-white/60 text-indigo-800 hover:bg-white dark:border-indigo-800 dark:bg-transparent dark:text-indigo-200'
+                          ? 'border-primary/40 bg-white text-primary'
+                          : 'border-primary/40 bg-white/60 text-primary hover:bg-white dark:bg-transparent'
                       )}>
                       {a.username}
                     </button>

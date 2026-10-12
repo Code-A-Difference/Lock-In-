@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Lock, ChevronDown, List, CalendarDays, GraduationCap, PartyPopper, Play, CalendarClock, ChevronRight } from 'lucide-react';
+import { Lock, ChevronDown, List, CalendarDays, GraduationCap, CheckCircle2, Play, CalendarClock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudyData, useActions } from '@/lib/data';
 import { useFocus } from '@/lib/FocusContext';
@@ -185,8 +185,8 @@ export default function Today() {
                 ))}
                 {BUCKETS.every(b => agenda[b.id].length === 0) && (
                   <div className="flex items-center gap-3 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                    <PartyPopper className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-                    All caught up
+                    <CheckCircle2 className="h-5 w-5 flex-none text-emerald-600" aria-hidden="true" />
+                    <span>All caught up. Nothing is due, so the rest of today is yours.</span>
                   </div>
                 )}
                 {agenda.done.length > 0 && (
@@ -236,7 +236,7 @@ export default function Today() {
                         <p className="truncate text-xs text-muted-foreground">{t.class_name || 'No class'} · {relativeDay(t.date)}{t.focus_minutes ? ` · ${formatMinutes(t.focus_minutes)} studied` : ''}</p>
                       </div>
                       <button type="button" onClick={() => { focus.lockIn({ type: 'test', id: t.id }); focus.openFocus(); }}
-                        className="h-11 rounded-lg px-2.5 text-xs font-semibold text-indigo-700 hover:bg-accent dark:text-indigo-300"
+                        className="h-11 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-accent"
                         aria-label={`Study for ${t.title}`}>Study</button>
                     </li>
                   );
@@ -274,8 +274,8 @@ function PlanCard({ planner }) {
   const open = () => planner.setOpen(true);
   return (
     <button type="button" onClick={open}
-      className="flex w-full items-center gap-3 rounded-2xl border bg-card p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-accent/40">
-      <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
+      className="flex w-full items-center gap-3 rounded-2xl border bg-card p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-accent/40">
+      <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent text-primary">
         <CalendarClock className="h-5 w-5" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">

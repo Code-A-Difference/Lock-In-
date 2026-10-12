@@ -9,7 +9,7 @@ import { niceTime, blockMinutes, totalMinutes } from '@/lib/planner';
 
 const TYPE = {
   homework: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  study: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300',
+  study: 'bg-accent text-primary',
   break: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
 };
 
@@ -49,7 +49,7 @@ export default function PlannerSheet() {
     <Dialog open={p.open} onOpenChange={p.setOpen}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto overflow-x-hidden sm:max-w-xl [&>*]:min-w-0">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5 text-indigo-600" />Study planner</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5 text-primary" />Study planner</DialogTitle>
           <DialogDescription>Add when you’re free; I’ll fit your homework and test prep into it. You can also just tell the assistant “I’m free 4 to 6 today, plan my day”.</DialogDescription>
         </DialogHeader>
 
@@ -58,7 +58,7 @@ export default function PlannerSheet() {
           <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label="Day">
             {days.map(d => (
               <button key={d} type="button" onClick={() => setDay(d)} aria-pressed={day === d}
-                className={cn('h-9 flex-none rounded-lg border px-3 text-xs font-medium', day === d ? 'border-indigo-400 bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-200' : 'text-foreground hover:bg-secondary')}>
+                className={cn('h-9 flex-none rounded-lg border px-3 text-xs font-medium', day === d ? 'border-primary/40 bg-accent text-primary' : 'text-foreground hover:bg-secondary')}>
                 {relativeDay(d)}
               </button>
             ))}
@@ -66,7 +66,7 @@ export default function PlannerSheet() {
           <div className="flex flex-wrap gap-1.5">
             {PRESETS.map(([label, s, e]) => (
               <button key={label} type="button" onClick={() => add(s, e)}
-                className="h-8 rounded-full border px-3 text-xs text-foreground hover:border-indigo-300 hover:bg-accent">
+                className="h-8 rounded-full border px-3 text-xs text-foreground hover:border-primary/40 hover:bg-accent">
                 + {label} <span className="text-muted-foreground">{niceTime(s)}–{niceTime(e)}</span>
               </button>
             ))}
@@ -107,7 +107,7 @@ export default function PlannerSheet() {
 
           {(msg || p.error) && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{msg || p.error}</p>}
           <button type="button" onClick={plan} disabled={p.busy || !p.slots.length}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
             {p.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {p.busy ? 'Planning…' : p.schedule ? 'Re-plan' : `Plan it${p.slots.length ? ` (${Math.round(totalMinutes(p.slots) / 6) / 10} h free)` : ''}`}
           </button>
@@ -134,7 +134,7 @@ export default function PlannerSheet() {
                       <span className={cn('flex-none rounded-full px-2 py-0.5 text-[11px] font-medium', TYPE[b.type])}>{b.type}</span>
                       {b.type !== 'break' && d === ymd(new Date()) && (
                         <button type="button" onClick={() => { focus.startFocus(Math.min(90, blockMinutes(b))); focus.openFocus(); p.setOpen(false); }}
-                          aria-label={`Start ${b.title}`} className="grid h-8 w-8 flex-none place-items-center rounded-lg text-indigo-700 hover:bg-accent dark:text-indigo-300"><Play className="h-4 w-4" /></button>
+                          aria-label={`Start ${b.title}`} className="grid h-8 w-8 flex-none place-items-center rounded-lg text-primary hover:bg-accent"><Play className="h-4 w-4" /></button>
                       )}
                     </li>
                   ))}

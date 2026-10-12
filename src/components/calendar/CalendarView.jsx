@@ -64,10 +64,10 @@ export default function CalendarView({ homework = [], tests = [], onHomeworkClic
               onClick={() => onDayClick?.(startOfDay(day))}
               className={cn(
                 "h-24 p-1 rounded-lg border transition-colors overflow-hidden",
-                selectedDay && isSameDay(day, selectedDay) ? "bg-indigo-100 border-indigo-400 dark:bg-indigo-900/40 dark:border-indigo-500" :
-                isToday(day) ? "bg-indigo-50 border-indigo-300 dark:bg-indigo-900/20 dark:border-indigo-700" : "bg-card border-border",
+                selectedDay && isSameDay(day, selectedDay) ? "bg-accent border-primary/40" :
+                isToday(day) ? "bg-accent border-primary/40" : "bg-card border-border",
                 !isSameMonth(day, currentMonth) && "opacity-50",
-                onDayClick && "cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600"
+                onDayClick && "cursor-pointer hover:border-primary/40"
               )}
             >
               {onDayClick ? (
