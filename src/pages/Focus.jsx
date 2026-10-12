@@ -120,11 +120,15 @@ export default function Focus() {
               </button>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <button type="button" onClick={() => f.adjust(-5)} className="h-9 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary">−5 min</button>
-              <button type="button" onClick={() => f.adjust(5)} className="h-9 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary">+5 min</button>
+            <details className="group mt-5 flex w-full flex-col items-center">
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <Settings2 className="h-4 w-4" aria-hidden="true" />Adjust the timer
+              </summary>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              <button type="button" onClick={() => f.adjust(-5)} className="h-11 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary">−5 min</button>
+              <button type="button" onClick={() => f.adjust(5)} className="h-11 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary">+5 min</button>
               {!isBreak && (
-                <button type="button" onClick={f.startBreak} className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
+                <button type="button" onClick={f.startBreak} className="inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
                   <Coffee className="h-4 w-4" />Break now
                 </button>
               )}
@@ -136,14 +140,14 @@ export default function Focus() {
                   const on = activePreset && activePreset[0] === a;
                   return (
                     <button key={a} type="button" aria-pressed={!!on} onClick={() => { setCustom(false); f.setDurations({ focusMin: a, breakMin: b }); }}
-                      className={cn('h-9 rounded-full border px-3.5 text-sm font-medium tabular-nums transition-colors duration-150',
+                      className={cn('h-11 rounded-full border px-3.5 text-sm font-medium tabular-nums transition-colors duration-150',
                         on ? 'border-indigo-300 bg-accent text-accent-foreground dark:border-indigo-700' : 'text-foreground hover:bg-secondary')}>
                       {a} / {b}
                     </button>
                   );
                 })}
                 <button type="button" aria-pressed={custom || !activePreset} onClick={() => setCustom(c => !c)}
-                  className={cn('h-9 rounded-full border px-3.5 text-sm font-medium transition-colors duration-150',
+                  className={cn('h-11 rounded-full border px-3.5 text-sm font-medium transition-colors duration-150',
                     custom || !activePreset ? 'border-indigo-300 bg-accent text-accent-foreground dark:border-indigo-700' : 'text-foreground hover:bg-secondary')}>
                   Custom
                 </button>
@@ -157,7 +161,7 @@ export default function Focus() {
                         <input type="number" min={1} max={max} inputMode="numeric" defaultValue={f.prefs[k]} key={f.prefs[k]}
                           onBlur={e => f.setDurations({ [k]: e.target.value })}
                           onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                          className="h-9 w-16 rounded-lg border bg-background px-2 text-center text-sm tabular-nums text-foreground" />
+                          className="h-11 w-16 rounded-lg border bg-background px-2 text-center text-sm tabular-nums text-foreground" />
                         <span>min</span>
                       </span>
                     </label>
@@ -169,6 +173,7 @@ export default function Focus() {
                 <Link to="/Settings" className="inline-flex items-center gap-1 font-medium text-indigo-700 hover:underline dark:text-indigo-300"><Settings2 className="h-3 w-3" />Timer settings</Link>
               </p>
             </div>
+            </details>
           </section>
 
           <section className="rounded-2xl border bg-card p-4" aria-labelledby="blocks-h">

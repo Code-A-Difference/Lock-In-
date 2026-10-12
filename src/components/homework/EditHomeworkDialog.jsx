@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Flag } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function EditHomeworkDialog({ open, onOpenChange, homework, onSubmit, isLoading }) {
@@ -70,10 +70,10 @@ export default function EditHomeworkDialog({ open, onOpenChange, homework, onSub
                 <SelectValue placeholder="Select priority" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="low">🟢 Low Priority</SelectItem>
-                <SelectItem value="medium">🟡 Medium Priority</SelectItem>
-                <SelectItem value="high">🟠 High Priority</SelectItem>
-                <SelectItem value="asap">🔴 ASAP!</SelectItem>
+                <SelectItem value="low"><span className="inline-flex items-center gap-2"><Flag className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />Low Priority</span></SelectItem>
+                <SelectItem value="medium"><span className="inline-flex items-center gap-2"><Flag className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />Medium Priority</span></SelectItem>
+                <SelectItem value="high"><span className="inline-flex items-center gap-2"><Flag className="h-3.5 w-3.5 text-orange-600" aria-hidden="true" />High Priority</span></SelectItem>
+                <SelectItem value="asap"><span className="inline-flex items-center gap-2"><Flag className="h-3.5 w-3.5 text-red-600" aria-hidden="true" />ASAP!</span></SelectItem>
               </SelectContent>
             </Select>
           </div>

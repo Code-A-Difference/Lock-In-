@@ -55,7 +55,7 @@ export default function UpdatePrompt() {
             <h2 id="updTitle" className="text-lg font-bold text-foreground">An update is available</h2>
             <p className="text-sm text-muted-foreground">LOCK IN! {offer.to} is out. You have {offer.from}.</p>
           </div>
-          <button type="button" onClick={later} aria-label="Remind me later" className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-accent"><X className="h-4 w-4" /></button>
+          <button type="button" onClick={later} aria-label="Remind me later" className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:bg-accent"><X className="h-4 w-4" /></button>
         </div>
         <h3 className="mt-4 text-sm font-semibold text-foreground">What’s new</h3>
         <ul className="mt-2 space-y-2 text-sm leading-relaxed text-muted-foreground">

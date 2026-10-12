@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
+import { readComfort, saveComfort, SIZES } from '@/lib/comfort';
 import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
@@ -388,9 +389,11 @@ export default function Settings() {
 
         <Section icon={Palette} title="Appearance">
           <Row id="darkMode" label="Dark mode" hint="Easier on the eyes at night.">
-            <Switch id="darkMode" checked={user.theme !== 'light'} onCheckedChange={(on) => db.auth.updateMe({ theme: on ? 'dark' : 'light' }).catch(() => {})} />
+            <Switch id="darkMode" checked={user.theme !== 'light'} onCheckedChange={(on) => db.auth.updateMe({ theme: on ? 'dark' : 'light' }).catch(() => toast({ title: "Couldn't save that", description: 'Check your connection and try again.', variant: 'destructive' }))} />
           </Row>
         </Section>
+
+        <ComfortSection />
 
         <Section icon={Timer} title="Focus timer" description="Defaults for the Focus page. The presets there change the first two.">
           <div className="grid gap-4 sm:grid-cols-4">
@@ -559,5 +562,37 @@ export default function Settings() {
         </Section>
       </div>
     </div>
+  );
+}
+
+/* Reading comfort lives on the device, so it works before sign-in too and never waits on the network. */
+function ComfortSection() {
+  const [c, setC] = useState(readComfort);
+  const set = (patch) => setC(saveComfort(patch));
+  return (
+    <Section icon={Palette} title="Reading comfort" description="Saved on this device only.">
+      <Row id="textSize" label="Text size" hint="Makes everything in the app larger.">
+        <div role="radiogroup" aria-label="Text size" className="flex gap-2">
+          {SIZES.map(n => (
+            <button key={n} type="button" role="radio" aria-checked={c.size === n} onClick={() => set({ size: n })}
+              className={'h-11 min-w-14 rounded-lg border px-3 text-sm font-semibold ' + (c.size === n ? 'border-primary bg-accent text-accent-foreground' : 'text-foreground hover:bg-secondary')}>
+              {n}%
+            </button>
+          ))}
+        </div>
+      </Row>
+      <Row id="comfortFont" label="Easier-to-read font" hint="Atkinson Hyperlegible, designed so similar letters look different.">
+        <Switch id="comfortFont" checked={c.font} onCheckedChange={on => set({ font: on })} />
+      </Row>
+      <Row id="comfortSpace" label="Roomier text" hint="More space between lines, letters and words.">
+        <Switch id="comfortSpace" checked={c.space} onCheckedChange={on => set({ space: on })} />
+      </Row>
+      <Row id="comfortContrast" label="Stronger contrast" hint="Darker text and clearer borders.">
+        <Switch id="comfortContrast" checked={c.contrast} onCheckedChange={on => set({ contrast: on })} />
+      </Row>
+      <Row id="comfortCalm" label="Calm motion" hint="Stops movement and animation.">
+        <Switch id="comfortCalm" checked={c.calm} onCheckedChange={on => set({ calm: on })} />
+      </Row>
+    </Section>
   );
 }

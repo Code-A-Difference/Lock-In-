@@ -129,10 +129,10 @@ export default function SignIn() {
             ))}
           </div>
 
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">
             {isSignup ? 'Make your account' : 'Welcome back'}
           </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             {isSignup ? 'No email needed. Sign in on any device.' : 'Pick up where you left off, on any device.'}
           </p>
 
@@ -202,7 +202,7 @@ export default function SignIn() {
               </div>
             )}
 
-            <label className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-400">
+            <label className="flex items-start gap-2.5 text-sm text-muted-foreground">
               <Checkbox checked={rememberDevice} onCheckedChange={v => setRememberDevice(!!v)} className="mt-0.5" />
               <span>
                 Keep me signed in on this device

@@ -356,21 +356,21 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           <TabsContent value="grading">
             <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-purple-100 dark:border-purple-900">
               <CardHeader className="hidden sm:flex bg-card">
-                <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                <CardTitle className="flex items-center gap-2 text-foreground">
                   <Upload className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   AI Homework Grading
                 </CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400">Get instant feedback on your work</CardDescription>
+                <CardDescription className="text-muted-foreground">Get instant feedback on your work</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 px-0 pt-4 sm:px-6 sm:pt-6">
                 <div className="space-y-2">
-                  <Label htmlFor="homework-title" className="text-base font-semibold text-slate-700 dark:text-slate-300">Assignment Title</Label>
+                  <Label htmlFor="homework-title" className="text-base font-semibold text-foreground">Assignment Title</Label>
                   <Input
                     id="homework-title"
                     value={homeworkTitle}
                     onChange={(e) => setHomeworkTitle(e.target.value)}
                     placeholder="e.g., Chapter 5 Math Problems"
-                    className="text-lg dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                    className="text-lg"
                   />
                 </div>
                 
@@ -393,7 +393,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
 
                 {!useTextInput ? (
                   <div className="space-y-2">
-                    <Label htmlFor="homework-file" className="text-base font-semibold text-slate-700 dark:text-slate-300">Upload Your Work</Label>
+                    <Label htmlFor="homework-file" className="text-base font-semibold text-foreground">Upload Your Work</Label>
                     <div className="border-2 border-dashed border-purple-200 dark:border-purple-800 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
                       <Upload className="w-8 h-8 mx-auto mb-2 text-purple-400 dark:text-purple-300" />
                       <Input
@@ -401,7 +401,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                         type="file"
                         onChange={handleFileUpload}
                         accept="image/*,.pdf"
-                        className="max-w-xs mx-auto dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                        className="max-w-xs mx-auto"
                       />
                       {selectedFile && (
                         <p className="text-sm text-green-600 dark:text-green-400 mt-2 font-medium">
@@ -412,14 +412,14 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label htmlFor="pasted-work" className="text-base font-semibold text-slate-700 dark:text-slate-300">Paste Your Work</Label>
+                    <Label htmlFor="pasted-work" className="text-base font-semibold text-foreground">Paste Your Work</Label>
                     <Textarea
                       id="pasted-work"
                       value={pastedWork}
                       onChange={(e) => setPastedWork(e.target.value)}
                       placeholder="Paste your homework answers here..."
                       rows={10}
-                      className="font-mono text-sm dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
+                      className="font-mono text-sm"
                     />
                   </div>
                 )}
@@ -445,7 +445,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                 {gradingResult && (
                   <Card className="mt-6 border-2 border-green-200 dark:border-green-800 bg-card">
                     <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                      <CardTitle className="text-lg flex items-center gap-2 text-foreground">
                         <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
                         Grading Results
                       </CardTitle>
@@ -462,8 +462,8 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           <TabsContent value="quiz">
             <Card className="border-0 shadow-none sm:border-2 sm:shadow-sm border-indigo-100 dark:border-indigo-900">
               <CardHeader className="hidden sm:flex bg-card">
-                <CardTitle className="text-slate-800 dark:text-slate-200">Practice Quizzes</CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400">Test your knowledge with AI-generated questions</CardDescription>
+                <CardTitle className="text-foreground">Practice Quizzes</CardTitle>
+                <CardDescription className="text-muted-foreground">Test your knowledge with AI-generated questions</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 px-0 pt-4 sm:px-6 sm:pt-6">
                 {!quiz && !isGeneratingQuiz && !selectedTest && (
@@ -517,11 +517,11 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                       </section>
 
                       <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                        <h3 className="font-medium text-slate-800 dark:text-slate-200 mb-3">Create Custom Quiz</h3>
+                        <h3 className="font-medium text-foreground mb-3">Create Custom Quiz</h3>
                         <div className="space-y-3">
                           <div>
-                            <Label className="text-slate-700 dark:text-slate-300">Topic</Label>
-                            <Input
+                            <Label htmlFor="study-f4" className="text-foreground">Topic</Label>
+                            <Input id="study-f4"
                               value={customQuizTopic}
                               onChange={(e) => setCustomQuizTopic(e.target.value)}
                               placeholder="e.g., World War II, Photosynthesis, Algebra"
@@ -529,8 +529,8 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                             />
                           </div>
                           <div>
-                            <Label className="text-slate-700 dark:text-slate-300">Subject/Class (optional)</Label>
-                            <Input
+                            <Label htmlFor="study-f5" className="text-foreground">Subject/Class (optional)</Label>
+                            <Input id="study-f5"
                               value={customQuizClass}
                               onChange={(e) => setCustomQuizClass(e.target.value)}
                               placeholder="e.g., History, Biology, Math"
@@ -555,7 +555,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                               <span className="w-full border-t dark:border-slate-700" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                              <span className="bg-white dark:bg-slate-800 px-2 text-slate-500 dark:text-slate-400">Or select from upcoming tests</span>
+                              <span className="bg-card px-2 text-muted-foreground">Or select from upcoming tests</span>
                             </div>
                           </div>
                           
@@ -565,8 +565,8 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                                 <CardContent className="pt-4">
                                   <div className="flex items-center justify-between">
                                     <div>
-                                      <p className="font-medium text-slate-800 dark:text-slate-200">{test.title}</p>
-                                      <p className="text-sm text-slate-500 dark:text-slate-400">{test.class_name} • {format(new Date(test.date + 'T00:00:00'), 'MMM d')}</p>
+                                      <p className="font-medium text-foreground">{test.title}</p>
+                                      <p className="text-sm text-muted-foreground">{test.class_name} • {format(new Date(test.date + 'T00:00:00'), 'MMM d')}</p>
                                     </div>
                                     <Button size="sm" className="dark:bg-indigo-600 dark:hover:bg-indigo-700">Select</Button>
                                   </div>
@@ -583,15 +583,15 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                 {selectedTest && !quiz && !isGeneratingQuiz && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">{selectedTest.title}</h3>
+                      <h3 className="font-semibold text-lg text-foreground">{selectedTest.title}</h3>
                       <Button variant="ghost" size="sm" onClick={() => setSelectedTest(null)} className="dark:text-slate-300 dark:hover:bg-slate-700">
                         Change
                       </Button>
                     </div>
                     
                     <div className="space-y-2">
-                      <Label className="text-slate-700 dark:text-slate-300">Add Description (optional)</Label>
-                      <Textarea
+                      <Label htmlFor="study-f6" className="text-foreground">Add Description (optional)</Label>
+                      <Textarea id="study-f6"
                         value={quizDescription}
                         onChange={(e) => setQuizDescription(e.target.value)}
                         placeholder="Describe what topics will be covered..."
@@ -601,8 +601,8 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                     </div>
                     
                     <div className="space-y-2">
-                      <Label className="text-slate-700 dark:text-slate-300">Upload Study Materials (optional)</Label>
-                      <Input
+                      <Label htmlFor="study-f7" className="text-foreground">Upload Study Materials (optional)</Label>
+                      <Input id="study-f7"
                         type="file"
                         multiple
                         accept="image/*,.pdf"
@@ -610,7 +610,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                         className="dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
                       />
                       {quizFiles.length > 0 && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{quizFiles.length} file(s) selected</p>
+                        <p className="text-sm text-muted-foreground">{quizFiles.length} file(s) selected</p>
                       )}
                     </div>
                     
@@ -628,7 +628,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                 {isGeneratingQuiz && (
                   <div className="text-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-indigo-500" />
-                    <p className="text-slate-600 dark:text-slate-400">{makingStep || 'Writing your quiz…'}</p>
+                    <p className="text-muted-foreground">{makingStep || 'Writing your quiz…'}</p>
                   </div>
                 )}
                 

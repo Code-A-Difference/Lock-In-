@@ -136,7 +136,7 @@ export default function Today() {
               <div className="inline-flex rounded-lg border bg-card p-0.5" role="group" aria-label="View">
                 {[['list', List, 'List'], ['calendar', CalendarDays, 'Calendar']].map(([id, Icon, label]) => (
                   <button key={id} type="button" onClick={() => setView(id)} aria-pressed={view === id}
-                    className={cn('inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors duration-150',
+                    className={cn('inline-flex h-11 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors duration-150',
                       view === id ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground')}>
                     <Icon className="h-3.5 w-3.5" aria-hidden="true" />{label}
                   </button>
@@ -174,7 +174,7 @@ export default function Today() {
                   <div key={id}>
                     <h3 className={cn('mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide',
                       id === 'overdue' ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground')}>
-                      {label}<span className="rounded-full bg-secondary px-1.5 py-px text-[11px] tabular-nums text-muted-foreground">{agenda[id].length}</span>
+                      {label}<span className="rounded-full bg-secondary px-1.5 py-px text-xs tabular-nums text-muted-foreground">{agenda[id].length}</span>
                     </h3>
                     <ul className="space-y-2">
                       {agenda[id].map(e => (
@@ -194,7 +194,7 @@ export default function Today() {
                     <button type="button" onClick={() => setShowDone(s => !s)} aria-expanded={showDone}
                       className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
                       <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', !showDone && '-rotate-90')} aria-hidden="true" />
-                      Done <span className="rounded-full bg-secondary px-1.5 py-px text-[11px] tabular-nums">{agenda.done.length}</span>
+                      Done <span className="rounded-full bg-secondary px-1.5 py-px text-xs tabular-nums">{agenda.done.length}</span>
                     </button>
                     {showDone && (
                       <ul className="space-y-2">
@@ -228,7 +228,7 @@ export default function Today() {
                         n <= 2 ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300' : 'bg-secondary text-foreground')}>
                         <span>
                           <span className="block text-base font-bold tabular-nums">{n}</span>
-                          <span className="block text-[10px] font-medium">{n === 1 ? 'day' : 'days'}</span>
+                          <span className="block text-xs font-medium">{n === 1 ? 'day' : 'days'}</span>
                         </span>
                       </span>
                       <div className="min-w-0 flex-1">
@@ -236,7 +236,7 @@ export default function Today() {
                         <p className="truncate text-xs text-muted-foreground">{t.class_name || 'No class'} · {relativeDay(t.date)}{t.focus_minutes ? ` · ${formatMinutes(t.focus_minutes)} studied` : ''}</p>
                       </div>
                       <button type="button" onClick={() => { focus.lockIn({ type: 'test', id: t.id }); focus.openFocus(); }}
-                        className="h-8 rounded-lg px-2.5 text-xs font-semibold text-indigo-700 hover:bg-accent dark:text-indigo-300"
+                        className="h-11 rounded-lg px-2.5 text-xs font-semibold text-indigo-700 hover:bg-accent dark:text-indigo-300"
                         aria-label={`Study for ${t.title}`}>Study</button>
                     </li>
                   );

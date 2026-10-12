@@ -3,7 +3,8 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import React, { useEffect, useRef } from 'react';
+import React, { Suspense, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { BrowserRouter as Router, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -56,8 +57,8 @@ function FocusSurface() {
     <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/45 p-0 backdrop-blur-sm sm:p-4" onMouseDown={e => { if (e.target === e.currentTarget) focus.closeFocus(); }}>
       <section role="dialog" aria-modal="true" aria-label="Focus timer" className="relative mx-auto min-h-dvh max-w-7xl bg-background shadow-2xl sm:min-h-[calc(100dvh-2rem)] sm:rounded-2xl">
         <div className="sticky top-0 z-20 mx-auto flex max-w-6xl justify-end px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6">
-          <button ref={closeRef} type="button" onClick={focus.closeFocus} className="inline-flex h-10 items-center gap-2 rounded-full border bg-card/95 px-4 text-sm font-semibold text-foreground shadow-sm backdrop-blur hover:bg-secondary">
-            <span aria-hidden="true">×</span> Close focus
+          <button ref={closeRef} type="button" onClick={focus.closeFocus} className="inline-flex h-11 items-center gap-2 rounded-full border bg-card/95 px-4 text-sm font-semibold text-foreground shadow-sm backdrop-blur hover:bg-secondary">
+            <X className="h-4 w-4" aria-hidden="true" /> Close focus
           </button>
         </div>
         <Focus />
@@ -72,7 +73,7 @@ const AuthenticatedApp = () => {
   if (isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center" role="status" aria-label="Loading">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
       </div>
     );
   }
@@ -81,16 +82,16 @@ const AuthenticatedApp = () => {
   // is signed in. Say so, rather than showing a sign-in form that can't work.
   if (!isAuthenticated && authError) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-50 px-6 dark:bg-slate-950">
+      <main className="fixed inset-0 flex items-center justify-center bg-background px-6">
         <div className="max-w-sm text-center" role="alert">
-          <p className="text-lg font-bold text-slate-900 dark:text-white">LOCK IN! can't reach its server</p>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{authError}</p>
+          <h1 className="text-lg font-bold text-foreground">LOCK IN! can't reach its server</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{authError}</p>
           <button type="button" onClick={retryAuth}
-            className="mt-5 inline-flex h-10 items-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-500">
+            className="mt-5 inline-flex h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
             Try again
           </button>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -104,6 +105,7 @@ const AuthenticatedApp = () => {
     <LectureProvider>
     <PlannerProvider>
     <AssistantProvider>
+    <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center" role="status" aria-label="Loading"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>}>
     <Routes>
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
@@ -125,6 +127,7 @@ const AuthenticatedApp = () => {
       <Route path="/Home" element={<Navigate to="/" replace />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    </Suspense>
     <FocusSurface />
     <VoicePanel />
     <PlannerSheet />

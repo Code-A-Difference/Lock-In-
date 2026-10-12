@@ -16,6 +16,17 @@ export default defineConfig({
   base: process.env.LOCKIN_BASE || '/',
   logLevel: 'error',
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // the framework and the UI primitives change rarely, so they cache apart from the app's own code
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          radix: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+        },
+      },
+    },
+  },
   resolve: {
     alias: [{ find: /^@\//, replacement: fileURLToPath(new URL('./src/', import.meta.url)) }],
   },

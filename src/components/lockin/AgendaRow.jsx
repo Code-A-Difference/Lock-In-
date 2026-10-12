@@ -129,7 +129,7 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
         <div className="flex flex-none items-center gap-1">
           {!item.is_completed && (
             <button type="button" onClick={lockIn}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium text-foreground hover:border-indigo-300 hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-11 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium text-foreground hover:border-indigo-300 hover:bg-accent hover:text-accent-foreground"
               aria-label={`${isTest ? 'Study for' : 'Focus on'} "${item.title}"`}>
               <Play className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">{isTest ? 'Study' : 'Focus'}</span>
@@ -137,14 +137,14 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
           )}
           {!isTest && !item.is_completed && prog.total === 0 && (
             <button type="button" onClick={breakDown} disabled={busy} title="Break it into steps"
-              className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"
+              className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"
               aria-label={`Break "${item.title}" into steps`}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             </button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+              <button type="button" className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
                 aria-label={`More for "${item.title}"`}>
                 <MoreHorizontal className="h-4 w-4" />
               </button>

@@ -85,6 +85,11 @@
   button, [role="button"], a, label, summary {
     touch-action: manipulation;
   }
+  /* Utility classes that remove a field's outline must not remove its focus ring. */
+  input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid hsl(var(--ring)) !important;
+    outline-offset: 2px;
+  }
 }
 
 /* ---- phones: feel like an app, not a shrunken web page ------------------ */
@@ -143,8 +148,12 @@
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Nothing travels, but colour, opacity and progress still change smoothly,
+     so a state change is still seen as one. */
+  *, *::before, *::after {
+    transition-property: color, background-color, border-color, opacity, box-shadow, width, fill, stroke !important;
   }
 }
 
@@ -173,7 +182,7 @@
   padding:8px 14px 8px 12px; border-radius:999px;
   background:#16181d; color:#e8fff4; font-size:14px; font-weight:600;
   box-shadow:0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(110,231,183,.35);
-  animation: lockin-pill-in .2s cubic-bezier(.2,.9,.3,1.2) both;
+  animation: lockin-pill-in .2s cubic-bezier(.2,.8,.2,1) both;
 }
 .lockin-listen-bars{ display:inline-flex; align-items:center; gap:3px; height:16px; }
 .lockin-listen-bars i{ width:3px; height:100%; border-radius:2px; background:#6ee7b7; transform-origin:center; animation: lockin-bar 0.9s ease-in-out infinite; }
@@ -205,3 +214,13 @@
   .lockin-card[data-flipped="1"] .lockin-card__front { visibility: hidden; }
   .lockin-card[data-flipped="0"] .lockin-card__back { visibility: hidden; }
 }
+
+/* ---- reading comfort (Settings, Appearance): all opt-in, per device ------- */
+html.comfort-font *, html.comfort-font { font-family: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif !important; }
+html.comfort-space body { line-height: 1.7; letter-spacing: 0.02em; word-spacing: 0.1em; }
+html.comfort-calm *, html.comfort-calm *::before, html.comfort-calm *::after {
+  animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  transition-property: color, background-color, border-color, opacity, box-shadow, width, fill, stroke !important;
+}
+html.comfort-contrast { --muted-foreground: 228 14% 20%; --border: 40 12% 52%; --input: 40 12% 52%; --foreground: 228 20% 7%; }
+html.dark.comfort-contrast { --muted-foreground: 40 10% 82%; --border: 220 10% 46%; --input: 220 10% 46%; --foreground: 40 15% 95%; }

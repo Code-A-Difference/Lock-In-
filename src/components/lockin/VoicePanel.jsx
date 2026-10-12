@@ -301,7 +301,7 @@ export default function VoicePanel() {
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
                 {focusLec ? <><BookOpen className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />{focusLec.title}{lecture.active?.id === focusLec.id ? ' (live)' : ''}</>
                   : onNotes ? 'All your notes' : 'Lock In'}
-                {status && <span className={cn('ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', armed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-secondary text-muted-foreground')}>
+                {status && <span className={cn('ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', armed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-secondary text-muted-foreground')}>
                   <Radio className={cn('h-3 w-3', armed && 'animate-pulse')} aria-hidden="true" />{status}
                 </span>}
               </span>

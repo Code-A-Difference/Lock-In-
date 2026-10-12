@@ -101,9 +101,9 @@ export default function PlannerSheet() {
             </ul>
           ) : <p className="text-sm text-muted-foreground">No free time yet.</p>}
 
-          <textarea value={p.notes} onChange={e => p.setNotes(e.target.value)} rows={2}
+          <textarea aria-label="Notes for the planner" value={p.notes} onChange={e => p.setNotes(e.target.value)} rows={2}
             placeholder="Anything to know? e.g. chemistry is my weakest, I study best in the evening"
-            className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-indigo-400" />
+            className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:border-primary" />
 
           {(msg || p.error) && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{msg || p.error}</p>}
           <button type="button" onClick={plan} disabled={p.busy || !p.slots.length}
