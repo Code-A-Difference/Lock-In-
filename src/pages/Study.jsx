@@ -354,7 +354,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           </TabsContent>
 
           <TabsContent value="grading">
-            <Card className="border-0 shadow-none sm:border sm:shadow-sm border-primary/40">
+            <Card className="border-0 bg-transparent shadow-none">
               <CardHeader className="hidden sm:flex bg-card">
                 <CardTitle className="flex items-center gap-2 text-foreground">
                   <Upload className="w-5 h-5 text-primary" />
@@ -460,7 +460,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           </TabsContent>
 
           <TabsContent value="quiz">
-            <Card className="border-0 shadow-none sm:border sm:shadow-sm border-primary/40">
+            <Card className="border-0 bg-transparent shadow-none">
               <CardHeader className="hidden sm:flex bg-card">
                 <CardTitle className="text-foreground">Practice Quizzes</CardTitle>
                 <CardDescription className="text-muted-foreground">Test your knowledge with AI-generated questions</CardDescription>

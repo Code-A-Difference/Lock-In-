@@ -33,8 +33,8 @@ export const TEMPLATES = {
     steps: [
       ['Clear your desk: pencil, scratch paper, calculator', 2],
       ['Look at the first problem and write down the formula you need', 3],
-      ['Solve problems 1–3', 10],
-      ['Solve problems 4–6', 10],
+      ['Solve problems 1-3', 10],
+      ['Solve problems 4-6', 10],
       ['Stand up and move for a minute', 1],
       ['Solve the remaining problems', 15],
       ['Check your answers, redo any that look off', 5],
@@ -57,7 +57,7 @@ export const TEMPLATES = {
     steps: [
       ['Open Slides or PowerPoint and pick a simple theme', 3],
       ['Write the title slide', 2],
-      ['List the 4–5 main points, one per slide', 5],
+      ['List the 4-5 main points, one per slide', 5],
       ['Fill in the slides, a few words each', 15],
       ['Add one image or chart where it helps', 8],
       ['Write speaker notes for each slide', 8],

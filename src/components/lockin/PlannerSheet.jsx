@@ -67,7 +67,7 @@ export default function PlannerSheet() {
             {PRESETS.map(([label, s, e]) => (
               <button key={label} type="button" onClick={() => add(s, e)}
                 className="h-8 rounded-full border px-3 text-xs text-foreground hover:border-primary/40 hover:bg-accent">
-                + {label} <span className="text-muted-foreground">{niceTime(s)}–{niceTime(e)}</span>
+                + {label} <span className="text-muted-foreground">{niceTime(s)} to {niceTime(e)}</span>
               </button>
             ))}
           </div>
@@ -91,7 +91,7 @@ export default function PlannerSheet() {
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {list.map(s => (
                       <span key={s.start} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs text-foreground">
-                        {niceTime(s.start)}–{niceTime(s.end)}
+                        {niceTime(s.start)} to {niceTime(s.end)}
                         <button type="button" onClick={() => p.removeSlot(s)} aria-label={`Remove ${niceTime(s.start)} to ${niceTime(s.end)}`}><X className="h-3 w-3" /></button>
                       </span>
                     ))}

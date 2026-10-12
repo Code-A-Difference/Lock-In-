@@ -110,7 +110,7 @@ export default function Today() {
             <button
               type="button"
               onClick={lockIn}
-              className="group flex w-full items-center gap-4 rounded-2xl bg-primary p-4 text-left text-primary-foreground shadow-md shadow-primary/20 transition-transform duration-150 hover:shadow-lg active:scale-[0.99]"
+              className="group flex w-full items-center gap-4 rounded-2xl bg-primary p-4 text-left text-primary-foreground shadow-sm transition-transform duration-150 active:scale-[0.99]"
             >
               <span className="grid h-12 w-12 flex-none place-items-center rounded-xl bg-black/10">
                 {inBlock ? <Play className="h-6 w-6" aria-hidden="true" /> : <Lock className="h-6 w-6" aria-hidden="true" />}
