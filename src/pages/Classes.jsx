@@ -163,13 +163,13 @@ export default function Classes() {
                   <span className="inline-flex items-center gap-1.5"><ClipboardList className="h-4 w-4" aria-hidden="true" />{c.hw} to do</span>
                   <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-4 w-4" aria-hidden="true" />{c.tests} test{c.tests === 1 ? '' : 's'}</span>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => navigate('/Notes', { state: { className: cls.name } })}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
+                    className="inline-flex h-11 min-w-[8.5rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-3 text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
                     <NotebookPen className="h-4 w-4" />{c.lectures ? `${c.lectures} lecture${c.lectures === 1 ? '' : 's'}` : 'Lectures'}
                   </button>
                   <button type="button" onClick={() => setMaterialFor(cls.name)}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
+                    className="inline-flex h-11 min-w-[8.5rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-3 text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
                     <FilePlus className="h-4 w-4" />Add material
                   </button>
                 </div>

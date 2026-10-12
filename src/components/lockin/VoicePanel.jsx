@@ -269,7 +269,7 @@ export default function VoicePanel() {
   const ideas = focusLec ? LECTURE_IDEAS : onNotes ? NOTES_IDEAS : IDEAS;
   const placeholder = listening ? 'Listening…' : focusLec ? `Ask about ${focusLec.title}` : onNotes ? 'Search your notes' : 'Ask anything';
 
-  const compact = !dockOpen && !expanded && !input && !listening && !armed && !a.busy && a.messages.length === 0 && pref !== null;
+  const compact = !dockOpen && !expanded && !input && !listening && !armed && !a.busy && a.messages.length === 0;
   useEffect(() => { if (dockOpen) setTimeout(() => box.current?.focus(), 50); }, [dockOpen]);
 
   return (
@@ -290,7 +290,7 @@ export default function VoicePanel() {
         recording or reading, search your notes, or have it do things. It opens upward. */}
     <div className="lockin-voice-dock pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 px-3 lg:bottom-4 lg:left-60 lg:px-6">
       <div className="pointer-events-auto mx-auto w-full max-w-2xl">
-        {pref === null && canHandsFree && !expanded && (
+        {pref === null && canHandsFree && !expanded && dockOpen && (
           <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask mb-2 rounded-2xl border bg-card p-4 shadow-2xl">
             <p className="text-sm font-semibold text-foreground">Say “Hey Lock In” to talk hands-free?</p>
             <div className="mt-3 flex gap-2">

@@ -144,8 +144,8 @@ export default function Layout({ children, currentPageName }) {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card px-3 py-4 lg:flex">
         <div className="px-2"><Brand /></div>
         <button type="button" onClick={focus.openFocus}
-          className="mt-5 flex h-11 items-center gap-3 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
-          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Focus mode <kbd className="ml-auto rounded border border-primary-foreground/30 px-1.5 text-xs">F</kbd>
+          className="mt-5 flex h-11 items-center gap-3 rounded-lg border border-primary/40 px-3 text-sm font-semibold text-primary hover:bg-accent">
+          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Lock in <kbd className="ml-auto rounded border border-primary/40 px-1.5 text-xs">F</kbd>
         </button>
         <nav aria-label="Main" className="mt-3 flex flex-col gap-0.5">
           {NAV.map(({ name, icon: Icon, page, key }) => {

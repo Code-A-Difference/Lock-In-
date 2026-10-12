@@ -27,8 +27,17 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 // link and refresh resolves against the site root instead.
 const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || undefined;
 
+// While a page's code loads, the menu stays and only the page area shows a quiet skeleton.
+const PageSkeleton = () => (
+  <div className="mx-auto max-w-5xl animate-pulse px-4 py-8 motion-reduce:animate-none sm:px-6" role="status" aria-label="Loading">
+    <div className="h-8 w-56 rounded-lg bg-muted" />
+    <div className="mt-6 h-14 rounded-2xl bg-muted/70" />
+    <div className="mt-4 h-40 rounded-2xl bg-muted/50" />
+  </div>
+);
+
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
-  <Layout currentPageName={currentPageName}>{children}</Layout>
+  <Layout currentPageName={currentPageName}><Suspense fallback={<PageSkeleton />}>{children}</Suspense></Layout>
   : <>{children}</>;
 
 function LegacyFocusRoute() {

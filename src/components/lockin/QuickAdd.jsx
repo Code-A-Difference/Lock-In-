@@ -83,7 +83,7 @@ const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Escape') { setText(''); e.currentTarget.blur(); } }}
           autoComplete="off"
-          placeholder='Add anything, "essay outline eng fri !" or "chem test oct 3"'
+          placeholder="Add anything: essay outline due Fri"
           className="h-11 min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
         />
         <button type="submit" disabled={!ready || saving}

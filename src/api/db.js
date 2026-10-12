@@ -349,7 +349,7 @@ export const accounts = {
   async signUp({ username, displayName, password, rememberDevice }) {
     const u = cleanUsername(username);
     if (!USERNAME_RE.test(u)) {
-      throw new Error('Usernames are 3–24 characters: letters, numbers, dots, dashes or underscores.');
+      throw new Error('Usernames are 3 to 24 characters: letters, numbers, dots, dashes or underscores.');
     }
     if (String(password || '').length < MIN_PASSWORD) {
       throw new Error(`Use at least ${MIN_PASSWORD} characters for your password.`);

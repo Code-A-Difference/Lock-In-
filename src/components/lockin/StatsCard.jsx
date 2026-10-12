@@ -37,7 +37,7 @@ export default function StatsCard({ sessions = [], goal = 120, className }) {
       <div className="mt-4 grid grid-cols-7 items-end gap-1.5" aria-label="Minutes per day, last 7 days">
         {s.days.map(d => (
           <div key={d.day} className="flex flex-col items-center gap-1" title={`${d.day}: ${formatMinutes(d.minutes)}`}>
-            <div className="flex h-16 w-full items-end">
+            <div className="flex h-10 w-full items-end">
               <div className={cn('w-full rounded-t', d.isToday ? 'bg-primary' : 'bg-accent')}
                 style={{ height: `${Math.max(d.minutes ? 6 : 2, (d.minutes / max) * 100)}%` }} />
             </div>

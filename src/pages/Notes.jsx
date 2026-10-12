@@ -110,7 +110,7 @@ function LectureList() {
         </button>
       ) : (
         <button type="button" onClick={() => (classes.length || isDesktop ? setPicking(true) : record(null))} disabled={!lec.canRecord}
-          className="flex w-full items-center gap-3 rounded-2xl bg-primary p-3.5 text-left text-primary-foreground shadow-lg shadow-primary/20 active:scale-[0.99] disabled:opacity-50">
+          className="flex w-full items-center gap-3 rounded-2xl bg-primary p-3.5 text-left text-primary-foreground shadow-sm active:scale-[0.99] disabled:opacity-50">
           <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-white/15"><Mic className="h-5 w-5" aria-hidden="true" /></span>
           <span className="flex-1 text-base font-bold">{lec.canRecord ? 'Record a lecture' : 'This browser can’t record'}</span>
         </button>
@@ -325,7 +325,7 @@ function LectureView({ id }) {
           {!hasNotes && !live && !writing && canWrite && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button type="button" onClick={generate}
-                className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90">
+                className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
                 <Sparkles className="h-4 w-4" aria-hidden="true" />{mine ? 'Enhance my notes' : 'Generate notes'}
               </button>
               <TemplatePicker value={lecture.template} onChange={(template) => actions.updateLecture(id, { template })} />
