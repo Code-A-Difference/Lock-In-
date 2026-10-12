@@ -28,7 +28,7 @@ export default function JoinClassDialog({ open, onOpenChange, onSubmit, isLoadin
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold">
-            <Share2 className="h-5 w-5 text-indigo-500" />
+            <Share2 className="h-5 w-5 text-primary" />
             Add a shared class
           </DialogTitle>
           <DialogDescription>
@@ -40,7 +40,7 @@ export default function JoinClassDialog({ open, onOpenChange, onSubmit, isLoadin
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="share_code">Share code</Label>
-              <button type="button" onClick={paste} className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-500">
+              <button type="button" onClick={paste} className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary">
                 <ClipboardPaste className="h-3.5 w-3.5" /> Paste
               </button>
             </div>

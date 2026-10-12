@@ -54,9 +54,9 @@ export function BadgesButton({ className }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}
-        className={cn('inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-medium text-foreground hover:bg-secondary', className)}>
+        className={cn('inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-sm font-medium text-foreground hover:bg-secondary', className)}>
         <Trophy className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-        {earned.length} {earned.length === 1 ? 'badge' : 'badges'}
+        {earned.length === 0 ? 'Badges' : `${earned.length} ${earned.length === 1 ? 'badge' : 'badges'}`}
       </button>
       {open && <BadgesSheet list={list} onClose={() => setOpen(false)} />}
     </>

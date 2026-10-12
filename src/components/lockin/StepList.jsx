@@ -26,7 +26,7 @@ export default function StepList({ steps = [], onChange, onRedo, redoing = false
       {total > 0 && (
         <div className="flex items-center gap-3">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Steps done">
-            <div className="h-full rounded-full bg-indigo-600 transition-[width] duration-300 dark:bg-indigo-400" style={{ width: `${(done / total) * 100}%` }} />
+            <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${(done / total) * 100}%` }} />
           </div>
           <span className="text-xs tabular-nums text-muted-foreground">
             {done}/{total}{minutesLeft ? ` · ${formatMinutes(minutesLeft)} left` : ''}
@@ -46,7 +46,7 @@ export default function StepList({ steps = [], onChange, onRedo, redoing = false
                 aria-label={s.done ? `Mark "${s.text}" not done` : `Mark "${s.text}" done`}
                 onClick={() => onChange(steps.map(x => (x.id === s.id ? { ...x, done: !x.done } : x)))}
                 className={cn('mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-md border-2 transition-colors duration-150',
-                  s.done ? 'border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400 dark:bg-indigo-400 dark:text-slate-900' : 'border-slate-300 hover:border-indigo-500 dark:border-slate-600')}
+                  s.done ? 'border-primary/40 bg-primary text-primary-foreground dark:text-slate-900' : 'border-slate-300 hover:border-primary/40 dark:border-slate-600')}
               >
                 {s.done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
               </button>
@@ -77,7 +77,7 @@ export default function StepList({ steps = [], onChange, onRedo, redoing = false
         </form>
         {onRedo && (
           <button type="button" onClick={onRedo} disabled={redoing}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-indigo-700 hover:bg-accent disabled:opacity-60 dark:text-indigo-300">
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-primary hover:bg-accent disabled:opacity-60">
             {redoing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             {total ? 'Redo steps' : 'Break it down'}
           </button>

@@ -69,7 +69,7 @@ export default function CameraCapture({ open, onClose, onPhoto }) {
         {shot ? (
           <>
             <button type="button" onClick={() => setShot(null)} className="flex flex-col items-center gap-1 text-xs text-white"><span className="grid h-14 w-14 place-items-center rounded-full bg-white/15"><RotateCcw className="h-6 w-6" /></span>Retake</button>
-            <button type="button" onClick={() => { onPhoto(shot); onClose(); }} className="flex flex-col items-center gap-1 text-xs text-white"><span className="grid h-14 w-14 place-items-center rounded-full bg-indigo-600"><Check className="h-7 w-7" /></span>Use photo</button>
+            <button type="button" onClick={() => { onPhoto(shot); onClose(); }} className="flex flex-col items-center gap-1 text-xs text-white"><span className="grid h-14 w-14 place-items-center rounded-full bg-primary"><Check className="h-7 w-7" /></span>Use photo</button>
           </>
         ) : (
           <button type="button" onClick={snap} disabled={!!error} aria-label="Take the photo"

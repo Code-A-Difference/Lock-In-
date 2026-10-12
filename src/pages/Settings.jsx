@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { readComfort, saveComfort, SIZES } from '@/lib/comfort';
 import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -280,6 +281,7 @@ export default function Settings() {
 
   const [deletePw, setDeletePw] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const voice = { ...VOICE_DEFAULTS, ...(user?.voice || {}) };
   const [browserVoices, setBrowserVoices] = useState([]);
@@ -347,10 +349,12 @@ export default function Settings() {
   };
 
   const signOut = async () => { queryClient.clear(); await accounts.signOut(); };
-  const deleteAccount = async (e) => {
+  const deleteAccount = (e) => {
     e.preventDefault();
-    if (!deletePw) return;
-    if (!window.confirm(`Delete "${user.username}" and everything in it? This can't be undone.`)) return;
+    if (deletePw) setConfirmDelete(true);
+  };
+  const reallyDelete = async () => {
+    setConfirmDelete(false);
     setDeleting(true);
     try {
       await accounts.deleteCurrent(deletePw);
@@ -384,9 +388,6 @@ export default function Settings() {
           </div>
         </Section>
 
-        <DesktopApp />
-        <PhoneApp />
-
         <Section icon={Palette} title="Appearance">
           <Row id="darkMode" label="Dark mode" hint="Easier on the eyes at night.">
             <Switch id="darkMode" checked={user.theme !== 'light'} onCheckedChange={(on) => db.auth.updateMe({ theme: on ? 'dark' : 'light' }).catch(() => toast({ title: "Couldn't save that", description: 'Check your connection and try again.', variant: 'destructive' }))} />
@@ -394,6 +395,9 @@ export default function Settings() {
         </Section>
 
         <ComfortSection />
+
+        <DesktopApp />
+        <PhoneApp />
 
         <Section icon={Timer} title="Focus timer" description="Defaults for the Focus page. The presets there change the first two.">
           <div className="grid gap-4 sm:grid-cols-4">
@@ -444,8 +448,8 @@ export default function Settings() {
               ['ai', 'AI voice', 'The most human-sounding, but each answer starts a second or two later.'],
               ['browser', "This device's voice only", 'Works offline and uses no AI requests. Quality depends on your device.'],
             ].map(([id, label, hint]) => (
-              <label key={id} className={cn('flex cursor-pointer gap-3 rounded-xl border p-3', voice.engine === id ? 'border-indigo-300 bg-accent dark:border-indigo-700' : 'hover:bg-secondary')}>
-                <input type="radio" name="engine" value={id} checked={voice.engine === id} onChange={() => saveVoice({ engine: id })} className="mt-1 accent-indigo-600" />
+              <label key={id} className={cn('flex cursor-pointer gap-3 rounded-xl border p-3', voice.engine === id ? 'border-primary/40 bg-accent' : 'hover:bg-secondary')}>
+                <input type="radio" name="engine" value={id} checked={voice.engine === id} onChange={() => saveVoice({ engine: id })} className="mt-1 accent-primary" />
                 <span>
                   <span className="block text-sm font-medium text-foreground">{label}</span>
                   <span className="block text-xs text-muted-foreground">{hint}</span>
@@ -461,9 +465,9 @@ export default function Settings() {
                 {AI_VOICES.map(v => {
                   const on = voice.aiVoice === v.id;
                   return (
-                    <div key={v.id} className={cn('flex items-center gap-2 rounded-xl border p-2 pl-3', on && 'border-indigo-300 bg-accent dark:border-indigo-700')}>
+                    <div key={v.id} className={cn('flex items-center gap-2 rounded-xl border p-2 pl-3', on && 'border-primary/40 bg-accent')}>
                       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
-                        <input type="radio" name="aiVoice" value={v.id} checked={on} onChange={() => saveVoice({ aiVoice: v.id })} className="accent-indigo-600" />
+                        <input type="radio" name="aiVoice" value={v.id} checked={on} onChange={() => saveVoice({ aiVoice: v.id })} className="accent-primary" />
                         <span className="min-w-0">
                           <span className="block text-sm font-medium text-foreground">{v.label}</span>
                           <span className="block truncate text-xs text-muted-foreground">{v.hint}</span>
@@ -543,6 +547,18 @@ export default function Settings() {
           <Button onClick={signOut} variant="outline" className="w-full justify-start">
             <LogOut className="mr-2 h-4 w-4" /> Sign out
           </Button>
+          <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete "{user.username}"?</AlertDialogTitle>
+                <AlertDialogDescription>Everything in it goes with it: classes, homework, tests and study chats. This can't be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep my account</AlertDialogCancel>
+                <AlertDialogAction onClick={reallyDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete everything</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <form onSubmit={deleteAccount} className="rounded-xl border border-red-200 p-4 dark:border-red-900/50">
             <p className="text-sm font-semibold text-red-700 dark:text-red-400">Delete this account</p>
             <p className="mt-1 text-sm text-muted-foreground">

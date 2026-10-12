@@ -1,5 +1,6 @@
+import { readComfort } from '@/lib/comfort';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, Camera, ChevronUp, Film, Globe, LineChart, Loader2, Mic, MicOff, Paperclip, Radio, Send, Sigma, Square, Trash2, Volume2, VolumeX, X } from 'lucide-react';
+import { BookOpen, Camera, ChevronUp, Film, Globe, LineChart, Loader2, Mic, MicOff, Paperclip, Radio, Send, Sigma, Sparkles, Square, Trash2, Volume2, VolumeX, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import RichText from '@/components/lockin/RichText';
 import CameraCapture from '@/components/lockin/CameraCapture';
@@ -42,6 +43,7 @@ export default function VoicePanel() {
   const lecture = useLecture();
   const { lectures } = useStudyData();
   const [expanded, setExpanded] = useState(false);
+  const [dockOpen, setDockOpen] = useState(false);   // the bar stays one small button until it is wanted
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState('');
   const [input, setInput] = useState('');
@@ -267,13 +269,16 @@ export default function VoicePanel() {
   const ideas = focusLec ? LECTURE_IDEAS : onNotes ? NOTES_IDEAS : IDEAS;
   const placeholder = listening ? 'Listening…' : focusLec ? `Ask about ${focusLec.title}` : onNotes ? 'Search your notes' : 'Ask anything';
 
+  const compact = !dockOpen && !expanded && !input && !listening && !armed && !a.busy && a.messages.length === 0 && pref !== null;
+  useEffect(() => { if (dockOpen) setTimeout(() => box.current?.focus(), 50); }, [dockOpen]);
+
   return (
     <>
     {/* The moment "Hey Lock In" is heard: a glow around the screen and a pill up top, so it's
         obvious it's listening even with the assistant closed or the app in another tab. */}
     {(armed || (listening && hearing)) && !a.busy && !a.speaking && (
       <>
-        <div className="lockin-listen-glow" aria-hidden="true" />
+        {!readComfort().calm && <div className="lockin-listen-glow" aria-hidden="true" />}
         <div className="lockin-listen-pill" role="status" aria-live="polite">
           <span className="lockin-listen-bars" aria-hidden="true"><i /><i /><i /><i /></span>
           {heard ? <span className="max-w-[60vw] truncate">{heard}</span> : 'Listening…'}
@@ -412,8 +417,17 @@ export default function VoicePanel() {
         <input ref={fileRef} type="file" hidden multiple accept="image/*,application/pdf,text/plain" onChange={onFiles} />
         <input ref={mediaRef} type="file" hidden accept="video/*,audio/*" onChange={onMedia} />
 
+        {compact ? (
+          <div className="flex justify-end">
+            <button type="button" onClick={() => setDockOpen(true)} aria-label="Ask Lock In"
+              className="inline-flex h-12 items-center gap-2 rounded-full border bg-card/95 px-4 text-sm font-semibold text-foreground shadow-lg backdrop-blur hover:bg-secondary">
+              <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />Ask Lock In
+            </button>
+          </div>
+        ) : (
         <form className="flex items-end gap-1.5 rounded-2xl border bg-card/95 p-1.5 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/85"
-          onSubmit={(e) => { e.preventDefault(); submit(); }}>
+          onSubmit={(e) => { e.preventDefault(); submit(); }}
+          onBlur={e => { if (!expanded && !input.trim() && !e.currentTarget.contains(e.relatedTarget)) setDockOpen(false); }}>
           {canListen
             ? <button type="button" onClick={() => { setExpanded(true); talk(); }} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Talk to Lock In'}
                 className={cn('relative grid h-10 w-10 flex-none place-items-center rounded-xl',
@@ -423,7 +437,7 @@ export default function VoicePanel() {
               </button>
             : null}
           <textarea ref={box} value={input} onChange={e => setInput(e.target.value)} rows={1} placeholder={placeholder}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } if (e.key === 'Escape') setExpanded(false); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } if (e.key === 'Escape') { setExpanded(false); setDockOpen(false); } }}
             onFocus={() => unlockAudio()}
             aria-label={placeholder}
             className="max-h-28 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-sm" />
@@ -434,6 +448,7 @@ export default function VoicePanel() {
           <button type="submit" disabled={!input.trim()} aria-label="Send"
             className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"><Send className="h-4 w-4" /></button>
         </form>
+        )}
       </div>
     </div>
     <CameraCapture open={camera} onClose={() => setCamera(false)} onPhoto={(url) => { a.addPhoto(url); setExpanded(true); }} />

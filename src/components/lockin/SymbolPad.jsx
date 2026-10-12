@@ -26,7 +26,7 @@ export default function SymbolPad({ onInsert }) {
       <div className="grid max-h-28 grid-cols-8 gap-1 overflow-y-auto sm:grid-cols-10" role="tabpanel">
         {SETS[tab].map(s => (
           <button key={s} type="button" onMouseDown={e => e.preventDefault()} onClick={() => onInsert(s)} aria-label={`Insert ${s}`}
-            className="h-9 rounded-md border bg-background text-sm text-foreground hover:border-indigo-300 hover:bg-accent">{s}</button>
+            className="h-9 rounded-md border bg-background text-sm text-foreground hover:border-primary/40 hover:bg-accent">{s}</button>
         ))}
       </div>
     </div>

@@ -131,7 +131,7 @@ function LectureList() {
                   <button type="button" onClick={() => setFolded(f => ({ ...f, [key]: open }))} aria-expanded={open}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold text-foreground">
                     <ChevronDown className={cn('h-4 w-4 flex-none text-muted-foreground transition-transform', !open && '-rotate-90')} aria-hidden="true" />
-                    {c ? <span className={cn('h-2.5 w-2.5 flex-none rounded-full', c.color || 'bg-indigo-500')} aria-hidden="true" /> : <Folder className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />}
+                    {c ? <span className={cn('h-2.5 w-2.5 flex-none rounded-full', c.color || 'bg-primary')} aria-hidden="true" /> : <Folder className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />}
                     <span className="truncate">{label}</span>
                     <span className="text-xs font-normal text-muted-foreground">{items.length}</span>
                   </button>
@@ -162,7 +162,7 @@ function LectureList() {
             {classes.map(c => (
               <li key={c.id}>
                 <button type="button" onClick={() => record(c)} className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base font-medium text-foreground hover:bg-secondary active:bg-secondary">
-                  <span className={cn('h-3 w-3 flex-none rounded-full', c.color || 'bg-indigo-500')} aria-hidden="true" />{c.name}
+                  <span className={cn('h-3 w-3 flex-none rounded-full', c.color || 'bg-primary')} aria-hidden="true" />{c.name}
                 </button>
               </li>
             ))}

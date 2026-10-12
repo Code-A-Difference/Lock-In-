@@ -67,7 +67,7 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
 
   return (
     <li className={cn('rounded-xl border bg-card transition-shadow duration-150 hover:shadow-sm',
-      isCurrent && 'border-indigo-300 ring-1 ring-indigo-300 dark:border-indigo-700 dark:ring-indigo-700')}>
+      isCurrent && 'border-primary/40 ring-1 ring-primary/40')}>
       <div className="flex items-start gap-3 p-3 sm:p-3.5">
         {isTest ? (
           <span className="mt-0.5 grid h-6 w-6 flex-none place-items-center rounded-md bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" title="Test">
@@ -83,7 +83,7 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
             className="-m-2.5 grid h-11 w-11 flex-none place-items-center rounded-lg"
           >
             <span className={cn('grid h-6 w-6 place-items-center rounded-md border-2 transition-colors duration-150',
-              item.is_completed ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 hover:border-indigo-500 dark:border-slate-600')}>
+              item.is_completed ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 hover:border-primary/40 dark:border-slate-600')}>
               {item.is_completed && <Check className="h-4 w-4" strokeWidth={3} />}
             </span>
           </button>
@@ -129,7 +129,7 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
         <div className="flex flex-none items-center gap-1">
           {!item.is_completed && (
             <button type="button" onClick={lockIn}
-              className="inline-flex h-11 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium text-foreground hover:border-indigo-300 hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-11 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium text-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
               aria-label={`${isTest ? 'Study for' : 'Focus on'} "${item.title}"`}>
               <Play className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">{isTest ? 'Study' : 'Focus'}</span>

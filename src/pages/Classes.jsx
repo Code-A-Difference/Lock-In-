@@ -135,7 +135,7 @@ export default function Classes() {
             return (
               <li key={cls.id} className="flex flex-col rounded-2xl border bg-card p-4">
                 <div className="flex items-start gap-3">
-                  <span className={cn('grid h-10 w-10 flex-none place-items-center rounded-xl', cls.color || 'bg-indigo-500')}>
+                  <span className={cn('grid h-10 w-10 flex-none place-items-center rounded-xl', cls.color || 'bg-primary')}>
                     <Icon className="h-5 w-5 text-white" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">

@@ -43,7 +43,7 @@ export default function IconSelector({ selectedIcon, onSelect, color = 'bg-indig
                 className={cn(
                   "flex flex-col items-center gap-1 p-2 rounded-lg transition-all",
                   selectedIcon === option.value 
-                    ? "bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-500" 
+                    ? "bg-accent ring-2 ring-primary/40" 
                     : "hover:bg-slate-100 dark:hover:bg-slate-600"
                 )}
               >

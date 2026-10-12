@@ -6,12 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
 const CLASS_COLORS = [
-  { name: 'Indigo', value: 'bg-indigo-500' },
+  { name: 'Sage', value: 'bg-indigo-500' },
   { name: 'Rose', value: 'bg-rose-500' },
   { name: 'Emerald', value: 'bg-emerald-500' },
   { name: 'Amber', value: 'bg-amber-500' },
   { name: 'Cyan', value: 'bg-cyan-500' },
-  { name: 'Purple', value: 'bg-purple-500' },
   { name: 'Pink', value: 'bg-pink-500' },
   { name: 'Teal', value: 'bg-teal-500' },
 ];
@@ -124,7 +123,7 @@ export default function AddClassDialog({ open, onOpenChange, onSubmit, isLoading
           {onUseShareCode && (
             <p className="text-center text-sm text-slate-500">
               A classmate already set it up?{' '}
-              <button type="button" onClick={onUseShareCode} className="font-medium text-indigo-600 hover:text-indigo-500">
+              <button type="button" onClick={onUseShareCode} className="font-medium text-primary hover:text-primary">
                 Use their share code
               </button>
             </p>

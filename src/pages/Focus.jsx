@@ -85,7 +85,7 @@ export default function Focus() {
           <section className="flex flex-col items-center rounded-2xl border bg-card px-4 py-6 sm:px-8 sm:py-8" aria-label="Timer">
             {/* The ring is the time you have left: full at the start, draining to zero. */}
             <TimerRing progress={f.total ? f.remaining / f.total : 1} phase={f.phase} size={300}>
-              <span className={cn('text-xs font-bold uppercase tracking-[0.2em]', isBreak ? 'text-emerald-700 dark:text-emerald-400' : 'text-indigo-700 dark:text-indigo-300')}>
+              <span className={cn('text-xs font-bold uppercase tracking-[0.2em]', isBreak ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary')}>
                 {PHASE_LABEL[f.phase]}
               </span>
               <span className="mt-1 text-6xl font-bold tabular-nums tracking-tight text-foreground sm:text-7xl" role="timer" aria-live="off">
@@ -97,7 +97,7 @@ export default function Focus() {
               <span className="mt-3 flex gap-1.5" aria-label={`${f.blocks % f.prefs.longEvery} of ${f.prefs.longEvery} blocks before a long break`}>
                 {Array.from({ length: f.prefs.longEvery }, (_, i) => (
                   <span key={i} className={cn('h-2 w-2 rounded-full',
-                    i < f.blocks % f.prefs.longEvery || (f.phase === 'long' && f.blocks > 0) ? 'bg-indigo-600 dark:bg-indigo-400' : 'bg-slate-200 dark:bg-slate-700')} />
+                    i < f.blocks % f.prefs.longEvery || (f.phase === 'long' && f.blocks > 0) ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700')} />
                 ))}
               </span>
             </TimerRing>
@@ -141,14 +141,14 @@ export default function Focus() {
                   return (
                     <button key={a} type="button" aria-pressed={!!on} onClick={() => { setCustom(false); f.setDurations({ focusMin: a, breakMin: b }); }}
                       className={cn('h-11 rounded-full border px-3.5 text-sm font-medium tabular-nums transition-colors duration-150',
-                        on ? 'border-indigo-300 bg-accent text-accent-foreground dark:border-indigo-700' : 'text-foreground hover:bg-secondary')}>
+                        on ? 'border-primary/40 bg-accent text-accent-foreground' : 'text-foreground hover:bg-secondary')}>
                       {a} / {b}
                     </button>
                   );
                 })}
                 <button type="button" aria-pressed={custom || !activePreset} onClick={() => setCustom(c => !c)}
                   className={cn('h-11 rounded-full border px-3.5 text-sm font-medium transition-colors duration-150',
-                    custom || !activePreset ? 'border-indigo-300 bg-accent text-accent-foreground dark:border-indigo-700' : 'text-foreground hover:bg-secondary')}>
+                    custom || !activePreset ? 'border-primary/40 bg-accent text-accent-foreground' : 'text-foreground hover:bg-secondary')}>
                   Custom
                 </button>
               </div>
@@ -170,7 +170,7 @@ export default function Focus() {
               )}
               <p className="mt-3 text-center text-xs text-muted-foreground">
                 Every {f.prefs.longEvery}th break is a {f.prefs.longMin}-minute long one ·{' '}
-                <Link to="/Settings" className="inline-flex items-center gap-1 font-medium text-indigo-700 hover:underline dark:text-indigo-300"><Settings2 className="h-3 w-3" />Timer settings</Link>
+                <Link to="/Settings" className="inline-flex items-center gap-1 font-medium text-primary hover:underline"><Settings2 className="h-3 w-3" />Timer settings</Link>
               </p>
             </div>
             </details>
@@ -263,7 +263,7 @@ export default function Focus() {
                 return (
                   <button key={s.id} type="button" aria-pressed={on} onClick={() => f.setSound(s.id)}
                     className={cn('flex h-16 flex-col items-center justify-center gap-1 rounded-xl border text-xs font-medium transition-colors duration-150',
-                      on ? 'border-indigo-300 bg-accent text-accent-foreground dark:border-indigo-700' : 'text-muted-foreground hover:bg-secondary hover:text-foreground')}>
+                      on ? 'border-primary/40 bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground')}>
                     <Icon className="h-5 w-5" aria-hidden="true" />
                     {s.id === 'brown' ? 'Brown' : s.id === 'drone' ? 'Drone' : s.label}
                   </button>

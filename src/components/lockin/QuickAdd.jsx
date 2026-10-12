@@ -72,7 +72,7 @@ const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
   };
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border bg-card p-2 shadow-sm focus-within:border-indigo-300 dark:focus-within:border-indigo-700">
+    <form onSubmit={submit} className="rounded-2xl border bg-card p-2 shadow-sm focus-within:border-primary/40 dark:focus-within:border-primary/40">
       <div className="flex items-center gap-2">
         <label htmlFor="quick-add" className="sr-only">Add homework or a test</label>
         <Plus className="ml-2 h-5 w-5 flex-none text-muted-foreground" aria-hidden="true" />
