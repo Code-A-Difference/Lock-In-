@@ -183,7 +183,7 @@ function setLaunchAtLogin(on) {
 const SHORTCUTS = [
   ['CommandOrControl+Shift+L', 'assistant', 'Open LOCK IN!’s assistant'],
   ['CommandOrControl+Shift+K', 'catchup', 'Catch me up on the class being recorded'],
-  ['CommandOrControl+Shift+R', 'record', 'Start recording a class'],
+  ['CommandOrControl+Alt+R', 'record', 'Start recording a class'],
 ];
 function registerShortcuts() {
   for (const [accel, type] of SHORTCUTS) {

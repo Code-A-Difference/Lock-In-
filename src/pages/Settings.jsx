@@ -58,7 +58,7 @@ export const DESKTOP_PERKS = [
   [PictureInPicture2, 'Floats over your other apps', 'A small window stays on top while you work: live transcript, “catch me up”, and quick answers.'],
   [MonitorSpeaker, 'Records online classes', 'Captures your computer’s sound, Zoom, Teams, Google Meet or a lecture video, with or without your mic.'],
   [PhoneCall, 'Notices when a call starts', 'Offers to record when Zoom, Teams or a browser call begins.'],
-  [Keyboard, 'Shortcuts from any app', 'Ctrl+Shift+K catches you up, Ctrl+Shift+L opens the assistant, Ctrl+Shift+R starts recording.'],
+  [Keyboard, 'Shortcuts from any app', 'Ctrl+Shift+K catches you up, Ctrl+Shift+L opens the assistant, Ctrl+Alt+R starts recording.'],
 ];
 
 /** In a browser: the pitch and the downloads. In the desktop app: its settings. In the Android app: its speech engine. */
