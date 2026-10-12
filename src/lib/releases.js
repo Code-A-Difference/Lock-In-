@@ -15,13 +15,13 @@ const GH = 'https://github.com/Code-A-Difference/Lock-In-/releases';
 
 export const RELEASES = {
   android: {
-    version: '1.3.0',
-    date: '2026-10-09',
+    version: '1.3.1',
+    date: '2026-10-12',
     url: `${GH}/latest/download/LOCKIN-android.apk`,
     notes: [
-      'Speech is understood on your phone with Whisper, what you say to the assistant and your class recordings no longer go to Google, and work without a connection. Choose the model in Settings → This phone.',
-      '“Hey Lock In” answers the moment you say it, with a chime and a glow around the screen, instead of after a pause.',
-      'Asking the assistant something by voice no longer makes the phone beep.',
+      '“Hey Lock In” reacts a touch sooner: the app is told the moment it hears you.',
+      'New reading comfort settings: bigger text, an easier-to-read font, roomier spacing, stronger contrast and calm motion.',
+      'The assistant is one small button until you need it, and pages open faster.',
     ],
   },
   desktop: {
