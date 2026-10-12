@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 /**
  * The app's pages. Each key is both the route (/Focus) and the name the
  * Layout highlights; mainPage is what "/" shows.
@@ -5,12 +6,12 @@
  * base44 generated this file and said not to edit it; that generator is gone,
  * so it is maintained by hand now. Add a page by importing it and listing it.
  */
-import Today from './pages/Today';
-import Focus from './pages/Focus';
-import Study from './pages/Study';
-import Classes from './pages/Classes';
-import Notes from './pages/Notes';
-import Settings from './pages/Settings';
+const Today = lazy(() => import('./pages/Today'));
+const Focus = lazy(() => import('./pages/Focus'));
+const Study = lazy(() => import('./pages/Study'));
+const Classes = lazy(() => import('./pages/Classes'));
+const Notes = lazy(() => import('./pages/Notes'));
+const Settings = lazy(() => import('./pages/Settings'));
 import __Layout from './Layout.jsx';
 
 export const PAGES = {

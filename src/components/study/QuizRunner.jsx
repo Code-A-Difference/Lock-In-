@@ -207,7 +207,7 @@ function ReviewCard({ q, i, answer, grade, per, onRegrade }) {
           {grade?.error && (
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
               Couldn’t mark this one ({grade.error}).
-              <button type="button" onClick={onRegrade} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-amber-200 px-3 font-semibold text-amber-950"><RefreshCw className="h-3.5 w-3.5" />Mark it again</button>
+              <button type="button" onClick={onRegrade} className="inline-flex h-11 items-center gap-1.5 rounded-lg bg-amber-200 px-3 font-semibold text-amber-950"><RefreshCw className="h-3.5 w-3.5" />Mark it again</button>
             </div>
           )}
           {typeof grade?.score === 'number' && (
@@ -247,7 +247,7 @@ function ReviewCard({ q, i, answer, grade, per, onRegrade }) {
       {q.steps?.length > 0 && (
         <div className="mt-3">
           <button type="button" onClick={() => setShowSteps(v => !v)} aria-expanded={showSteps}
-            className="inline-flex h-9 items-center gap-1.5 text-sm font-semibold text-foreground">
+            className="inline-flex h-11 items-center gap-1.5 text-sm font-semibold text-foreground">
             <ChevronDown className={cn('h-4 w-4 transition-transform', showSteps && 'rotate-180')} />Worked solution, step by step
           </button>
           {showSteps && (
@@ -304,7 +304,7 @@ function QuestionChat({ q, number, answer, grade }) {
       {msgs.length === 0 && (
         <div className="flex flex-wrap gap-2">
           {STARTERS.map(s => (
-            <button key={s} type="button" onClick={() => ask(s)} className="h-9 rounded-full border bg-card px-3 text-sm text-foreground hover:border-primary/50">{s}</button>
+            <button key={s} type="button" onClick={() => ask(s)} className="h-11 rounded-full border bg-card px-3 text-sm text-foreground hover:border-primary/50">{s}</button>
           ))}
         </div>
       )}

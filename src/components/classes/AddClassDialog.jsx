@@ -106,9 +106,9 @@ export default function AddClassDialog({ open, onOpenChange, onSubmit, isLoading
             </div>
           </div>
           
-          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-sm text-indigo-700">
-            <p className="font-medium">🎓 You'll be the class creator</p>
-            <p className="text-xs mt-1 text-indigo-600">Get a share code to invite classmates after creating</p>
+          <div className="rounded-lg border bg-secondary p-3 text-sm text-foreground">
+            <p className="font-medium">You'll be the class creator</p>
+            <p className="mt-1 text-xs text-muted-foreground">Get a share code to invite classmates after creating</p>
           </div>
           
           <Button type="submit" className="w-full" disabled={isLoading}>

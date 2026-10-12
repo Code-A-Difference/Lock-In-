@@ -75,7 +75,7 @@ export default function ClassDetailsDialog({ open, onOpenChange, classItem }) {
           })()}
 
           <div className="border-t pt-4 dark:border-slate-700">
-            <p className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200">
+            <p className="mb-1 flex items-center gap-2 text-sm font-medium text-foreground">
               <Share2 className="h-4 w-4 text-indigo-500" /> Share this class
             </p>
             <p className="mb-3 text-xs text-slate-500">
@@ -92,7 +92,7 @@ export default function ClassDetailsDialog({ open, onOpenChange, classItem }) {
             {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 
             <Button onClick={copy} disabled={!code}
-                    className={cn('mt-3 w-full', copied ? 'bg-emerald-600 hover:bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-500')}>
+                    className={cn('mt-3 w-full', copied ? 'bg-emerald-600 hover:bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-700')}>
               {copied ? <><Check className="mr-2 h-4 w-4" />Copied</> : <><Copy className="mr-2 h-4 w-4" />Copy share code</>}
             </Button>
             {code && <p className="mt-2 text-center text-[11px] text-slate-400">{code.length.toLocaleString()} characters</p>}

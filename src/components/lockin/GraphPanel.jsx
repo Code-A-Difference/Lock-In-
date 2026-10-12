@@ -79,7 +79,7 @@ export default function GraphPanel() {
   return (
     <div className={open ? 'fixed inset-0 z-[60] flex flex-col bg-background' : 'hidden'} role={open ? 'dialog' : undefined} aria-modal={open || undefined} aria-label="Graphing calculator">
       <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))]">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><LineChart className="h-4 w-4 text-indigo-600" />Graph <span className="font-normal text-muted-foreground">· Desmos</span></h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground"><LineChart className="h-4 w-4 text-primary" />Graph <span className="font-normal text-muted-foreground">· Desmos</span></h2>
         <button type="button" onClick={() => setOpen(false)} aria-label="Close the graph"
           className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"><X className="h-5 w-5" /></button>
       </header>

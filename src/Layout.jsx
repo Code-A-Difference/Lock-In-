@@ -37,7 +37,7 @@ function Brand({ compact = false }) {
       </span>
       {!compact && (
         <span className="truncate text-lg font-extrabold tracking-tight text-foreground">
-          LOCK IN<span className="text-fuchsia-600 dark:text-fuchsia-400">!</span>
+          LOCK IN<span className="text-primary">!</span>
         </span>
       )}
     </Link>
@@ -145,7 +145,7 @@ export default function Layout({ children, currentPageName }) {
         <div className="px-2"><Brand /></div>
         <button type="button" onClick={focus.openFocus}
           className="mt-5 flex h-11 items-center gap-3 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
-          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Focus mode <kbd className="ml-auto rounded border border-primary-foreground/30 px-1.5 text-[10px]">F</kbd>
+          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Focus mode <kbd className="ml-auto rounded border border-primary-foreground/30 px-1.5 text-xs">F</kbd>
         </button>
         <nav aria-label="Main" className="mt-3 flex flex-col gap-0.5">
           {NAV.map(({ name, icon: Icon, page, key }) => {
@@ -163,7 +163,7 @@ export default function Layout({ children, currentPageName }) {
                 <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
                 <span className="flex-1">{name}</span>
                 {key && (
-                  <kbd className="hidden rounded border bg-background px-1.5 text-[10px] font-medium uppercase text-muted-foreground group-hover:inline">{key}</kbd>
+                  <kbd className="hidden rounded border bg-background px-1.5 text-xs font-medium uppercase text-muted-foreground group-hover:inline">{key}</kbd>
                 )}
               </Link>
             );
@@ -189,11 +189,11 @@ export default function Layout({ children, currentPageName }) {
               <p className="truncate text-xs text-muted-foreground">@{user?.username}</p>
             </div>
             <button type="button" onClick={() => setShowKeys(true)} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"
-              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+              className="grid h-11 w-11 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
               <Keyboard className="h-4 w-4" />
             </button>
             <button type="button" onClick={logout} title="Sign out" aria-label="Sign out"
-              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+              className="grid h-11 w-11 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
               <LogOut className="h-4 w-4" />
             </button>
           </div>
@@ -239,7 +239,7 @@ export default function Layout({ children, currentPageName }) {
                 key={page}
                 to={page === 'Today' ? '/' : `/${page}`}
                 aria-current={on ? 'page' : undefined}
-                className={cn('flex min-h-[56px] select-none flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-150 active:scale-95',
+                className={cn('flex min-h-[56px] select-none flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-150 active:scale-95',
                   on ? 'text-indigo-700 dark:text-indigo-300' : 'text-muted-foreground hover:text-foreground')}
               >
                 <span className={cn('grid h-7 w-12 place-items-center rounded-full transition-colors duration-150', on && 'bg-accent')}>

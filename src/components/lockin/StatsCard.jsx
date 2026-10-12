@@ -40,7 +40,7 @@ export default function StatsCard({ sessions = [], goal = 120, className }) {
               <div className={cn('w-full rounded-t', d.isToday ? 'bg-indigo-600 dark:bg-indigo-400' : 'bg-indigo-200 dark:bg-indigo-900')}
                 style={{ height: `${Math.max(d.minutes ? 6 : 2, (d.minutes / max) * 100)}%` }} />
             </div>
-            <span className={cn('text-[11px]', d.isToday ? 'font-bold text-foreground' : 'text-muted-foreground')}>{d.label}</span>
+            <span className={cn('text-xs', d.isToday ? 'font-bold text-foreground' : 'text-muted-foreground')}>{d.label}</span>
             <span className="sr-only">{formatMinutes(d.minutes)}</span>
           </div>
         ))}

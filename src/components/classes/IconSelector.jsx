@@ -30,7 +30,7 @@ export const iconOptions = [
 export default function IconSelector({ selectedIcon, onSelect, color = 'bg-indigo-500' }) {
   return (
     <div className="space-y-2">
-      <Label className="text-slate-700 dark:text-slate-300">Icon</Label>
+      <Label className="text-foreground">Icon</Label>
       <ScrollArea className="h-48 w-full rounded-lg border dark:border-slate-600 p-3 bg-white dark:bg-slate-700">
         <div className="grid grid-cols-5 gap-2">
           {iconOptions.map((option) => {
@@ -50,7 +50,7 @@ export default function IconSelector({ selectedIcon, onSelect, color = 'bg-indig
                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", color)}>
                   <Icon className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-[10px] text-slate-600 dark:text-slate-400">{option.name}</span>
+                <span className="text-[10px] text-muted-foreground">{option.name}</span>
               </button>
             );
           })}
