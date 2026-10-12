@@ -25,17 +25,17 @@ export const RELEASES = {
     ],
   },
   desktop: {
-    version: '1.0.2',
-    date: '2026-10-09',
+    version: '1.0.3',
+    date: '2026-10-12',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.2/LOCKIN-win-x64.exe`,
-      macArm: `${GH}/download/desktop-v1.0.2/LOCKIN-mac-arm64.dmg`,
-      macIntel: `${GH}/download/desktop-v1.0.2/LOCKIN-mac-x64.dmg`,
+      windows: `${GH}/download/desktop-v1.0.3/LOCKIN-win-x64.exe`,
+      macArm: `${GH}/download/desktop-v1.0.3/LOCKIN-mac-arm64.dmg`,
+      macIntel: `${GH}/download/desktop-v1.0.3/LOCKIN-mac-x64.dmg`,
     },
     notes: [
-      'Classes are transcribed with Whisper large-v3 turbo, the most accurate model, on computers fast enough for it (it steps down by itself if yours isn’t).',
-      '“Hey Lock In” and the assistant now listen on your computer too, nothing is sent anywhere, and answer in about a second.',
-      'A chime and a glow around the screen the moment it hears you.',
+      'Start recording from any app is now Ctrl+Alt+R (Cmd+Option+R on a Mac), so Ctrl+Shift+R refreshes your browser again.',
+      'New reading comfort settings: bigger text, an easier-to-read font, roomier spacing, stronger contrast and calm motion.',
+      'The assistant is one small button until you need it, and pages open faster.',
     ],
   },
 };
