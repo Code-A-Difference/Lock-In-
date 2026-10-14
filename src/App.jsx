@@ -18,6 +18,7 @@ import { AssistantProvider } from '@/lib/AssistantContext';
 import { PlannerProvider } from '@/lib/PlannerContext';
 import PlannerSheet from '@/components/lockin/PlannerSheet';
 import GraphPanel from '@/components/lockin/GraphPanel';
+import Reminders from '@/components/lockin/Reminders';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -141,6 +142,7 @@ const AuthenticatedApp = () => {
     <VoicePanel />
     <PlannerSheet />
     <GraphPanel />
+    <Reminders />
     </AssistantProvider>
     </PlannerProvider>
     </LectureProvider>

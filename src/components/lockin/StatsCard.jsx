@@ -1,5 +1,6 @@
 import React from 'react';
-import { Flame, Target } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronRight, Flame, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { focusStats, formatMinutes } from '@/lib/agenda';
 
@@ -51,6 +52,9 @@ export default function StatsCard({ sessions = [], goal = 120, className }) {
           <Target className="h-3.5 w-3.5" aria-hidden="true" />Goal hit for today.
         </p>
       )}
+      <Link to="/Progress" className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline">
+        See your progress<ChevronRight className="h-4 w-4" aria-hidden="true" />
+      </Link>
     </section>
   );
 }

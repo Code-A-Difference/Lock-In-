@@ -10,10 +10,10 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { db } from '@/api/db';
 import { useAuth } from '@/lib/AuthContext';
 import { useStudyData } from './data.js';
-import { makeSlot, mergeSlots, upcoming, schedulePrompt, SCHEDULE_SCHEMA, cleanSchedule, blocksLeftToday } from './planner.js';
+import { makeSlot, mergeSlots, upcoming, schedulePrompt, SCHEDULE_SCHEMA, cleanSchedule, blocksLeftToday, expandWeekly, makeBlock, editBlocks } from './planner.js';
 
 const Ctx = createContext(null);
-const EMPTY = { slots: [], notes: '', schedule: null, madeAt: null };
+const EMPTY = { slots: [], weekly: [], notes: '', schedule: null, madeAt: null };
 
 export function PlannerProvider({ children }) {
   const { user } = useAuth();
@@ -38,16 +38,40 @@ export function PlannerProvider({ children }) {
     saveTimer.current = setTimeout(() => { db.auth.updateMe({ planner: ref.current }).catch(() => {}); }, 500);
   }, []);
 
-  /** Returns the slot added, or { error }. */
-  const addSlot = useCallback((input) => {
+  /** Returns the slot added, or { error }. With weekly, the same time every week on that weekday. */
+  const addSlot = useCallback((input, { weekly = false } = {}) => {
     const slot = makeSlot(input);
     if (slot.error) return slot;
+    if (weekly) {
+      const dow = new Date(`${slot.date}T12:00:00`).getDay();
+      const rest = (ref.current.weekly || []).filter(w => !(w.dow === dow && w.start === slot.start));
+      save({ ...ref.current, weekly: [...rest, { dow, start: slot.start, end: slot.end }] });
+      return slot;
+    }
     save({ ...ref.current, slots: mergeSlots(upcoming([...ref.current.slots, slot])) });
     return slot;
   }, [save]);
 
+  /** A weekly slot stops repeating altogether; a one-off one just goes. */
   const removeSlot = useCallback((slot) => {
+    if (slot.weekly) {
+      const dow = new Date(`${slot.date}T12:00:00`).getDay();
+      save({ ...ref.current, weekly: (ref.current.weekly || []).filter(w => !(w.dow === dow && w.start === slot.start)) });
+      return;
+    }
     save({ ...ref.current, slots: ref.current.slots.filter(s => !(s.date === slot.date && s.start === slot.start)) });
+  }, [save]);
+
+  /** Change the plan by hand: index -1 adds, block null removes. Returns { error } if the block isn't valid. */
+  const editBlock = useCallback((index, input) => {
+    const sched = ref.current.schedule || { blocks: [], summary: '', notes: '' };
+    let block = null;
+    if (input !== null) {
+      block = makeBlock(input);
+      if (block.error) return block;
+    }
+    save({ ...ref.current, schedule: { ...sched, blocks: editBlocks(sched.blocks, index, block) }, madeAt: ref.current.madeAt || new Date().toISOString() });
+    return block || {};
   }, [save]);
 
   /** All free time, or just one day's. */
@@ -60,7 +84,7 @@ export function PlannerProvider({ children }) {
 
   /** Make the plan from the free time. Resolves with the schedule; throws with a readable reason. */
   const generate = useCallback(async (extraNotes) => {
-    const slots = upcoming(ref.current.slots);
+    const slots = mergeSlots([...upcoming(ref.current.slots), ...expandWeekly(ref.current.weekly)]);
     const { homework: hw, tests: ts } = data.current;
     if (!slots.length) throw new Error('Add some free time first, when are you free to study?');
     if (!hw.some(h => !h.is_completed) && !ts.length) throw new Error('There’s no homework or tests to plan yet.');
@@ -74,7 +98,7 @@ export function PlannerProvider({ children }) {
       });
       const schedule = cleanSchedule(raw);
       if (!schedule.blocks.length) throw new Error('The plan came back empty. Try adding more free time.');
-      save({ ...ref.current, slots, schedule, madeAt: new Date().toISOString() });
+      save({ ...ref.current, slots: upcoming(ref.current.slots), schedule, madeAt: new Date().toISOString() });
       return schedule;
     } catch (e) {
       setError(e.message || 'The plan could not be made.');
@@ -91,12 +115,15 @@ export function PlannerProvider({ children }) {
   }, []);
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
-  const slots = useMemo(() => upcoming(state.slots), [state.slots]);
+  // one-off free time and the weekly kind together, each slot saying which it is
+  const slots = useMemo(() => [...upcoming(state.slots), ...expandWeekly(state.weekly)]
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)), [state.slots, state.weekly]);
   const value = {
     slots, notes: state.notes, schedule: state.schedule, madeAt: state.madeAt,
     today: blocksLeftToday(state.schedule),
     open, setOpen, busy, error,
-    addSlot, removeSlot, clearSlots, setNotes, generate, clearPlan,
+    weekly: state.weekly || [],
+    addSlot, removeSlot, clearSlots, setNotes, generate, clearPlan, editBlock,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

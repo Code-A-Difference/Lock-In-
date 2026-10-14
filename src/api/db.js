@@ -406,6 +406,13 @@ export const accounts = {
     drop();
   },
 
+  /** The private link calendar apps subscribe to (fresh: a new one; the old one stops working). */
+  async calendarLink(fresh = false) {
+    need();
+    return (await call('calendar', { fresh })).url;
+  },
+  async calendarOff() { need(); await call('calendar-off'); },
+
   legacyAccounts,
   onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   current() { return session ? publicUser() : null; },
