@@ -314,7 +314,7 @@ export function LectureProvider({ children }) {
       }
       if (!/^image\/|application\/pdf/.test(f.type)) throw new Error(`${f.name}: add a PDF, a photo or a text file.`);
       const { file_url } = await db.integrations.Core.UploadFile({ file: f });
-      const out = await db.integrations.Core.InvokeLLM({ prompt: EXTRACT_PROMPT, file_urls: [file_url] });
+      const out = await db.integrations.Core.InvokeLLM({ feature: 'notes', prompt: EXTRACT_PROMPT, file_urls: [file_url] });
       if (String(out || '').trim()) parts.push(`${f.name}\n${String(out).trim()}`);
     }
     const material = parts.join('\n\n').slice(0, MATERIAL_MAX_CHARS);
@@ -343,7 +343,7 @@ export function LectureProvider({ children }) {
       if (f.size > 4 * 1024 * 1024) throw new Error(`${f.name} is over 4 MB. Export the slides as a smaller PDF, or add them a few pages at a time.`);
       onProgress?.(`Reading ${f.name}…`);
       const { file_url } = await db.integrations.Core.UploadFile({ file: f });
-      const text = String(await db.integrations.Core.InvokeLLM({ prompt: SLIDES_PROMPT, file_urls: [file_url] }) || '').trim();
+      const text = String(await db.integrations.Core.InvokeLLM({ feature: 'notes', prompt: SLIDES_PROMPT, file_urls: [file_url] }) || '').trim();
       if (text) decks.push({ name: f.name.replace(/\.[^.]+$/, ''), text: text.slice(0, 40000), added: new Date().toISOString() });
     }
     await actionsRef.current.updateLecture(lec.id, { slides: decks });

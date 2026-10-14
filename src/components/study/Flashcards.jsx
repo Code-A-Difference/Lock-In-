@@ -55,7 +55,7 @@ export default function Flashcards({ initial }) {
     if (m.trim().length < 80) { toast({ title: 'Not enough to make cards from', description: 'Pick a class with notes, or paste more text.', variant: 'destructive' }); return; }
     setBusy(true);
     try {
-      const raw = await db.integrations.Core.InvokeLLM({ prompt: cardsPrompt(m, { outside: allowOutside() }), response_json_schema: CARDS_SCHEMA, maxTokens: 3000 });
+      const raw = await db.integrations.Core.InvokeLLM({ feature: 'practice', prompt: cardsPrompt(m, { outside: allowOutside() }), response_json_schema: CARDS_SCHEMA, maxTokens: 3000 });
       const cards = normaliseCards(raw);
       if (!cards.length) throw new Error('No cards came back. Try again.');
       setStudying(await save(cards, title));

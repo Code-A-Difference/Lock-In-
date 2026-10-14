@@ -45,7 +45,7 @@ export default function QuizRunner({ quiz, timeLimit = 0, saved = null, onSubmit
     if (!answer) return { score: 0, verdict: 'incorrect', what_was_right: '', what_was_missing: 'No answer was given.', missing_points: q.key_points || [] };
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const g = await db.integrations.Core.InvokeLLM({ prompt: gradePrompt(q, answer), response_json_schema: GRADE_SCHEMA, maxTokens: 700 });
+        const g = await db.integrations.Core.InvokeLLM({ feature: 'practice', prompt: gradePrompt(q, answer), response_json_schema: GRADE_SCHEMA, maxTokens: 700 });
         return normaliseGrade(g);
       } catch (e) {
         if (attempt === 1) return { error: e.message || 'Couldn’t grade this one.' };
@@ -293,7 +293,7 @@ function QuestionChat({ q, number, answer, grade }) {
     setBusy(true);
     try {
       const { system, prompt } = askPrompt({ q, number, answer, grade: typeof grade?.score === 'number' ? grade : null, history, message: m });
-      const reply = await db.integrations.Core.InvokeLLM({ prompt, system, maxTokens: 1200 });
+      const reply = await db.integrations.Core.InvokeLLM({ feature: 'practice', prompt, system, maxTokens: 1200 });
       setMsgs(list => [...list, { role: 'ai', text: String(reply || '').trim() }]);
     } catch (e) {
       setMsgs(list => [...list, { role: 'ai', text: `Couldn’t answer that: ${e.message}`, error: true }]);

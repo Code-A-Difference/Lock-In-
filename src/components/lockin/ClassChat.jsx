@@ -42,7 +42,7 @@ export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onA
         notes: l.notes ? notesMarkdown(l.notes, { title: l.title }) : '',
         className: l.class_name, title: l.title, live: !!live, elapsed: live?.elapsed || l.duration || 0, history,
       });
-      const reply = await db.integrations.Core.InvokeLLM({ prompt, system, maxTokens: 700 });
+      const reply = await db.integrations.Core.InvokeLLM({ feature: 'assistant', prompt, system, maxTokens: 700 });
       const next = [...withQ, { role: 'ai', text: String(reply || '').trim(), at: Date.now() }].slice(-40);
       setMsgs(next);
       onSaveChat(next);

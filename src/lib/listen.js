@@ -17,7 +17,7 @@
  * In the desktop app both go through Whisper on the computer instead
  * (localEar.js), once its model is downloaded.
  */
-import { afterWake } from './wake.js';
+import { afterWake, stripWake } from './wake.js';
 import { nativeSpeech, wakeWord } from './native.js';
 import { canHearLocally, localReady, LocalEar, hearLocally, listenOnceLocally, cleanSpoken } from './localEar.js';
 import { Ring, hasVoiceprint, soundsLikeYou, openMic } from './voiceprint.js';
@@ -416,7 +416,9 @@ export class HandsFree {
 
   _flush() {
     clearTimeout(this.flushTimer);
-    const said = cleanSpoken(this.buffer || '');      // "(The study app)", "[BLANK_AUDIO]": noise, not a request
+    // Noise ("(The study app)", "[BLANK_AUDIO]") is not a request, and neither is the wake phrase
+    // itself, however the recogniser spelled it: "Hey, Compagnion." alone means "I'm about to ask".
+    const said = stripWake(cleanSpoken(this.buffer || ''));
     this.buffer = '';
     this.collecting = false;
     if (said) { this.armedUntil = 0; this.onCommand?.(said); }

@@ -592,7 +592,7 @@ const integrations = {
      * server-side. Returns a string, or a parsed object when the caller
      * asked for JSON, the same contract the pages were written against.
      */
-    async InvokeLLM({ prompt, system, response_json_schema, add_context_from_internet, file_urls, maxTokens, temperature, thinking } = {}) {
+    async InvokeLLM({ prompt, system, response_json_schema, add_context_from_internet, file_urls, maxTokens, temperature, thinking, feature = 'assistant' } = {}) {
       const files = (file_urls || []).map(dataUrlToPart).filter(Boolean);
       const wantJson = !!response_json_schema;
       const body = {
@@ -606,6 +606,7 @@ const integrations = {
         json: wantJson,
         search: !!add_context_from_internet && !wantJson,
         files,
+        feature,                 // which feature is asking: the server can give each its own keys
       };
 
       // If the answer lags, a second request races it from another key or model (lib/aiRace.js).

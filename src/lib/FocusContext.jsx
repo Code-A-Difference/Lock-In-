@@ -478,7 +478,7 @@ export function FocusProvider({ children }) {
       case 'createQuiz': {
         const topic = String(cmd.topic || '').trim();
         if (!topic) { reply = 'What topic should I quiz you on?'; break; }
-        const result = await db.integrations.Core.InvokeLLM({
+        const result = await db.integrations.Core.InvokeLLM({ feature: 'assistant',
           prompt: `Create a short spoken multiple-choice practice quiz for a student on "${topic}". Create 5 clear questions, each with exactly four short options and one correct answer. Return JSON only.`,
           response_json_schema: {
             type: 'object', properties: { questions: { type: 'array', items: { type: 'object', properties: {

@@ -15,7 +15,7 @@ async function ask(request, tries = 4) {
   let wait = 3000;
   for (let i = 0; ; i++) {
     try {
-      return await db.integrations.Core.InvokeLLM(request);
+      return await db.integrations.Core.InvokeLLM({ feature: 'notes', ...request });
     } catch (e) {
       const busy = /demand|busy|overload|try again|temporar|unavailable|\b50[234]\b|429/i.test(e?.message || '');
       if (!busy || i >= tries - 1) throw e;

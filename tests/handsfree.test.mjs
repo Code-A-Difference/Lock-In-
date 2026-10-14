@@ -161,3 +161,18 @@ test('tap to talk keeps listening through a breath and sends what it showed, unf
     assert.equal(shown.at(-1), 'explain how photosynthesis works in');
   } finally { mock.timers.reset(); }
 });
+
+test('"Hey Companion" said alone is never sent as the request, however it was spelled', timed(() => {
+  const { hf, log, made } = make();
+  hf.start();
+  const r = made[0];
+  r.say('hey companion', false);
+  assert.equal(log.wake, 1);
+  r.say('Hey, Compagnion.', true);           // the final result spells it differently
+  mock.timers.tick(3000);
+  assert.deepEqual(log.cmds, []);             // nothing sent: still waiting for the question
+  r.say('what is due tomorrow', true, 1);
+  mock.timers.tick(1400);
+  assert.deepEqual(log.cmds, ['what is due tomorrow']);
+  hf.stop();
+}));

@@ -30,6 +30,11 @@ export const AI_VOICES = [
 
 let settings = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1 };
 let aiUnavailable = false;        // this session, the proxy said it can't do speech
+// The AI voice was slow or failed: keep to the device's voice for a while, so one conversation
+// doesn't hop between two voices from one reply to the next.
+let deviceVoiceUntil = 0;
+const STICK_MS = 15 * 60 * 1000;
+const FIRST_SOUND_MS = 2800;      // longer than this before the AI voice starts, and the device voice speaks instead
 let playToken = 0;
 let speaking = 0;                 // speak() calls that haven't finished
 const pending = new Map();        // token -> its finish(), so stopping resolves the promise
@@ -164,27 +169,41 @@ function playUrl(url, token) {
  * starting the answer over.
  */
 async function speakAi(text, token, onStart, onEnd) {
-  // A short first piece (about a sentence) starts playing sooner; the rest is fetched while it plays.
+  // A short first piece (about a sentence) starts playing sooner. The rest goes in pieces of a
+  // couple of sentences, each fetched two ahead while the one before plays, so there's no gap.
   const small = chunks(text, 110);
-  const parts = small.length > 1 ? [small[0], ...chunks(small.slice(1).join(' '), 600)] : small;
-  const fetchPart = (i) => { const p = aiAudioUrl(parts[i]); p.catch(() => {}); return p; };
-  let next = fetchPart(0);
+  const parts = small.length > 1 ? [small[0], ...chunks(small.slice(1).join(' '), 220)] : small;
+  const fetched = [];
+  const fetchPart = (i) => {
+    if (i >= parts.length || fetched[i]) return;
+    // one quiet retry before giving up on a piece
+    fetched[i] = aiAudioUrl(parts[i]).catch(() => aiAudioUrl(parts[i]));
+    fetched[i].catch(() => {});
+  };
+  fetchPart(0);
+  fetchPart(1);
   for (let i = 0; i < parts.length; i++) {
     let url;
     try {
-      url = await next;
+      // the first piece has a deadline: waiting longer than that leaves the student reading in silence
+      url = i === 0 && settings.engine !== 'ai'
+        ? await Promise.race([fetched[0], new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('slow'), { slow: true })), FIRST_SOUND_MS))])
+        : await fetched[i];
     } catch (e) {
       if (i === 0) throw e;
+      deviceVoiceUntil = Date.now() + STICK_MS;
       if (token === playToken) speakBrowser(parts.slice(i).join(' '), token, null, onEnd);
       return;
     }
     if (token !== playToken) return;
-    if (i + 1 < parts.length) next = fetchPart(i + 1);   // fetch ahead while this one plays
+    fetchPart(i + 1);
+    fetchPart(i + 2);
     if (i === 0) onStart?.('ai', settings.aiVoice);
     try {
       await playUrl(url, token);
     } catch (e) {
       if (i === 0) throw e;                                // e.g. autoplay blocked
+      deviceVoiceUntil = Date.now() + STICK_MS;
       if (token === playToken) speakBrowser(parts.slice(i).join(' '), token, null, onEnd);
       return;
     }
@@ -221,13 +240,15 @@ export function speak(text, { onStart, onEnd } = {}) {
     (async () => {
       // "auto" means fastest-good: a device voice that already sounds natural speaks
       // instantly, where the AI voice costs a network round trip per sentence.
-      const tryAi = settings.engine === 'ai' || (settings.engine === 'auto' && !aiUnavailable && !hasNaturalBrowserVoice());
+      const tryAi = settings.engine === 'ai'
+        || (settings.engine === 'auto' && !aiUnavailable && !hasNaturalBrowserVoice() && Date.now() > deviceVoiceUntil);
       if (tryAi && typeof fetch !== 'undefined') {
         try {
           await speakAi(clean, token, onStart, finish);
           return;
         } catch (e) {
           if (e.permanent) aiUnavailable = true;
+          else deviceVoiceUntil = Date.now() + STICK_MS;    // slow or busy: the device voice, consistently, for a while
           if (token !== playToken) return;
         }
       }

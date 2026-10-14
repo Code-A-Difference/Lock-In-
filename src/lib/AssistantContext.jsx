@@ -50,11 +50,11 @@ function readDataUrl(file) {
 /** The model being briefly overloaded is worth one more try; anything else isn't. */
 async function ask(request) {
   try {
-    return await db.integrations.Core.InvokeLLM(request);
+    return await db.integrations.Core.InvokeLLM({ ...request, feature: 'assistant' });
   } catch (e) {
     if (!/demand|busy|overload|try again|temporar|unavailable|\b50[234]\b|429/i.test(e?.message || '')) throw e;
     await new Promise(r => setTimeout(r, 1500));
-    return db.integrations.Core.InvokeLLM(request);
+    return db.integrations.Core.InvokeLLM({ ...request, feature: 'assistant' });
   }
 }
 
@@ -217,9 +217,9 @@ export function AssistantProvider({ children }) {
     }
   }, [navigate, qc]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const say = useCallback((text) => {
+  const say = useCallback((text, opts = {}) => {
     setSpeaking(true);
-    return speak(text).finally(() => setSpeaking(false));
+    return speak(text, opts).finally(() => setSpeaking(false));
   }, []);
 
   /**
@@ -303,9 +303,20 @@ export function AssistantProvider({ children }) {
     } finally {
       setBusy(false);
     }
-    push({ role: 'assistant', text: reply });
     const talk = (via === 'voice' || L.readAloud) && spoken;
-    return { reply, finished: talk ? say(spoken) : Promise.resolve() };
+    if (!talk) {
+      push({ role: 'assistant', text: reply });
+      return { reply, finished: Promise.resolve() };
+    }
+    // Spoken: the words appear as the voice starts, not seconds before it (reading a reply to the
+    // end and only then hearing it was the awkward part). A voice that's slow to start doesn't hold
+    // the text back for long.
+    let shown = false;
+    setBusy(true);                         // still "thinking" on screen until the reply appears
+    const show = () => { if (!shown) { shown = true; setBusy(false); push({ role: 'assistant', text: reply }); } };
+    const late = setTimeout(show, 3000);
+    const finished = say(spoken, { onStart: () => { clearTimeout(late); show(); } }).finally(() => { clearTimeout(late); show(); });
+    return { reply, finished };
   }, [execute, push, say]);
 
   /** A fresh conversation: every opening of the assistant starts one. */
