@@ -36,8 +36,9 @@ function paint() {
   $('label').textContent = label;
   $('time').textContent = time;
   const running = rec ? !rec.paused : f && f.status === 'running';
-  $('ico-play').hidden = !!running;
-  $('ico-pause').hidden = !running;
+  // SVG elements have no .hidden property, so the attribute is what gets set
+  $('ico-play').toggleAttribute('hidden', !!running);
+  $('ico-pause').toggleAttribute('hidden', !running);
   $('toggle').setAttribute('aria-label', mainLabel);
   $('toggle').title = mainLabel;
   $('stop').hidden = !rec;
