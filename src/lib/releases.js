@@ -15,13 +15,13 @@ const GH = 'https://github.com/Code-A-Difference/Lock-In-/releases';
 
 export const RELEASES = {
   android: {
-    version: '1.3.2',
-    date: '2026-10-13',
+    version: '1.3.3',
+    date: '2026-10-14',
     url: `${GH}/latest/download/LOCKIN-android.apk`,
     notes: [
-      'The assistant is now called Companion, and you wake it by saying “Hey Companion”, a phrase people rarely say by accident.',
-      'Background noise is ignored instead of being sent to the assistant as if you had said it.',
-      'Turn it on or off in Settings → “Hey Companion”.',
+      'Reminders before homework and tests are due, even when the app is closed. Turn them on in Settings → Reminders.',
+      'Put your homework, tests and study plan in Google Calendar (Settings → Calendar).',
+      'A Progress page, editable study plans with free time that repeats every week, and notes you can send to Google Docs, OneNote or Notion.',
     ],
   },
   desktop: {
