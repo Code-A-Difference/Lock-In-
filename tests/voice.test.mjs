@@ -124,8 +124,9 @@ test('nonsense is unknown, silence is none', () => {
 });
 
 test('wake phrase', () => {
-  assert.equal(afterWake('hey lock in start a focus'), 'start a focus');
-  assert.equal(afterWake('ok log in pause'), 'pause');
-  assert.equal(afterWake('companion how much time is left'), 'how much time is left');
+  assert.equal(afterWake('hey companion start a focus'), 'start a focus');
+  assert.equal(afterWake('ok log in pause'), null);
+  assert.equal(afterWake('okay companion how much time is left'), 'how much time is left');
+  assert.equal(afterWake('companion how much time is left'), null);
   assert.equal(afterWake('i was just talking'), null);
 });

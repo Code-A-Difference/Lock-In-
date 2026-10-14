@@ -36,10 +36,10 @@ test('wakes on the interim words, acts on the whole sentence once you pause', ti
   const r = made[0];
   r.say('hey lock', false);                  // not yet a wake phrase
   assert.equal(log.wake, 0);
-  r.say('hey locking start a focus', false);
+  r.say('hey companiong start a focus', false);
   assert.equal(log.wake, 1);                  // the chime can play now
   assert.deepEqual(log.cmds, []);
-  r.say('hey locking start a focus session for 50 minutes', true);
+  r.say('hey companiong start a focus session for 50 minutes', true);
   assert.equal(log.wake, 1);                  // not announced twice
   assert.deepEqual(log.cmds, []);             // still listening for more
   mock.timers.tick(1400);
@@ -51,7 +51,7 @@ test('a long request that arrives in pieces is sent whole, not just its first pi
   const { hf, log, made } = make();
   hf.start();
   const r = made[0];
-  r.say('hey lock in add a biology test', true, 0);
+  r.say('hey companion add a biology test', true, 0);
   mock.timers.tick(500);
   r.say('on friday about cell', false, 1);
   mock.timers.tick(1500);                     // still talking (interim), so not sent yet
@@ -74,7 +74,7 @@ test('speech with no wake phrase is ignored, a classmate saying "stop" does noth
 test('after the wake phrase alone, or after an answer, the next sentence needs no wake phrase', timed(() => {
   const { hf, log, made } = make();
   hf.start();
-  made[0].say('hey lock in', true);
+  made[0].say('hey companion', true);
   assert.equal(log.wake, 1);
   mock.timers.tick(1400);
   made[0].say('what is due tomorrow', true);
@@ -94,12 +94,12 @@ test('it does not hear itself: results are dropped while muted, without closing 
   const { hf, log, made } = make();
   hf.start();
   hf.setMuted(true);
-  made[0].say('hey lock in you have two things due', true);
+  made[0].say('hey companion you have two things due', true);
   assert.equal(log.wake, 0);
   assert.equal(made.length, 1);               // no teardown, no new session
   assert.notEqual(made[0].aborted, true);
   hf.setMuted(false);
-  made[0].say('hey lock in', true);           // still deaf for the echo tail
+  made[0].say('hey companion', true);           // still deaf for the echo tail
   assert.equal(log.wake, 0);
   hf.stop();
 });

@@ -52,9 +52,9 @@ public class WakeWordPlugin extends Plugin {
     private static final String MODEL_NAME = "vosk-model-small-en-us-0.15";
     private static final String MODEL_URL = "https://alphacephei.com/vosk/models/" + MODEL_NAME + ".zip";
     private static final int RATE = 16000;
-    // What people say, and how recognisers hear "lock in". Anything else is [unk].
-    private static final String GRAMMAR = "[\"hey lock in\", \"hey locking\", \"hey look in\", \"hey log in\", \"hey luck in\", "
-        + "\"hay lock in\", \"hi lock in\", \"okay lock in\", \"ok lock in\", \"okay locking\", \"hello lock in\", \"hey locked in\", \"hey lock it\", \"hey lockin\", \"[unk]\"]";
+    // The wake phrase and nothing else; anything else is [unk]. It used to be "hey lock in", which
+    // students say to each other, and which "looking" and "log in" were heard as.
+    private static final String GRAMMAR = "[\"hey companion\", \"hi companion\", \"hello companion\", \"okay companion\", \"ok companion\", \"[unk]\"]";
     private static final double MIN_CONF = 0.5;   // 0.6 missed real, slightly mumbled wake phrases
 
     private volatile Thread worker;
@@ -170,7 +170,7 @@ public class WakeWordPlugin extends Plugin {
             // say so now: closing the recogniser can take a moment, and the chime shouldn't wait for it
             if (woke) {
                 JSObject o = new JSObject();
-                o.put("text", "hey lock in");
+                o.put("text", "hey companion");
                 notifyListeners("wake", o);
             }
             if (recognizer != null) recognizer.close();
@@ -179,7 +179,7 @@ public class WakeWordPlugin extends Plugin {
     }
 
     private static final java.util.regex.Pattern WAKE =
-        java.util.regex.Pattern.compile("^(hey|hay|hi|hello|okay|ok)\\s+(lock in|locking|look in|log in|luck in|locked in|lock it|lockin)\\b.*");
+        java.util.regex.Pattern.compile("^(hey|hi|hello|okay|ok)\\s+companion\\b.*");
 
     /** The wake phrase in a partial result ({"partial": "..."}), or null. */
     private String wakeIn(String json) {
@@ -196,8 +196,8 @@ public class WakeWordPlugin extends Plugin {
         try {
             JSONObject r = new JSONObject(json);
             String text = r.optString("text", "").replace("[unk]", "").trim();
-            // a greeting, then the name: "the lock is in the door" is not a wake phrase
-            if (!text.matches("^(hey|hay|hi|hello|okay|ok)\\s+(lock in|locking|look in|log in|luck in|locked in|lock it|lockin)\\b.*")) return false;
+            // a greeting, then the name: "my companion" is not a wake phrase
+            if (!WAKE.matcher(text).matches()) return false;
             JSONArray words = r.optJSONArray("result");
             if (words == null || words.length() == 0) return false;
             double sum = 0;

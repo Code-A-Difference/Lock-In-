@@ -85,7 +85,7 @@ test('the system prompt carries the live state', () => {
 
 test('the prompt is bounded and keeps the conversation', () => {
   const history = [{ role: 'user', text: 'explain mitosis' }, { role: 'assistant', text: 'Mitosis is cell division.' }];
-  assert.match(transcriptOf(history), /Student: explain mitosis\nLock In: Mitosis/);
+  assert.match(transcriptOf(history), /Student: explain mitosis\nCompanion: Mitosis/);
   const p = buildPrompt({ text: 'why?', history, material: 'x'.repeat(40000), limit: 12000 });
   assert.ok(p.length <= 12000);
   assert.match(p, /Student: why\?/);

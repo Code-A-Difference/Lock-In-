@@ -59,15 +59,40 @@ let recording = false;
 
 const send = (channel, data) => { if (win && !win.isDestroyed()) win.webContents.send(channel, data); };
 
+/**
+ * Saved bounds, if a screen that's connected now still shows a good part of them. A window
+ * last left on a monitor that has since been unplugged (or a laptop off its dock) would
+ * otherwise open where nobody can see it, which looks exactly like the app not opening.
+ */
+function visibleBounds(b) {
+  if (!b || !Number.isFinite(b.x) || !Number.isFinite(b.y)) return null;
+  const seen = screen.getAllDisplays().some(({ workArea: a }) => {
+    const w = Math.min(b.x + b.width, a.x + a.width) - Math.max(b.x, a.x);
+    const h = Math.min(b.y + b.height, a.y + a.height) - Math.max(b.y, a.y);
+    return w >= 200 && h >= 120;
+  });
+  return seen ? b : null;
+}
+
+/** Move the window onto the screen the mouse is on, if it isn't on any screen now. */
+function bringOnScreen() {
+  if (!win || win.isDestroyed() || visibleBounds(win.getBounds())) return;
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const { width, height } = win.getBounds();
+  const w = Math.min(width, area.width), h = Math.min(height, area.height);
+  win.setBounds({ x: Math.round(area.x + (area.width - w) / 2), y: Math.round(area.y + (area.height - h) / 2), width: w, height: h });
+}
+
 function showWindow() {
   if (!win) return;
   if (win.isMinimized()) win.restore();
+  bringOnScreen();
   win.show();
   win.focus();
 }
 
 function createWindow({ hidden = false } = {}) {
-  const b = settings.bounds || {};
+  const b = visibleBounds(settings.bounds) || { width: settings.bounds?.width, height: settings.bounds?.height };
   win = new BrowserWindow({
     width: b.width || 1200, height: b.height || 820, x: b.x, y: b.y,
     minWidth: 340, minHeight: 420,
@@ -87,7 +112,19 @@ function createWindow({ hidden = false } = {}) {
   });
   win.removeMenu();
   win.loadURL(SITE);
-  win.once('ready-to-show', () => { if (!hidden) win.show(); });
+  win.once('ready-to-show', () => { if (!hidden) showWindow(); });
+  // The site can stall (a slow network, the host's browser check): after 30 s of nothing,
+  // show the page that says so and has a Try again button, rather than a blank window.
+  const stalled = setTimeout(() => {
+    if (win && !win.isDestroyed() && win.webContents.isLoading()) {
+      win.webContents.stop();
+      win.loadFile(path.join(__dirname, 'offline.html'), { query: { to: SITE } });
+      if (!hidden) showWindow();
+    }
+  }, 30000);
+  win.webContents.once('did-finish-load', () => clearTimeout(stalled));
+  screen.on('display-removed', bringOnScreen);
+  screen.on('display-metrics-changed', bringOnScreen);
 
   // Only LOCK IN! itself loads inside the window; other links open in the browser.
   win.webContents.setWindowOpenHandler(({ url }) => {
