@@ -23,3 +23,16 @@ test('ordinary talk does not wake it', () => {
     assert.equal(findWake(said), null, `should not wake on "${said}"`);
   }
 });
+
+test('the wake phrase never goes out as the request', async () => {
+  const { stripWake } = await import('../src/lib/wake.js');
+  assert.equal(stripWake('Hey Companion.'), '');
+  assert.equal(stripWake('Hey, Compagnion!'), '');
+  assert.equal(stripWake('hey compenion what is due'), 'what is due');
+  assert.equal(stripWake('Companions, start a timer'), 'start a timer');
+  assert.equal(stripWake('Hey.'), '');
+  assert.equal(stripWake('What is due tomorrow?'), 'What is due tomorrow?');
+  assert.equal(stripWake('Company of Heroes is a game'), 'Company of Heroes is a game');
+  assert.equal(stripWake('Compare these two answers'), 'Compare these two answers');
+  assert.equal(stripWake('Complete my chemistry homework'), 'Complete my chemistry homework');
+});

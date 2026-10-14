@@ -14,6 +14,8 @@ import { useStudyData } from '@/lib/data';
 import { listenOnce, HandsFree, canListen, canHandsFree } from '@/lib/listen';
 import { useHandsFree, setHandsFree as saveHandsFree, readHandsFree, shouldSuggest, snoozeSuggestion, useWakePhrase, TRAINING_EVENT } from '@/lib/handsfreePref';
 import { hasVoiceprint } from '@/lib/voiceprint';
+import { stripWake } from '@/lib/wake';
+import { cleanSpoken } from '@/lib/localEar';
 import VoiceTraining from '@/components/lockin/VoiceTraining';
 import { isNativeApp, platform, appNeedsUpdate, APK_URL } from '@/lib/native';
 import { chime, unlockAudio } from '@/lib/soundscape';
@@ -101,8 +103,12 @@ export default function VoicePanel() {
     setHeard('');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sendVoice = useCallback(async (text) => {
+  const sendVoice = useCallback(async (raw) => {
     setHeard('');
+    // Every way speech arrives ends here (the phone's recogniser skips the hands-free filter), so
+    // the wake phrase and noise are taken off once more: on their own they are not a request.
+    const text = stripWake(cleanSpoken(raw));
+    if (!text) { hf.current?.extend(8000); if (hf.current?.running) setArmed(true); return { followUp: true }; }
     setArmed(false);
     if (isDismissal(text)) { dismiss(); return { followUp: false }; }
     const r = await sendRef.current(text, { via: 'voice' });

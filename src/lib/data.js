@@ -116,7 +116,7 @@ export function useActions() {
       let steps = null, source = 'ai', reason = '';
       try {
         const { prompt, response_json_schema } = breakdownRequest(hw);
-        steps = stepsFromAi(await db.integrations.Core.InvokeLLM({ prompt, response_json_schema }));
+        steps = stepsFromAi(await db.integrations.Core.InvokeLLM({ feature: 'assistant', prompt, response_json_schema }));
         if (!steps) reason = 'The AI reply was not a usable checklist.';
       } catch (e) {
         reason = e?.message || 'The AI is unavailable.';

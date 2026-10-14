@@ -68,7 +68,7 @@ export function PlannerProvider({ children }) {
     setError('');
     try {
       const notes = [ref.current.notes, extraNotes].filter(Boolean).join('. ');
-      const raw = await db.integrations.Core.InvokeLLM({
+      const raw = await db.integrations.Core.InvokeLLM({ feature: 'assistant',
         prompt: schedulePrompt({ homework: hw, tests: ts, slots, notes }),
         response_json_schema: SCHEDULE_SCHEMA,
       });

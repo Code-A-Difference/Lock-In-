@@ -72,3 +72,24 @@ export function afterWake(text) {
 
 // kept for callers that want the pattern itself
 export const WAKE_RE = WAKE;
+
+/**
+ * The request with the wake phrase taken off the front, however it was written down.
+ * By the time something is sent, the wake-up has already happened, so a loose read is
+ * safe here: "Hey, Compagnion." or "Companions, what's due?" lose their first words,
+ * and "Hey Companion" on its own becomes '' (nothing to send yet). Without a greeting,
+ * only a word very close to the name is removed, so "Company of Heroes" survives.
+ */
+export function stripWake(text) {
+  const t = String(text || '').trim();
+  const exact = afterWake(t);
+  if (exact !== null) return exact;
+  const m = /^(?:(hey|hi|hello|ok|okay|okey|hay|hei|ay|a)[\s,.!]+)?([a-z']+)(?:[\s,.!?:;-]+|$)/i.exec(t);
+  if (m) {
+    const w = m[2].toLowerCase().replace(/'/g, '');
+    const near = w.length >= 6 && /^[ck]/.test(w) && distance(w, 'companion') <= (m[1] ? 3 : 2);
+    if (near) return t.slice(m[0].length).trim();
+  }
+  // a greeting alone ("Hey.") is what's left when the name was lost in the noise
+  return /^(?:hey|hi|hello|ok|okay)[\s,.!?]*$/i.test(t) ? '' : t;
+}

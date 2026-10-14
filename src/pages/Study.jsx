@@ -48,7 +48,7 @@ export default function Study() {
   const checkKeys = async (questions) => {
     setMakingStep('Checking the answers…');
     try {
-      const raw = await db.integrations.Core.InvokeLLM({ prompt: checkPrompt(questions), response_json_schema: CHECK_SCHEMA, maxTokens: 1500 });
+      const raw = await db.integrations.Core.InvokeLLM({ feature: 'practice', prompt: checkPrompt(questions), response_json_schema: CHECK_SCHEMA, maxTokens: 1500 });
       return applyChecks(questions, raw);
     } catch (_) {
       return questions;
@@ -145,11 +145,11 @@ Be constructive, encouraging, and specific.`;
       let response;
       if (useTextInput && pastedWork) {
         prompt += `\n\nStudent's work:\n${pastedWork}`;
-        response = await db.integrations.Core.InvokeLLM({ prompt });
+        response = await db.integrations.Core.InvokeLLM({ feature: 'practice', prompt });
         setGradingResult(response);
       } else if (selectedFile) {
         const { file_url } = await db.integrations.Core.UploadFile({ file: selectedFile });
-        response = await db.integrations.Core.InvokeLLM({
+        response = await db.integrations.Core.InvokeLLM({ feature: 'practice',
           prompt,
           file_urls: [file_url]
         });
@@ -182,7 +182,7 @@ Be constructive, encouraging, and specific.`;
     setQuizResults(null);
     try {
       const { text } = gatherMaterial(chosenSources);
-      const response = await db.integrations.Core.InvokeLLM({
+      const response = await db.integrations.Core.InvokeLLM({ feature: 'practice',
         prompt: classQuizPrompt({ className: quizClass, focus: quizFocus.trim(), material: text, count: quizCount, written: writtenCount(quizCount, includeWritten), difficulty }),
         response_json_schema: QUIZ_SCHEMA,
       });
@@ -222,7 +222,7 @@ Be constructive, encouraging, and specific.`;
       const className = test?.class_name || customQuizClass;
       const description = customDesc || test?.notes || '';
       
-      const response = await db.integrations.Core.InvokeLLM({
+      const response = await db.integrations.Core.InvokeLLM({ feature: 'practice',
         prompt: `Write a practice quiz for: "${title}"${className ? ` in ${className}` : ''}.
 ${description ? `Topics, notes or description:\n${description}\n` : ''}${fileUrls.length ? 'Use the attached study material as the source.\n' : ''}
 ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, useWritten) })}`,
