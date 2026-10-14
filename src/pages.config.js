@@ -12,6 +12,7 @@ const Study = lazy(() => import('./pages/Study'));
 const Classes = lazy(() => import('./pages/Classes'));
 const Notes = lazy(() => import('./pages/Notes'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Progress = lazy(() => import('./pages/Progress'));
 import __Layout from './Layout.jsx';
 
 export const PAGES = {
@@ -21,6 +22,7 @@ export const PAGES = {
     "Notes": Notes,
     "Classes": Classes,
     "Settings": Settings,
+    "Progress": Progress,
 }
 
 export const pagesConfig = {

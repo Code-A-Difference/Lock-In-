@@ -137,3 +137,43 @@ export function niceTime(hhmm) {
   if (Number.isNaN(h)) return hhmm;
   return `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, '0')}` : ''} ${h < 12 ? 'am' : 'pm'}`;
 }
+
+/* ------------------------------------------------------------ weekly free time */
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const weekdayName = (dow) => WEEKDAY[dow] || '';
+
+/** Free time that repeats ({dow, start, end}) as dated slots for the next `days` days, marked weekly. */
+export function expandWeekly(weekly, now = new Date(), days = 14) {
+  const out = [];
+  for (let n = 0; n < days; n++) {
+    const d = addDays(now, n);
+    for (const w of weekly || []) {
+      if (w.dow === d.getDay()) out.push({ date: ymd(d), start: w.start, end: w.end, weekly: true });
+    }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------ editing the plan */
+
+/** A block as typed in the plan editor -> a clean block, or { error }. */
+export function makeBlock({ date, start, end, title, type = 'study' }) {
+  const s = parseTime(start);
+  const e = parseTime(end);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return { error: 'Pick a day.' };
+  if (!s || !e) return { error: 'Give a start and an end time.' };
+  if (minutes(e) <= minutes(s)) return { error: 'It has to end after it starts.' };
+  const t = String(title || '').trim();
+  if (!t) return { error: 'Say what the block is for.' };
+  return { date, start: s, end: e, title: t, type: ['homework', 'study', 'break'].includes(type) ? type : 'study', priority: '', reason: '', edited: true };
+}
+
+/** The plan's blocks, sorted, with one replaced (index), removed (null) or added (index -1). */
+export function editBlocks(blocks, index, block) {
+  const list = [...(blocks || [])];
+  if (index === -1) list.push(block);
+  else if (block === null) list.splice(index, 1);
+  else list[index] = block;
+  return list.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+}

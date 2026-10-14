@@ -65,3 +65,25 @@ test('the assistant can drive the planner, edits, classes and tools', () => {
   assert.equal(actionToCommand({ name: 'setDarkMode', on: false }).on, false);
   assert.equal(actionToCommand({ name: 'openCamera' }).action, 'openCamera');
 });
+
+import { expandWeekly, makeBlock, editBlocks } from '../src/lib/planner.js';
+
+test('weekly free time becomes the next two weeks of slots', () => {
+  const now = new Date(2026, 9, 13, 12);        // a Tuesday
+  const s = expandWeekly([{ dow: 2, start: '15:30', end: '18:00' }], now);
+  assert.deepEqual(s.map(x => x.date), ['2026-10-13', '2026-10-20']);
+  assert.ok(s.every(x => x.weekly));
+});
+
+test('editing the plan: add, change, remove, always in time order', () => {
+  const a = makeBlock({ date: '2026-10-14', start: '4pm', end: '5pm', title: 'Essay' });
+  assert.equal(a.start, '16:00');
+  assert.ok(makeBlock({ date: '2026-10-14', start: '5pm', end: '4pm', title: 'x' }).error);
+  assert.ok(makeBlock({ date: '2026-10-14', start: '4pm', end: '5pm', title: ' ' }).error);
+  let list = editBlocks([], -1, a);
+  list = editBlocks(list, -1, makeBlock({ date: '2026-10-14', start: '15:00', end: '15:45', title: 'Maths' }));
+  assert.deepEqual(list.map(b => b.title), ['Maths', 'Essay']);
+  list = editBlocks(list, 1, { ...list[1], title: 'Essay draft' });
+  list = editBlocks(list, 0, null);
+  assert.deepEqual(list.map(b => b.title), ['Essay draft']);
+});

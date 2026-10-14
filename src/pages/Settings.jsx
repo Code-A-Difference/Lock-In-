@@ -10,7 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { readComfort, saveComfort, SIZES } from '@/lib/comfort';
-import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic } from "lucide-react";
+import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic, Bell, CalendarDays, Copy } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
@@ -22,6 +22,8 @@ import { canHandsFree } from '@/lib/listen';
 import { useHandsFree, setHandsFree, useWakePhrase } from '@/lib/handsfreePref';
 import { hasVoiceprint, forgetVoiceprint } from '@/lib/voiceprint';
 import VoiceTraining from '@/components/lockin/VoiceTraining';
+import { allowReminders } from '@/components/lockin/Reminders';
+import { DEFAULT_REMINDERS } from '@/lib/reminders';
 import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } from '@/lib/desktop';
 import { phoneWhisper, forgetReady } from '@/lib/localEar';
 
@@ -444,6 +446,10 @@ export default function Settings() {
           </Row>
         </Section>
 
+        <RemindersSection />
+
+        <CalendarSection />
+
         <HeyCompanionSection />
 
         <Section icon={AudioLines} title="Voice" description="How the assistant and the timer sound.">
@@ -666,6 +672,110 @@ function HeyCompanionSection() {
         </Row>
       )}
       <VoiceTraining open={training} onOpenChange={setTraining} onDone={() => { if (thenOn) setHandsFree(true); }} />
+    </Section>
+  );
+}
+
+/** Deadline reminders: on or off, and when. Saved to the account, shown on every device that's signed in. */
+function RemindersSection() {
+  const { user } = useAuth();
+  const r = { ...DEFAULT_REMINDERS, ...(user?.reminders || {}) };
+  const [note, setNote] = useState('');
+  const save = (patch) => db.auth.updateMe({ reminders: { ...r, ...patch } })
+    .catch(() => toast({ title: "Couldn't save that", description: 'Check your connection and try again.', variant: 'destructive' }));
+  const toggle = async (on) => {
+    if (on && !(await allowReminders())) {
+      setNote(isNativeApp ? 'Notifications are blocked for LOCK IN!. Allow them in the phone’s settings, then switch this on again.'
+        : 'Notifications are blocked. Allow them for this site (the lock icon by the address), then switch this on again.');
+      return;
+    }
+    setNote('');
+    save({ on });
+  };
+  const timeBox = 'h-11 rounded-lg border bg-background px-2 text-sm tabular-nums text-foreground';
+  return (
+    <Section icon={Bell} title="Reminders" description="A notification before homework and tests are due.">
+      <Row id="remindersOn" label="Remind me about deadlines"
+        hint={isNativeApp ? 'Arrives even when the app is closed.' : isDesktop ? 'Arrives while LOCK IN! is running, including in the tray.' : 'Arrives while LOCK IN! is open in this browser. The desktop and phone apps remind you even when they’re in the background.'}>
+        <Switch id="remindersOn" checked={!!r.on} onCheckedChange={toggle} />
+      </Row>
+      {note && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{note}</p>}
+      {r.on && (
+        <>
+          <Row id="remEvening" label="The evening before" hint="Homework due tomorrow, tests tomorrow.">
+            <input id="remEvening" type="time" value={r.eveningBefore} className={timeBox} onChange={e => e.target.value && save({ eveningBefore: e.target.value })} />
+          </Row>
+          <Row id="remMorning" label="The morning it’s due" hint="Homework and tests that are today.">
+            <input id="remMorning" type="time" value={r.morningOf} className={timeBox} onChange={e => e.target.value && save({ morningOf: e.target.value })} />
+          </Row>
+          <Row id="remTests" label="Early warning for tests" hint="An extra reminder some days before.">
+            <select id="remTests" value={r.testDaysBefore} className={timeBox} onChange={e => save({ testDaysBefore: Number(e.target.value) })}>
+              <option value={0}>Off</option>
+              {[2, 3, 5, 7].map(n => <option key={n} value={n}>{n} days before</option>)}
+            </select>
+          </Row>
+          <Row id="remBlocks" label="Planned study blocks" hint="5 minutes before each block in your plan starts.">
+            <Switch id="remBlocks" checked={!!r.blocks} onCheckedChange={(on) => save({ blocks: on })} />
+          </Row>
+        </>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * Homework, tests and the study plan in the student's own calendar app, through a private
+ * link the app keeps checking. Download is there too, for a one-time copy.
+ */
+function CalendarSection() {
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const get = async (fresh = false) => {
+    setBusy(true);
+    try { setUrl(await accounts.calendarLink(fresh)); }
+    catch (e) { toast({ title: 'Couldn’t make the link', description: e.message, variant: 'destructive' }); }
+    finally { setBusy(false); }
+  };
+  const off = async () => {
+    setBusy(true);
+    try { await accounts.calendarOff(); setUrl(''); toast({ title: 'Calendar link turned off' }); }
+    catch (e) { toast({ title: 'Couldn’t turn it off', description: e.message, variant: 'destructive' }); }
+    finally { setBusy(false); }
+  };
+  const webcal = url.replace(/^https?:/, 'webcal:');
+  const btn = 'inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary';
+  return (
+    <Section icon={CalendarDays} title="Calendar" description="Homework, tests and your study plan in Google Calendar, Apple Calendar or Outlook. It keeps itself up to date.">
+      {!url ? (
+        <button type="button" onClick={() => get(false)} disabled={busy}
+          className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CalendarDays className="h-4 w-4" aria-hidden="true" />}Connect a calendar
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <a className={btn} href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`} target="_blank" rel="noopener noreferrer">Google Calendar</a>
+            <a className={btn} href={webcal}>Apple Calendar</a>
+            <a className={btn} href={`https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(url)}&name=${encodeURIComponent('LOCK IN!')}`} target="_blank" rel="noopener noreferrer">Outlook</a>
+          </div>
+          <div className="flex gap-2">
+            <input readOnly value={url} aria-label="Your private calendar link" onFocus={e => e.target.select()}
+              className="h-11 min-w-0 flex-1 rounded-lg border bg-background px-3 text-sm text-muted-foreground" />
+            <button type="button" className={btn} onClick={() => { navigator.clipboard?.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+              <Copy className="h-4 w-4" aria-hidden="true" />{copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Anyone with this link can see your homework and tests, so keep it to yourself. Calendar apps check it every few hours.{' '}
+            <a className="font-medium text-primary underline" href={url} download="lockin.ics">Download a copy</a> instead if you’d rather import it once.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={btn} onClick={() => get(true)} disabled={busy}>Make a new link</button>
+            <button type="button" className={btn} onClick={off} disabled={busy}>Turn it off</button>
+          </div>
+        </div>
+      )}
     </Section>
   );
 }

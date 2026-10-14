@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Mic, Pause, Play, Square, ChevronLeft, ChevronDown, Loader2, Sparkles, Trash2, Copy, Share2, Brain, Plus, Check,
-  AlertTriangle, FileText, RefreshCw, Folder, Layers, Presentation, X, MoreHorizontal, NotebookPen,
+  AlertTriangle, FileText, RefreshCw, Folder, Layers, Presentation, X, MoreHorizontal, NotebookPen, Download,
 } from 'lucide-react';
+import { lectureMarkdown, lectureHtml, bundle, wordDocument, fileName, download, copyFormatted } from '@/lib/noteExport';
 import { MathLine } from '@/components/lockin/RichText';
 import NoteGraph from '@/components/lockin/NoteGraph';
 import RichText from '@/components/lockin/RichText';
@@ -138,6 +139,20 @@ function LectureList() {
                 ) : (
                   <h2 className="flex-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h2>
                 )}
+                {group === 'class' && key && items.some(l => l.notes || String(l.my_notes || '').trim()) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" aria-label={`Export ${label} notes`}
+                        className="inline-flex h-8 flex-none items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
+                        <Download className="h-3.5 w-3.5" aria-hidden="true" />Export
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-72">
+                      <DropdownMenuItem onSelect={() => exportLectures(items, `${label} notes`, 'doc')}><Download className="mr-2 h-4 w-4" />All of {label}, for Word or Google Docs</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => exportLectures(items, `${label} notes`, 'md')}><Download className="mr-2 h-4 w-4" />All of {label}, as Markdown</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
                 {group === 'class' && key && (
                   <button type="button" onClick={() => navigate('/Study', { state: { tab: 'quiz', className: key } })}
                     className="inline-flex h-8 flex-none items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
@@ -238,6 +253,7 @@ function LectureView({ id }) {
   const transcript = transcriptText(lecture.segments);
   const failed = (lecture.segments || []).filter(s => s.error).length;
   const hasNotes = !!lecture.notes;
+  const canExport = hasNotes || !!String(lecture.my_notes || '').trim();
   const material = lecture.source === 'material';
   const mine = (lecture.my_notes || '').trim();
   const slides = lecture.slides || [];
@@ -274,10 +290,12 @@ function LectureView({ id }) {
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label="More" className="grid h-10 w-10 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"><MoreHorizontal className="h-5 w-5" /></button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              {hasNotes && <DropdownMenuItem onSelect={() => copyNotes(lecture)}><Copy className="mr-2 h-4 w-4" />Copy notes</DropdownMenuItem>}
-              {hasNotes && <DropdownMenuItem onSelect={() => shareNotes(lecture)}><Share2 className="mr-2 h-4 w-4" />Share</DropdownMenuItem>}
-              {hasNotes && <DropdownMenuSeparator />}
+            <DropdownMenuContent align="end" className="w-72">
+              {canExport && <DropdownMenuItem onSelect={() => copyNotes(lecture)}><Copy className="mr-2 h-4 w-4" />Copy for Docs, OneNote or Notion</DropdownMenuItem>}
+              {canExport && <DropdownMenuItem onSelect={() => exportLectures([lecture], lecture.title, 'doc')}><Download className="mr-2 h-4 w-4" />Download for Word or Google Docs</DropdownMenuItem>}
+              {canExport && <DropdownMenuItem onSelect={() => exportLectures([lecture], lecture.title, 'md')}><Download className="mr-2 h-4 w-4" />Download Markdown</DropdownMenuItem>}
+              {canExport && <DropdownMenuItem onSelect={() => shareNotes(lecture)}><Share2 className="mr-2 h-4 w-4" />Share</DropdownMenuItem>}
+              {canExport && <DropdownMenuSeparator />}
               <DropdownMenuItem onSelect={() => setConfirmDelete(true)} className="text-red-700 focus:text-red-700 dark:text-red-400"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -365,11 +383,25 @@ function LectureView({ id }) {
 }
 
 async function copyNotes(lecture) {
-  const md = notesMarkdown(lecture.notes, { title: lecture.title, className: lecture.class_name, date: lecture.date });
-  try { await navigator.clipboard.writeText(md); toast({ title: 'Notes copied' }); } catch (_) { toast({ title: 'Could not copy', variant: 'destructive' }); }
+  try {
+    const how = await copyFormatted(lectureHtml(lecture), lectureMarkdown(lecture));
+    toast({ title: 'Notes copied', description: how === 'formatted' ? 'Paste into Google Docs, OneNote, Notion or Word and the headings come with it.' : 'Copied as text (Markdown).' });
+  } catch (_) { toast({ title: 'Could not copy', variant: 'destructive' }); }
 }
+
+/** One lecture or a whole class, as a Word-compatible document or a Markdown file. */
+function exportLectures(lectures, title, kind) {
+  const list = lectures.filter(l => l.notes || String(l.my_notes || '').trim());
+  if (!list.length) { toast({ title: 'No notes to export yet' }); return; }
+  const one = list.length === 1;
+  const doc = one ? { md: lectureMarkdown(list[0]), html: lectureHtml(list[0]) } : bundle(list, title);
+  if (kind === 'md') download(fileName(title, 'md'), doc.md, 'text/markdown;charset=utf-8');
+  else download(fileName(title, 'doc'), wordDocument(doc.html, title), 'application/msword');
+  toast({ title: one ? 'Notes downloaded' : `${list.length} lectures downloaded`, description: kind === 'md' ? 'Import the .md file into Notion, Obsidian or any Markdown app.' : 'Open it in Word, or upload it to Google Drive and open with Google Docs.' });
+}
+
 async function shareNotes(lecture) {
-  const md = notesMarkdown(lecture.notes, { title: lecture.title, className: lecture.class_name, date: lecture.date });
+  const md = lectureMarkdown(lecture);
   if (navigator.share) { try { await navigator.share({ title: lecture.title, text: md }); } catch (_) { /* cancelled */ } } else copyNotes(lecture);
 }
 
