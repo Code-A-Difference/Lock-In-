@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp, Check, ChevronDown, Clock, Loader2, MessageCircle, RefreshCw, X, Minus, Sparkles } from 'lucide-react';
 import { db } from '@/api/db';
 import RichText, { MathLine } from '@/components/lockin/RichText';
+import ThinkingWord from '@/components/lockin/ThinkingWord';
 import { cn } from '@/lib/utils';
 import { gradePrompt, GRADE_SCHEMA, normaliseGrade, scoreQuiz, askPrompt, mmss } from '@/lib/quizKit';
 
@@ -319,7 +320,7 @@ function QuestionChat({ q, number, answer, grade }) {
           ))}
         </ol>
       )}
-      {busy && <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" />Thinking…</p>}
+      {busy && <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" /><ThinkingWord /></p>}
       <div ref={end} />
       <form className="mt-2 flex items-end gap-2" onSubmit={e => { e.preventDefault(); ask(text); }}>
         <label htmlFor={`ask-${number}`} className="sr-only">Ask about question {number}</label>

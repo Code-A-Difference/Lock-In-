@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import RichText from '@/components/lockin/RichText';
 import CameraCapture from '@/components/lockin/CameraCapture';
 import SymbolPad from '@/components/lockin/SymbolPad';
+import ThinkingWord from '@/components/lockin/ThinkingWord';
 import { openGraph } from '@/components/lockin/GraphPanel';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
@@ -370,7 +371,7 @@ export default function VoicePanel() {
                   </div>
                 </div>
               )}
-              {a.busy && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-secondary px-3.5 py-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Thinking…</div></div>}
+              {a.busy && <div className="flex justify-start"><div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-secondary px-3.5 py-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><ThinkingWord /></div></div>}
               {a.speaking && <div className="flex justify-start">
                 <button type="button" onClick={dismiss} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-accent"><Square className="h-3 w-3 fill-current" />Stop talking</button>
               </div>}
