@@ -6,6 +6,7 @@ import { desktop, isDesktop } from '@/lib/desktop';
 import { useLecture } from '@/lib/LectureContext';
 import { useStudyData, useActions } from '@/lib/data';
 import { useFocus, PHASE_LABEL } from '@/lib/FocusContext';
+import { useMusic } from '@/lib/MusicContext';
 import { clock } from '@/lib/lectureNotes';
 import ClassChat from '@/components/lockin/ClassChat';
 import { RECIPES } from '@/lib/classChat';
@@ -63,8 +64,11 @@ export function useMini() {
 export function DesktopBridge() {
   const lec = useLecture();
   const focus = useFocus();
+  const music = useMusic();
   const { lectures } = useStudyData();
   const navigate = useNavigate();
+  const musicRef = useRef(music);
+  musicRef.current = music;
   const lecRef = useRef(lec);
   lecRef.current = lec;
   const focusRef = useRef(focus);
@@ -79,6 +83,7 @@ export function DesktopBridge() {
     const state = {
       recording: a && a.state !== 'finishing' ? { title: lecture?.title || 'Recording', elapsed: Math.floor(a.elapsed || 0), paused: a.state === 'paused' } : null,
       focus: { status: focus.status, phaseLabel: PHASE_LABEL[focus.phase] || 'Focus', endsAt: focus.endsAt, remaining: Math.round(focus.remaining), task: focus.taskItem?.title || '' },
+      music: music?.source ? { title: music.track?.title || '', artist: music.track?.artist || '', playing: !!music.playing, source: music.source } : null,
     };
     // a running timer counts down by itself in the bar: only its end time matters
     const key = JSON.stringify(focus.status === 'running' ? { ...state, focus: { ...state.focus, remaining: 0 } } : state);
@@ -97,6 +102,9 @@ export function DesktopBridge() {
       if (cmd.type === 'record-pause') { L.pause(); return; }
       if (cmd.type === 'record-resume') { L.resume(); return; }
       if (cmd.type === 'record-stop') { L.stop(); return; }
+      if (cmd.type === 'music-toggle') { musicRef.current?.toggle(); return; }
+      if (cmd.type === 'music-next') { musicRef.current?.next(); return; }
+      if (cmd.type === 'music-previous') { musicRef.current?.previous(); return; }
       if (cmd.type === 'catchup') {
         if (L.active) {
           navigate(`/Notes?id=${L.active.id}`);
