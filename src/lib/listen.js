@@ -2,8 +2,9 @@
  * Listening. Two ways, both built on the browser's SpeechRecognition:
  *
  *   listenOnce()  push-to-talk: press the mic, say one thing, done.
- *   HandsFree     always listening for "Hey Lock In" (or Ambient Voice
- *                 Study's "Companion"), then acts on what follows.
+ *   HandsFree     always listening for "Hey Companion", then acts on what
+ *                 follows. Once a voice is trained (voiceprint.js), a wake-up
+ *                 only counts if it sounds like that voice saying the phrase.
  *
  * Ambient Voice Study listened continuously from the moment you pressed start
  * and acted on anything that matched, so a classmate saying "stop" across the
@@ -18,7 +19,8 @@
  */
 import { afterWake } from './wake.js';
 import { nativeSpeech, wakeWord } from './native.js';
-import { canHearLocally, localReady, LocalEar, hearLocally, listenOnceLocally } from './localEar.js';
+import { canHearLocally, localReady, LocalEar, hearLocally, listenOnceLocally, cleanSpoken } from './localEar.js';
+import { Ring, hasVoiceprint, soundsLikeYou, openMic } from './voiceprint.js';
 import { WakeSpotter } from './instantWake.js';
 import { isDismissal } from './dismiss.js';
 
@@ -26,7 +28,7 @@ const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.
 
 export const canListen = !!SR || !!nativeSpeech || canHearLocally;
 
-/** Hands-free "Hey Lock In": the browser's recogniser on the web, the on-device wake-word model on Android, Whisper on the desktop. */
+/** Hands-free "Hey Companion": the browser's recogniser on the web, the on-device wake-word model on Android, Whisper on the desktop. */
 export const canHandsFree = !!wakeWord || (!!SR && !nativeSpeech) || canHearLocally;
 
 /** Wait for a promise, but hand back a stop() that works before it settles. */
@@ -118,7 +120,7 @@ export function listenOnce({ onInterim, onSpeech, recognition, pauseMs = 1600, q
  * Hands-free: listens until stopped, and calls onCommand(text) for whatever
  * follows the wake phrase, or, for a few seconds after the assistant has
  * woken or answered, for anything said at all, so a conversation doesn't need
- * "Hey Lock In" before every sentence.
+ * "Hey Companion" before every sentence.
  *
  * What changed, and why the old one glitched:
  *  - It tore the recogniser down and rebuilt it whenever you tapped the mic or
@@ -155,6 +157,22 @@ export class HandsFree {
     // desktop: Whisper on this computer, if it's set up. (On Android the always-on part stays
     // with the small wake-word model; Whisper hears what's said after it, see _runNative.)
     this.local = !recognition && canHearLocally && !wakeWord;
+    this.ring = null;              // the last few seconds of microphone, for the voice check
+    this.gate = new Map();         // result index -> { state: 'pending'|'ok'|'no', cmd, final }
+    this.onReject = null;
+  }
+
+  /** Voice checks need the audio itself: there on the web and the desktop, not under Android's native model. */
+  get checksVoice() { return hasVoiceprint() && !(wakeWord && !this.SR); }
+
+  async _tapMic() {
+    if (this.local || this.closeMic || !this.checksVoice) return;
+    try {
+      const ring = new Ring(3);
+      this.closeMic = await openMic((chunk) => ring.push(chunk));
+      this.ring = ring;
+      if (!this.running) { this.closeMic(); this.closeMic = null; }
+    } catch (_) { this.ring = null; /* no second microphone stream here: wake-ups go unchecked */ }
   }
 
   get armed() { return Date.now() < this.armedUntil; }
@@ -163,8 +181,9 @@ export class HandsFree {
     if ((!this.SR && !wakeWord && !this.local) || this.running) return false;
     this.running = true;
     this.rapid = 0;
+    this.gate.clear();
     if (this.local) this._runLocal();
-    else this._open();
+    else { this._tapMic(); this._open(); }
     this.onState?.(true);
     return true;
   }
@@ -179,6 +198,10 @@ export class HandsFree {
     if (wakeWord && !this.SR) wakeWord.stop().catch(() => {});
     this.ear?.stop();
     this.ear = null;
+    this.closeMic?.();
+    this.closeMic = null;
+    this.ring = null;
+    this.gate.clear();
     this.spotter?.stop();
     this.spotter = null;
     if (nativeSpeech) nativeSpeech.stop().catch(() => {});
@@ -341,14 +364,16 @@ export class HandsFree {
       },
     });
     this.spotter.load();
+    this.ring = new Ring(3);
     this.ear = new LocalEar({
-      onPcm: (pcm) => this.spotter?.feed(pcm),
+      onPcm: (pcm) => { this.ring?.push(pcm); this.spotter?.feed(pcm); },
       // The first ~1.3 s of speech: if it's "Hey Lock In", chime now, while they're still talking.
       onPeek: (pcm) => {
         if (this.spotter?.ready || this._deaf() || this.collecting || this.armed) return;
         const i = seq;
         hearLocally(pcm).then((text) => {
           if (!this.running || woken.has(i) || this.collecting || afterWake(text) === null) return;
+          if (this.checksVoice && !soundsLikeYou(pcm).ok) { this.onReject?.(); return; }
           woken.add(i);
           this.armedUntil = Date.now() + 8000;
           this.onWake?.({ inline: true });
@@ -365,7 +390,7 @@ export class HandsFree {
             if (e.off || ++failures >= 3) { this.onError?.(e.off ? 'On-device listening was switched off.' : e.message); this.stop(); }
             return;
           }
-          if (text && this.running && !this._deaf()) this._final(i, text, woken);
+          if (text && this.running && !this._deaf()) this._final(i, text, woken, pcm);
         });
       },
     });
@@ -391,7 +416,7 @@ export class HandsFree {
 
   _flush() {
     clearTimeout(this.flushTimer);
-    const said = (this.buffer || '').trim();
+    const said = cleanSpoken(this.buffer || '');      // "(The study app)", "[BLANK_AUDIO]": noise, not a request
     this.buffer = '';
     this.collecting = false;
     if (said) { this.armedUntil = 0; this.onCommand?.(said); }
@@ -401,25 +426,60 @@ export class HandsFree {
   get pauseMs() { return this._pauseMs || 650; }
   set pauseMs(v) { this._pauseMs = v; }
 
-  _interim(i, text, woken) {
-    const cmd = afterWake(text);
-    if (cmd !== null) {
-      if (!woken.has(i) && !this.collecting) {
-        woken.add(i);
-        this.armedUntil = Date.now() + 8000;
-        this.onWake?.({ inline: !!cmd });          // the chime plays now, not after the sentence ends
-      }
-      woken.add(i);
-      this._collect('', cmd);
-    } else if (this.collecting || this.armed) {
-      this._collect('', text);
+  /**
+   * A wake-up heard in result `i`: counts at once when no voice is trained; otherwise
+   * after a moment (so the end of the phrase is in the audio) if it sounds like you.
+   */
+  _wakeGate(i, cmd, isFinal, woken) {
+    let g = this.gate.get(i);
+    if (g?.state === 'no') return;
+    if (!g) {
+      if (!this.checksVoice || !this.ring) { this.gate.set(i, { state: 'ok' }); this._woke(i, cmd, isFinal, woken); return; }
+      g = { state: 'pending', cmd, final: isFinal };
+      this.gate.set(i, g);
+      setTimeout(() => {
+        if (!this.running || g.state !== 'pending') return;
+        if (soundsLikeYou(this.ring?.read() || new Float32Array()).ok) { g.state = 'ok'; this._woke(i, g.cmd, g.final, woken); }
+        else { g.state = 'no'; this.onReject?.(); }
+      }, 350);
+      return;
     }
+    if (g.state === 'pending') { g.cmd = cmd; g.final = g.final || isFinal; return; }
+    if (isFinal) this._collect(cmd);
+    else this._collect('', cmd);
   }
 
-  _final(i, text, woken) {
+  _woke(i, cmd, isFinal, woken) {
+    if (!woken.has(i) && !this.collecting) {
+      woken.add(i);
+      this.armedUntil = Date.now() + 8000;
+      this.onWake?.({ inline: !!cmd });          // the chime plays now, not after the sentence ends
+    }
+    woken.add(i);
+    if (isFinal) this._collect(cmd);
+    else this._collect('', cmd);
+  }
+
+  _interim(i, text, woken) {
+    if (this.gate.get(i)?.state === 'no') return;
+    const cmd = afterWake(text);
+    if (cmd !== null) this._wakeGate(i, cmd, false, woken);
+    else if (this.collecting || this.armed) this._collect('', text);
+  }
+
+  _final(i, text, woken, pcm) {
+    const g = this.gate.get(i);
+    this.gate.delete(i);
+    if (g?.state === 'no') return;
     const cmd = afterWake(text);
     if (cmd !== null) {
-      if (!woken.has(i) && !this.collecting) this.onWake?.({ inline: !!cmd });
+      if (g?.state === 'pending') { this.gate.set(i, g); g.cmd = cmd; g.final = true; return; }
+      if (!woken.has(i) && !this.collecting) {
+        // Whisper on the desktop hands over the whole utterance, so it can be checked directly
+        if (pcm && this.checksVoice && !soundsLikeYou(pcm).ok) { this.onReject?.(); return; }
+        if (!pcm && this.checksVoice && this.ring && !g) { this._wakeGate(i, cmd, true, woken); return; }
+        this.onWake?.({ inline: !!cmd });
+      }
       this._collect(cmd);
       return;
     }

@@ -15,27 +15,27 @@ const GH = 'https://github.com/Code-A-Difference/Lock-In-/releases';
 
 export const RELEASES = {
   android: {
-    version: '1.3.1',
-    date: '2026-10-12',
+    version: '1.3.2',
+    date: '2026-10-13',
     url: `${GH}/latest/download/LOCKIN-android.apk`,
     notes: [
-      '“Hey Lock In” reacts a touch sooner: the app is told the moment it hears you.',
-      'New reading comfort settings: bigger text, an easier-to-read font, roomier spacing, stronger contrast and calm motion.',
-      'The assistant is one small button until you need it, and pages open faster.',
+      'The assistant is now called Companion, and you wake it by saying “Hey Companion”, a phrase people rarely say by accident.',
+      'Background noise is ignored instead of being sent to the assistant as if you had said it.',
+      'Turn it on or off in Settings → “Hey Companion”.',
     ],
   },
   desktop: {
-    version: '1.0.3',
-    date: '2026-10-12',
+    version: '1.0.4',
+    date: '2026-10-13',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.3/LOCKIN-win-x64.exe`,
-      macArm: `${GH}/download/desktop-v1.0.3/LOCKIN-mac-arm64.dmg`,
-      macIntel: `${GH}/download/desktop-v1.0.3/LOCKIN-mac-x64.dmg`,
+      windows: `${GH}/download/desktop-v1.0.4/LOCKIN-win-x64.exe`,
+      macArm: `${GH}/download/desktop-v1.0.4/LOCKIN-mac-arm64.dmg`,
+      macIntel: `${GH}/download/desktop-v1.0.4/LOCKIN-mac-x64.dmg`,
     },
     notes: [
-      'Start recording from any app is now Ctrl+Alt+R (Cmd+Option+R on a Mac), so Ctrl+Shift+R refreshes your browser again.',
-      'New reading comfort settings: bigger text, an easier-to-read font, roomier spacing, stronger contrast and calm motion.',
-      'The assistant is one small button until you need it, and pages open faster.',
+      'LOCK IN! always opens where you can see it, even if the screen it was last on is unplugged.',
+      'Say “Hey Companion” to wake the assistant. It learns your voice, so other people and other words are far less likely to wake it.',
+      'Background noise is ignored instead of being sent to the assistant as if you had said it.',
     ],
   },
 };

@@ -166,15 +166,37 @@ export async function transcribeOnDevice(wav, hint = '', { phrase = false } = {}
   throw new Error(r?.error || 'On-device transcription failed.');
 }
 
-// Spelling the name helps Whisper write "Lock In" rather than "locking". Not "Hey Lock In, ":
-// Whisper reads the hint as words already said, and then leaves the wake phrase out.
-const HINT = 'Glossary: Lock In (the study app).';
+// No hint. It used to be "Glossary: Lock In (the study app).", and Whisper, given noise and no
+// speech, writes the hint back out: "(The study app)" was being sent to the assistant as if
+// someone had said it. "Companion" is an ordinary word Whisper spells right on its own.
+const HINT = '';
+
+/**
+ * What Whisper writes when there was no speech: sound descriptions in brackets, and the
+ * phrases it learned from video subtitles. None of it is something a student said.
+ */
+const NOT_SPEECH = /^(?:thank you for watching|thanks for watching|you|the study app|subtitles by.*|please subscribe.*)[.!]?$/i;
+
+/**
+ * A short spoken request, with Whisper's noise labels and empty phrases removed: '' if nothing
+ * was really said. (Lecture transcripts only lose the noise tags, see cleanHeard: a lecturer's
+ * "(laughs)" is harmless there, and they can say "you".)
+ */
+export function cleanSpoken(text) {
+  const t = String(text || '')
+    .replace(/[([{][^)\]}]*[)\]}]/g, ' ')        // (music) [BLANK_AUDIO] {noise} (The study app)
+    .replace(/[♪*]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!/[a-z0-9]/i.test(t) || NOT_SPEECH.test(t)) return '';
+  return t;
+}
 
 /** One utterance -> its words, on this device. '' when nothing was said. */
 export async function hearLocally(pcm, hint = HINT) {
   const text = await transcribeOnDevice(encodeWav(enhanceSpeech(pcm)), hint, { phrase: true });
   if (text === null) throw Object.assign(new Error('On-device listening is off.'), { off: true });
-  return String(text).trim();
+  return cleanSpoken(text);
 }
 
 /**

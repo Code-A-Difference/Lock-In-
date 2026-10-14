@@ -12,15 +12,15 @@ import { useAssistant } from '@/lib/AssistantContext';
 import { useLecture } from '@/lib/LectureContext';
 import { useStudyData } from '@/lib/data';
 import { listenOnce, HandsFree, canListen, canHandsFree } from '@/lib/listen';
-import { isNativeApp, appNeedsUpdate, APK_URL } from '@/lib/native';
+import { useHandsFree, setHandsFree as saveHandsFree, readHandsFree, shouldSuggest, snoozeSuggestion, useWakePhrase, TRAINING_EVENT } from '@/lib/handsfreePref';
+import { hasVoiceprint } from '@/lib/voiceprint';
+import VoiceTraining from '@/components/lockin/VoiceTraining';
+import { isNativeApp, platform, appNeedsUpdate, APK_URL } from '@/lib/native';
 import { chime, unlockAudio } from '@/lib/soundscape';
 import { stopSpeaking } from '@/lib/voice';
 import { isDismissal, expectsAnswer } from '@/lib/dismiss';
 import { useAllowOutside } from '@/lib/aiPrefs';
 
-const PREF = 'lockin.handsfree';
-const readPref = () => { try { return localStorage.getItem(PREF); } catch (_) { return null; } };
-const writePref = (v) => { try { localStorage.setItem(PREF, v); } catch (_) {} };
 
 const IDEAS = [
   'What’s due this week?',
@@ -33,7 +33,7 @@ const NOTES_IDEAS = ['What did we cover in my last class?', 'Find where we talke
 
 /**
  * The assistant: a bar at the bottom of every page that you type or talk to,
- * with "Hey Lock In" listening in the background once you've said yes to it.
+ * with "Hey Companion" listening in the background once it's switched on.
  * It answers about whatever's in front of you: the lecture being recorded or
  * open on screen first, all your notes on the Notes page, and by default only
  * from your own material (outside knowledge is one switch away).
@@ -48,7 +48,10 @@ export default function VoicePanel() {
   const [heard, setHeard] = useState('');
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
-  const [pref, setPref] = useState(readPref);          // 'on' | 'off' | null (never asked)
+  const pref = useHandsFree();                         // 'on' | 'off' | null (never decided), shared with Settings
+  const phrase = useWakePhrase();
+  const [training, setTraining] = useState(false);
+  const [, rerender] = useState(0);
   const [handsFree, setHandsFree] = useState(false);
   const [armed, setArmed] = useState(false);
   const [showSources, setShowSources] = useState(false);
@@ -104,7 +107,7 @@ export default function VoicePanel() {
     if (isDismissal(text)) { dismiss(); return { followUp: false }; }
     const r = await sendRef.current(text, { via: 'voice' });
     await r.finished;
-    // A follow-up needs no "Hey Lock In", but only when one is expected: after a question it waits a
+    // A follow-up needs no "Hey Companion", but only when one is expected: after a question it waits a
     // while, after a plain answer only a moment. It never keeps itself open round after round.
     const asked = expectsAnswer(r.reply);
     hf.current?.extend(asked ? 12000 : 4000);
@@ -134,7 +137,7 @@ export default function VoicePanel() {
         onNote: (s) => setNote(s?.state === 'downloading' ? `Getting the wake-word model… ${Math.round((s.progress || 0) * 100)}% (one time, about 40 MB)`
           : s?.state === 'unpacking' ? 'Unpacking the wake-word model…' : s?.state === 'loading' ? 'Starting up…' : ''),
         onState: setHandsFree,
-        onError: (message) => { setError(message); setPref('off'); writePref('off'); },
+        onError: (message) => { setError(message); saveHandsFree(false); },
       });
     }
     hf.current.start();
@@ -157,10 +160,21 @@ export default function VoicePanel() {
   // The recogniser stays open while the assistant thinks and talks, but ignores what it hears.
   useEffect(() => { hf.current?.setMuted(a.busy || a.speaking); }, [a.busy, a.speaking]);
 
+  // Training needs the microphone to itself: listening stops while it runs, and comes back after.
+  useEffect(() => {
+    const onTraining = (e) => {
+      if (e.detail) stopHandsFree();
+      else if (readHandsFree() === 'on') startHandsFree();
+    };
+    window.addEventListener(TRAINING_EVENT, onTraining);
+    return () => window.removeEventListener(TRAINING_EVENT, onTraining);
+  }, [startHandsFree, stopHandsFree]);
+
+  // Turning it on for the first time teaches it your voice, where the app can check voices.
+  const checksVoice = !(isNativeApp && platform === 'android');
   const choose = (on) => {
-    const v = on ? 'on' : 'off';
-    setPref(v);
-    writePref(v);
+    if (on && checksVoice && !hasVoiceprint()) { setTraining(true); return; }
+    saveHandsFree(on);
     if (!on) stopHandsFree();
   };
 
@@ -264,7 +278,7 @@ export default function VoicePanel() {
     } catch (err) { setError(err.message); }
   };
 
-  const status = !canListen ? '' : handsFree ? (armed ? 'Listening' : 'Say “Hey Lock In”') : '';
+  const status = !canListen ? '' : handsFree ? (armed ? 'Listening' : `Say “${phrase}”`) : '';
   const lecturesReady = lectures.filter(l => l.notes || l.my_notes || (l.segments || []).some(s => s.text));
   const ideas = focusLec ? LECTURE_IDEAS : onNotes ? NOTES_IDEAS : IDEAS;
   const placeholder = listening ? 'Listening…' : focusLec ? `Ask about ${focusLec.title}` : onNotes ? 'Search your notes' : 'Ask anything';
@@ -274,7 +288,7 @@ export default function VoicePanel() {
 
   return (
     <>
-    {/* The moment "Hey Lock In" is heard: a glow around the screen and a pill up top, so it's
+    {/* The moment "Hey Companion" is heard: a glow around the screen and a pill up top, so it's
         obvious it's listening even with the assistant closed or the app in another tab. */}
     {(armed || (listening && hearing)) && !a.busy && !a.speaking && (
       <>
@@ -290,22 +304,25 @@ export default function VoicePanel() {
         recording or reading, search your notes, or have it do things. It opens upward. */}
     <div className="lockin-voice-dock pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 px-3 lg:bottom-4 lg:left-60 lg:px-6">
       <div className="pointer-events-auto mx-auto w-full max-w-2xl">
-        {pref === null && canHandsFree && !expanded && dockOpen && (
-          <div role="dialog" aria-label="Hands-free" className="lockin-handsfree-ask mb-2 rounded-2xl border bg-card p-4 shadow-2xl">
-            <p className="text-sm font-semibold text-foreground">Say “Hey Lock In” to talk hands-free?</p>
+        {canHandsFree && shouldSuggest(pref) && (dockOpen || expanded) && (
+          <div role="region" aria-label="Hands-free" className="lockin-handsfree-ask mb-2 rounded-2xl border bg-card p-4 shadow-2xl">
+            <p className="text-sm font-semibold text-foreground">Talk hands-free: say “{phrase}”</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {checksVoice ? 'It learns your voice in about 20 seconds, so other people and other words are much less likely to wake it.' : 'A small model on this phone listens for it. Nothing is sent anywhere.'}
+            </p>
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => choose(true)} className="h-10 flex-1 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">Turn on</button>
-              <button type="button" onClick={() => choose(false)} className="h-10 flex-1 rounded-lg border text-sm font-medium text-foreground hover:bg-accent">Not now</button>
+              <button type="button" onClick={() => choose(true)} className="h-11 flex-1 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">Set it up</button>
+              <button type="button" onClick={() => { snoozeSuggestion(); rerender(n => n + 1); }} className="h-11 flex-1 rounded-lg border text-sm font-medium text-foreground hover:bg-accent">Not now</button>
             </div>
           </div>
         )}
 
         {expanded && (
-          <section className="mb-2 flex max-h-[min(34rem,calc(100dvh-11rem))] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2" aria-label="Lock In assistant">
+          <section className="mb-2 flex max-h-[min(34rem,calc(100dvh-11rem))] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2" aria-label="Companion, the assistant">
             <header className="flex items-center gap-1 border-b px-3 py-2">
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
                 {focusLec ? <><BookOpen className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />{focusLec.title}{lecture.active?.id === focusLec.id ? ' (live)' : ''}</>
-                  : onNotes ? 'All your notes' : 'Lock In'}
+                  : onNotes ? 'All your notes' : 'Companion'}
                 {status && <span className={cn('ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', armed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-secondary text-muted-foreground')}>
                   <Radio className={cn('h-3 w-3', armed && 'animate-pulse')} aria-hidden="true" />{status}
                 </span>}
@@ -401,14 +418,14 @@ export default function VoicePanel() {
                 </button>
               ))}
               {canHandsFree && (
-                <label className="ml-auto flex items-center gap-2 px-2 text-xs text-muted-foreground" title="Listen for “Hey Lock In”">
-                  <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} />Hey Lock In
+                <label className="ml-auto flex items-center gap-2 px-2 text-xs text-muted-foreground" title={`Listen for “${phrase}”`}>
+                  <input type="checkbox" checked={pref === 'on'} onChange={e => choose(e.target.checked)} />{phrase}
                 </label>
               )}
             </div>
             {appNeedsUpdate && (
               <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-                “Hey Lock In” needs the newest app. <a href={APK_URL} className="font-semibold text-primary underline">Update</a>
+                “{phrase}” needs the newest app. <a href={APK_URL} className="font-semibold text-primary underline">Update</a>
               </p>
             )}
           </section>
@@ -419,9 +436,9 @@ export default function VoicePanel() {
 
         {compact ? (
           <div className="flex justify-end">
-            <button type="button" onClick={() => setDockOpen(true)} aria-label="Ask Lock In"
+            <button type="button" onClick={() => setDockOpen(true)} aria-label="Ask Companion"
               className="inline-flex h-12 items-center gap-2 rounded-full border bg-card/95 px-4 text-sm font-semibold text-foreground shadow-lg backdrop-blur hover:bg-secondary">
-              <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />Ask Lock In
+              <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />Ask Companion
             </button>
           </div>
         ) : (
@@ -429,11 +446,11 @@ export default function VoicePanel() {
           onSubmit={(e) => { e.preventDefault(); submit(); }}
           onBlur={e => { if (!expanded && !input.trim() && !e.currentTarget.contains(e.relatedTarget)) setDockOpen(false); }}>
           {canListen
-            ? <button type="button" onClick={() => { setExpanded(true); talk(); }} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Talk to Lock In'}
+            ? <button type="button" onClick={() => { setExpanded(true); talk(); }} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Talk to Companion'}
                 className={cn('relative grid h-10 w-10 flex-none place-items-center rounded-xl',
                   listening ? 'bg-red-600 text-white hover:bg-red-700' : armed ? 'bg-mint text-[#16181d]' : 'bg-secondary text-foreground hover:bg-secondary/70')}>
                 {listening ? <MicOff className="h-4 w-4" /> : armed ? <Radio className="h-4 w-4 animate-pulse" /> : <Mic className="h-4 w-4" />}
-                {handsFree && !armed && !listening && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-400" title="Listening for Hey Lock In" />}
+                {handsFree && !armed && !listening && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-400" title={`Listening for ${phrase}`} />}
               </button>
             : null}
           <textarea ref={box} value={input} onChange={e => setInput(e.target.value)} rows={1} placeholder={placeholder}
@@ -451,6 +468,7 @@ export default function VoicePanel() {
         )}
       </div>
     </div>
+    <VoiceTraining open={training} onOpenChange={setTraining} onDone={() => saveHandsFree(true)} />
     <CameraCapture open={camera} onClose={() => setCamera(false)} onPhoto={(url) => { a.addPhoto(url); setExpanded(true); }} />
     </>
   );

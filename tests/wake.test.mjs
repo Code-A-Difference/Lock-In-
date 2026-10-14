@@ -2,25 +2,24 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { findWake, afterWake } from '../src/lib/wake.js';
 
-test('how recognisers actually write "Hey Lock In"', () => {
-  for (const said of ['hey lock in', 'Hey Lock In', 'hey lockin', 'hey locking', 'hay log in', 'okay lock in', 'ok luck in',
-    'hey look in', 'hi lock-in', 'Hey, lock in.', 'hey lock in pause', 'hello lockin', 'yo lock in']) {
+test('how recognisers write "Hey Companion"', () => {
+  for (const said of ['hey companion', 'Hey Companion', 'Hey, Companion.', 'hi companion', 'okay companion', 'ok companion',
+    'hello companion', 'hey companions', 'hey compagnon', 'hey company on', 'hey campanion', 'hey compainion']) {
     assert.ok(findWake(said), `should wake on "${said}"`);
   }
 });
 
 test('the words after it', () => {
-  assert.equal(afterWake('hey lock in start a focus session for 50 minutes'), 'start a focus session for 50 minutes');
-  assert.equal(afterWake('Hey Lock In, what is due?'), 'what is due?');
-  assert.equal(afterWake('hey lock in'), '');
-  assert.equal(afterWake('okay locking pause the timer'), 'pause the timer');
-  assert.equal(afterWake('companion pause'), 'pause');
+  assert.equal(afterWake('hey companion start a focus session for 50 minutes'), 'start a focus session for 50 minutes');
+  assert.equal(afterWake('Hey Companion, what is due?'), 'what is due?');
+  assert.equal(afterWake('hey companion'), '');
+  assert.equal(afterWake('okay companion pause the timer'), 'pause the timer');
 });
 
 test('ordinary talk does not wake it', () => {
-  for (const said of ['lock in', 'i need to log in to my account', 'she is looking in the drawer', 'the lock in the door',
-    'hey there', 'okay then', 'what is the companion planet', 'blocking the shot']) {
-    if (/companion/.test(said)) continue;     // "companion" is Ambient Voice Study's own wake word
+  for (const said of ['companion', 'my dog is a good companion', 'what is the companion planet', 'the study app',
+    '(The study app)', 'hey lock in', 'ok lock in', 'i need to log in to my account', 'hey there', 'okay then',
+    'hey company', 'hey compass', 'hey champion']) {
     assert.equal(findWake(said), null, `should not wake on "${said}"`);
   }
 });

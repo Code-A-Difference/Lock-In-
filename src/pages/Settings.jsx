@@ -10,14 +10,18 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { readComfort, saveComfort, SIZES } from '@/lib/comfort';
-import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall } from "lucide-react";
+import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
 import { AI_VOICES, configureVoice, listBrowserVoices, onVoicesReady, speak, stopSpeaking, voiceStatus } from '@/lib/voice';
 import { cn } from '@/lib/utils';
 import { formatMinutes } from '@/lib/agenda';
-import { isNativeApp } from '@/lib/native';
+import { isNativeApp, platform } from '@/lib/native';
+import { canHandsFree } from '@/lib/listen';
+import { useHandsFree, setHandsFree, useWakePhrase } from '@/lib/handsfreePref';
+import { hasVoiceprint, forgetVoiceprint } from '@/lib/voiceprint';
+import VoiceTraining from '@/components/lockin/VoiceTraining';
 import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } from '@/lib/desktop';
 import { phoneWhisper, forgetReady } from '@/lib/localEar';
 
@@ -119,7 +123,7 @@ function ThisPhone() {
           {!st.models[st.model]?.installed && !dl && (
             <p className="text-xs text-amber-200">Download it to use it, best on Wi-Fi.{st.using ? ` Until then ${st.models[st.using].label.toLowerCase()} is used.` : ' Until then the phone’s own recogniser is used.'}</p>
           )}
-          <p className="text-xs text-muted-foreground">“Hey Lock In” itself is still heard by a tiny always-on model: running Whisper all the time would drain the battery.</p>
+          <p className="text-xs text-muted-foreground">“Hey Companion” itself is still heard by a tiny always-on model: running Whisper all the time would drain the battery.</p>
         </div>
       )}
     </Section>
@@ -186,7 +190,7 @@ function ThisComputer() {
           A newer desktop app is out. <a className="font-semibold underline" href={desktop.platform === 'darwin' ? DESKTOP_DOWNLOADS.macArm : DESKTOP_DOWNLOADS.windows}>Download it</a> and install over this one.
         </p>
       )}
-      <Row id="local-stt" label="Listen and transcribe on this computer" hint="Classes, “Hey Lock In” and the assistant all use Whisper on this computer: private, free, nothing leaves it. Off: the online service is used.">
+      <Row id="local-stt" label="Listen and transcribe on this computer" hint="Classes, “Hey Companion” and the assistant all use Whisper on this computer: private, free, nothing leaves it. Off: the online service is used.">
         <Switch id="local-stt" checked={t.enabled} onCheckedChange={(v) => set({ enabled: v })} />
       </Row>
       {t.enabled && (
@@ -440,6 +444,8 @@ export default function Settings() {
           </Row>
         </Section>
 
+        <HeyCompanionSection />
+
         <Section icon={AudioLines} title="Voice" description="How the assistant and the timer sound.">
           <fieldset className="space-y-2">
             <legend className="mb-1 text-sm font-medium text-foreground">Engine</legend>
@@ -609,6 +615,57 @@ function ComfortSection() {
       <Row id="comfortCalm" label="Calm motion" hint="Stops movement and animation.">
         <Switch id="comfortCalm" checked={c.calm} onCheckedChange={on => set({ calm: on })} />
       </Row>
+    </Section>
+  );
+}
+
+/**
+ * "Hey Companion": on or off for this device, and the voice it listens for. Turning it on
+ * the first time teaches it your voice (where the app can check voices; Android's own
+ * wake-word model can't yet).
+ */
+function HeyCompanionSection() {
+  const pref = useHandsFree();
+  const phrase = useWakePhrase();
+  const [trained, setTrained] = useState(hasVoiceprint);
+  const [training, setTraining] = useState(false);
+  const [thenOn, setThenOn] = useState(false);
+  const checksVoice = !(isNativeApp && platform === 'android');
+  useEffect(() => {
+    const sync = () => setTrained(hasVoiceprint());
+    window.addEventListener('lockin:voiceprint', sync);
+    return () => window.removeEventListener('lockin:voiceprint', sync);
+  }, []);
+
+  if (!canHandsFree) {
+    return (
+      <Section icon={Mic} title={`“${phrase}”`} description="Talk to Companion without touching anything.">
+        <p className="text-sm text-muted-foreground">This browser can’t listen for it. Chrome and Edge can, and so can the desktop and phone apps.</p>
+      </Section>
+    );
+  }
+  const toggle = (on) => {
+    if (on && checksVoice && !trained) { setThenOn(true); setTraining(true); return; }
+    setHandsFree(on);
+  };
+  return (
+    <Section icon={Mic} title={`“${phrase}”`} description="Talk to Companion without touching anything.">
+      <Row id="heyCompanion" label={`Listen for “${phrase}”`}
+        hint={checksVoice ? 'Once your voice is trained, it listens for you saying it.' : 'Heard by a small model on this phone. Nothing is sent anywhere.'}>
+        <Switch id="heyCompanion" checked={pref === 'on'} onCheckedChange={toggle} />
+      </Row>
+      {checksVoice && (
+        <Row id="voiceMatch" label="Your voice" hint={trained ? 'Trained on this device.' : 'Not trained yet. It takes about 20 seconds.'}>
+          <div className="flex flex-none gap-2">
+            {trained && (
+              <button type="button" onClick={forgetVoiceprint} className="h-11 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary">Forget</button>
+            )}
+            <button type="button" onClick={() => { setThenOn(false); setTraining(true); }}
+              className="h-11 rounded-lg border border-primary/40 px-3 text-sm font-semibold text-primary hover:bg-accent">{trained ? 'Retrain' : 'Train'}</button>
+          </div>
+        </Row>
+      )}
+      <VoiceTraining open={training} onOpenChange={setTraining} onDone={() => { if (thenOn) setHandsFree(true); }} />
     </Section>
   );
 }

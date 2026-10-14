@@ -1,21 +1,23 @@
 /**
- * Finding "Hey Lock In" in what a speech recogniser wrote. Pure, so it is
+ * Finding "Hey Companion" in what a speech recogniser wrote. Pure, so it is
  * tested in Node (tests/wake.test.mjs).
  *
- * The old pattern wanted exactly "hey lock in". Recognisers write what they
- * think they heard, and "lock in" is not a common phrase, so what arrives is
- * "hey locking", "hey lockin", "hey look in", "hay log in", "okay luck in"…
- * Missing those is why it only worked half the time. A greeting word is still
- * required, so ordinary talk about locks and logging in doesn't wake it.
+ * It used to be "Hey Lock In". "Lock in" is a phrase students say all the time
+ * ("ok, lock in"), and the recognisers turned "looking", "log in" and "locking"
+ * into it too, so it woke when nobody had asked. "Companion" is rarely said by
+ * accident and hard to mishear as anything else. A greeting is still required,
+ * so talking about a companion doesn't wake it, and on devices that support it
+ * the voice has to match the one trained in Settings (voiceprint.js).
  */
 
-const NAME = '(?:lock\\s*-?\\s*in|lockin|locking|lock\\s*en|log\\s*in|login|logging|look\\s*in|looking|luck\\s*in|lucking|lock\\s*and|loc\\s*in|lockedin|locked\\s*in)';
-// "a" is only a greeting when the name follows it directly and it starts the phrase
-const WAKE = new RegExp(`(?:^|[\\s,.!?])(?:(?:hey|hay|hi|hello|ok|okay|okey|yo|oi)\\s*,?\\s*${NAME}|^\\s*a\\s+lock\\s*-?\\s*in)(?![a-z])|(?:^|[\\s,.!?])companion(?![a-z])`, 'i');
+export const WAKE_PHRASE = 'Hey Companion';
 
-const GREETING = new Set(['hey', 'hay', 'hi', 'hello', 'ok', 'okay', 'okey', 'yo', 'oi', 'hej', 'hei', 'ay', 'eh']);
+const NAME = '(?:companions?|compan(?:y|i)on|campanion|compagnon|kompanion|company\\s+on|come\\s*panion)';
+const WAKE = new RegExp(`(?:^|[\\s,.!?])(?:hey|hay|hi|hello|ok|okay|okey)\\s*,?\\s*${NAME}(?![a-z])`, 'i');
 
-/** Edit distance, for the names no list can anticipate ("lochin", "lockinn", "lucken"). */
+const GREETING = new Set(['hey', 'hay', 'hi', 'hello', 'ok', 'okay', 'okey', 'hei', 'ay']);
+
+/** Edit distance, for the names no list can anticipate ("companyan", "compainion"). */
 function distance(a, b) {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -30,7 +32,7 @@ function distance(a, b) {
   return row[b.length];
 }
 
-/** A greeting followed by one or two words that sound like "lock in". */
+/** A greeting followed by one or two words that sound like "companion". */
 function fuzzy(t) {
   const re = /[a-z']+/gi;
   const words = [];
@@ -42,8 +44,8 @@ function fuzzy(t) {
       const span = words.slice(k + 1, k + 1 + n);
       if (span.length < n) continue;
       const joined = span.map(x => x.w).join('');
-      if (joined.length < 5 || joined.length > 8) continue;
-      if (/^l/.test(joined) && distance(joined, 'lockin') <= 2) return { index: words[k].i, end: span[span.length - 1].end };
+      if (joined.length < 7 || joined.length > 11) continue;
+      if (/^[ck]/.test(joined) && distance(joined, 'companion') <= 2) return { index: words[k].i, end: span[span.length - 1].end };
     }
   }
   return null;
