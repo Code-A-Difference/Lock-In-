@@ -15,27 +15,28 @@ const GH = 'https://github.com/Code-A-Difference/Lock-In-/releases';
 
 export const RELEASES = {
   android: {
-    version: '1.3.3',
+    version: '1.3.4',
     date: '2026-10-14',
     url: `${GH}/latest/download/LOCKIN-android.apk`,
     notes: [
+      'While LOCK IN! works on your answer it now shows playful words (Pondering, Mustering, Consulting the Force…) instead of plain “Thinking…”.',
       'Reminders before homework and tests are due, even when the app is closed. Turn them on in Settings → Reminders.',
       'Put your homework, tests and study plan in Google Calendar (Settings → Calendar).',
-      'A Progress page, editable study plans with free time that repeats every week, and notes you can send to Google Docs, OneNote or Notion.',
     ],
   },
   desktop: {
-    version: '1.0.5',
+    version: '1.0.6',
     date: '2026-10-14',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.5/LOCKIN-win-x64.exe`,
-      macArm: `${GH}/download/desktop-v1.0.5/LOCKIN-mac-arm64.dmg`,
-      macIntel: `${GH}/download/desktop-v1.0.5/LOCKIN-mac-x64.dmg`,
+      windows: `${GH}/download/desktop-v1.0.6/LOCKIN-win-x64.exe`,
+      macArm: `${GH}/download/desktop-v1.0.6/LOCKIN-mac-arm64.dmg`,
+      macIntel: `${GH}/download/desktop-v1.0.6/LOCKIN-mac-x64.dmg`,
     },
     notes: [
+      'While LOCK IN! works on your answer it now shows playful words (Pondering, Mustering, Consulting the Force…) instead of plain “Thinking…”.',
+      'The floating bar’s play and pause button now swaps its icon correctly.',
       'Float on top is now a small bar that stays over every app, full-screen ones too: your recording or focus timer, with pause, stop and a button back to the full window. Drag it anywhere; it stays that small.',
       'Settings is organised into a short menu, like a phone’s.',
-      'Reminders before homework and tests are due, and your deadlines in Google Calendar.',
     ],
   },
 };
