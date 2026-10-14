@@ -19,6 +19,8 @@ import { PlannerProvider } from '@/lib/PlannerContext';
 import PlannerSheet from '@/components/lockin/PlannerSheet';
 import GraphPanel from '@/components/lockin/GraphPanel';
 import Reminders from '@/components/lockin/Reminders';
+import { MusicProvider } from '@/lib/MusicContext';
+import NowPlaying from '@/components/lockin/NowPlaying';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -115,6 +117,7 @@ const AuthenticatedApp = () => {
     <LectureProvider>
     <PlannerProvider>
     <AssistantProvider>
+    <MusicProvider>
     <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center" role="status" aria-label="Loading"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>}>
     <Routes>
       <Route path="/" element={
@@ -143,6 +146,8 @@ const AuthenticatedApp = () => {
     <PlannerSheet />
     <GraphPanel />
     <Reminders />
+    <NowPlaying />
+    </MusicProvider>
     </AssistantProvider>
     </PlannerProvider>
     </LectureProvider>

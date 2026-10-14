@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic, PictureInPicture2 } from 'lucide-react';
+import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic, PictureInPicture2, Music2 } from 'lucide-react';
 import { desktop, isDesktop } from '@/lib/desktop';
 import { DesktopBridge, MiniView, useMini } from '@/components/lockin/DesktopShell';
 import { useAuth } from '@/lib/AuthContext';
@@ -26,6 +26,7 @@ export const NAV = [
   { name: 'Notes', icon: NotebookPen, page: 'Notes', key: 'l' },
   { name: 'Practice', icon: Sparkles, page: 'Study', key: 'p' },
   { name: 'Classes', icon: GraduationCap, page: 'Classes', key: 'c' },
+  { name: 'Music', icon: Music2, page: 'Music' },
   { name: 'Settings', icon: Settings, page: 'Settings' },
 ];
 
@@ -231,7 +232,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* ── bottom tabs (< lg) ───────────────────────────────────── */}
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
+        <div className="mx-auto grid max-w-lg grid-cols-6">
           {NAV.map(({ name, icon: Icon, page }) => {
             const on = active === page;
             return (

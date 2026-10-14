@@ -22,7 +22,7 @@ const meetings = require('./meetings');
 
 const SITE = process.env.LOCKIN_URL || 'https://codeadifference.ct.ws/lockin/';
 const ORIGIN = new URL(SITE).origin;
-const FLOAT = { width: 312, height: 64 };   // the floating bar: small on purpose, never resized
+const FLOAT = { width: 130, height: 36 };   // the floating bar starts as a tiny timer pill and is sized to its content by the bar itself
 
 // Computer-sound capture on a Mac goes through ScreenCaptureKit (macOS 13+).
 app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
@@ -36,7 +36,7 @@ if (process.platform === 'win32') app.setAppUserModelId('ws.ct.codeadifference.l
 
 const settingsFile = () => path.join(app.getPath('userData'), 'desktop-settings.json');
 const DEFAULTS = {
-  bounds: null, floatPos: null, offerRecordCalls: true, toldAboutTray: false,
+  bounds: null, floatPos: null, floatAnchor: null, offerRecordCalls: true, toldAboutTray: false,
   // turbo (Whisper large-v3 turbo) is the goal; base works while it downloads (see warmUp)
   transcription: { enabled: true, model: 'turbo', language: 'en' },
 };
@@ -171,11 +171,11 @@ function createWindow({ hidden = false } = {}) {
  * buttons back. Only where it sits is remembered, never a size.
  */
 let floatWin = null;
-let lastState = { recording: null, focus: null };
+let lastState = { recording: null, focus: null, music: null };
 
 function floatPosition() {
-  const p = settings.floatPos;
-  if (p && visibleBounds({ x: p.x, y: p.y, width: FLOAT.width, height: FLOAT.height })) return p;
+  const a = settings.floatAnchor;            // where the pill's right edge sits: it grows and shrinks leftwards
+  if (a && visibleBounds({ x: a.right - FLOAT.width, y: a.y, width: FLOAT.width, height: FLOAT.height })) return { x: a.right - FLOAT.width, y: a.y };
   const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
   return { x: area.x + area.width - FLOAT.width - 16, y: area.y + area.height - FLOAT.height - 16 };
 }
@@ -201,8 +201,8 @@ function setMini(on) {
     });
     floatWin.on('moved', () => {
       if (!floatWin) return;
-      const [fx, fy] = floatWin.getPosition();
-      settings.floatPos = { x: fx, y: fy };
+      const b = floatWin.getBounds();
+      settings.floatAnchor = { right: b.x + b.width, y: b.y };
       saveSettings();
     });
     floatWin.on('closed', () => { floatWin = null; if (mini) setMini(false); });
@@ -335,10 +335,21 @@ function wireIpc() {
     lastState = state && typeof state === 'object' ? state : lastState;
     if (floatWin && !floatWin.isDestroyed()) floatWin.webContents.send('floating:state', lastState);
   });
+  // the bar is only as wide as its pill; it grows and shrinks leftwards, so its right edge stays where it was put
+  ipcMain.on('floating:size', (_e, w, h) => {
+    if (!floatWin || floatWin.isDestroyed()) return;
+    w = Math.max(60, Math.min(520, Math.round(Number(w) || 0)));
+    h = Math.max(28, Math.min(60, Math.round(Number(h) || 0)));
+    const b = floatWin.getBounds();
+    if (b.width === w && b.height === h) return;
+    const area = screen.getDisplayMatching(b).workArea;
+    const x = Math.max(area.x, Math.min(b.x + b.width - w, area.x + area.width - w));
+    floatWin.setBounds({ x, y: b.y, width: w, height: h });
+  });
   ipcMain.on('floating:act', (_e, action) => {
     if (action === 'expand') { setMini(false); return; }
     if (action === 'assistant') { setMini(false); send('command', { type: 'assistant' }); return; }
-    if (['focus-toggle', 'record-pause', 'record-resume', 'record-stop'].includes(action)) send('command', { type: action });
+    if (['focus-toggle', 'record-pause', 'record-resume', 'record-stop', 'music-toggle', 'music-next', 'music-previous'].includes(action)) send('command', { type: action });
   });
 }
 

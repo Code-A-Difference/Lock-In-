@@ -25,18 +25,17 @@ export const RELEASES = {
     ],
   },
   desktop: {
-    version: '1.0.6',
+    version: '1.0.7',
     date: '2026-10-14',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.6/LOCKIN-win-x64.exe`,
-      macArm: `${GH}/download/desktop-v1.0.6/LOCKIN-mac-arm64.dmg`,
-      macIntel: `${GH}/download/desktop-v1.0.6/LOCKIN-mac-x64.dmg`,
+      windows: `${GH}/download/desktop-v1.0.7/LOCKIN-win-x64.exe`,
+      macArm: `${GH}/download/desktop-v1.0.7/LOCKIN-mac-arm64.dmg`,
+      macIntel: `${GH}/download/desktop-v1.0.7/LOCKIN-mac-x64.dmg`,
     },
     notes: [
-      'While LOCK IN! works on your answer it now shows playful words (Pondering, Mustering, Consulting the Force…) instead of plain “Thinking…”.',
-      'The floating bar’s play and pause button now swaps its icon correctly.',
-      'Float on top is now a small bar that stays over every app, full-screen ones too: your recording or focus timer, with pause, stop and a button back to the full window. Drag it anywhere; it stays that small.',
-      'Settings is organised into a short menu, like a phone’s.',
+      'Float on top is now a tiny timer pill, about the size of the numbers. Hover it for its buttons; drag it anywhere.',
+      'Music: play YouTube Music or control Spotify from the new Music page. The song, moving waves, pause and skip show right in the floating bar.',
+      'While LOCK IN! works on your answer it shows playful words (Pondering, Mustering, Consulting the Force…) instead of plain “Thinking…”.',
     ],
   },
 };
