@@ -5,6 +5,7 @@ import { db } from '@/api/db';
 import { cn } from '@/lib/utils';
 import { RECIPES, classChatPrompt } from '@/lib/classChat';
 import { notesMarkdown } from '@/lib/lectures';
+import ThinkingWord from '@/components/lockin/ThinkingWord';
 
 /**
  * "Ask about this class", Granola's chat, for a lecture. While recording,
@@ -90,7 +91,7 @@ export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onA
       )}
       {busy && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{busy}
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{busy === 'Thinking…' ? <ThinkingWord /> : busy}
         </p>
       )}
       <div ref={end} />
