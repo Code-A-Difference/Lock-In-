@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { desktop, isDesktop } from '@/lib/desktop';
 import { useLecture } from '@/lib/LectureContext';
 import { useStudyData, useActions } from '@/lib/data';
-import { useFocus } from '@/lib/FocusContext';
+import { useFocus, PHASE_LABEL } from '@/lib/FocusContext';
 import { clock } from '@/lib/lectureNotes';
 import ClassChat from '@/components/lockin/ClassChat';
 import { RECIPES } from '@/lib/classChat';
@@ -62,15 +62,41 @@ export function useMini() {
 /** Shortcuts, the tray and call detection -> actions in the app. */
 export function DesktopBridge() {
   const lec = useLecture();
+  const focus = useFocus();
+  const { lectures } = useStudyData();
   const navigate = useNavigate();
   const lecRef = useRef(lec);
   lecRef.current = lec;
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const reported = useRef('');
+
+  // The floating bar shows what's running here; tell it whenever that changes
+  useEffect(() => {
+    if (!desktop?.reportFloating) return;
+    const a = lec.active;
+    const lecture = a ? lectures.find(l => l.id === a.id) : null;
+    const state = {
+      recording: a && a.state !== 'finishing' ? { title: lecture?.title || 'Recording', elapsed: Math.floor(a.elapsed || 0), paused: a.state === 'paused' } : null,
+      focus: { status: focus.status, phaseLabel: PHASE_LABEL[focus.phase] || 'Focus', endsAt: focus.endsAt, remaining: Math.round(focus.remaining), task: focus.taskItem?.title || '' },
+    };
+    // a running timer counts down by itself in the bar: only its end time matters
+    const key = JSON.stringify(focus.status === 'running' ? { ...state, focus: { ...state.focus, remaining: 0 } } : state);
+    if (key === reported.current) return;
+    reported.current = key;
+    desktop.reportFloating(state);
+  });
 
   useEffect(() => {
     if (!isDesktop) return undefined;
     return desktop.onCommand(async (cmd) => {
       const L = lecRef.current;
       if (cmd.type === 'assistant') { window.dispatchEvent(new Event('lockin:assistant')); return; }
+      // the floating bar's buttons
+      if (cmd.type === 'focus-toggle') { focusRef.current.toggle(); return; }
+      if (cmd.type === 'record-pause') { L.pause(); return; }
+      if (cmd.type === 'record-resume') { L.resume(); return; }
+      if (cmd.type === 'record-stop') { L.stop(); return; }
       if (cmd.type === 'catchup') {
         if (L.active) {
           navigate(`/Notes?id=${L.active.id}`);

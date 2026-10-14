@@ -1,6 +1,7 @@
 import { db, accounts } from '@/api/db';
 
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { readComfort, saveComfort, SIZES } from '@/lib/comfort';
-import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic, Bell, CalendarDays, Copy } from "lucide-react";
+import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic, Bell, CalendarDays, Copy, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
@@ -290,6 +291,7 @@ export default function Settings() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const voice = { ...VOICE_DEFAULTS, ...(user?.voice || {}) };
+  const handsFree = useHandsFree();
   const [browserVoices, setBrowserVoices] = useState([]);
   const [playing, setPlaying] = useState(null);      // which sample is playing
   const [heardWith, setHeardWith] = useState('');
@@ -375,14 +377,26 @@ export default function Settings() {
   const aiOk = voiceStatus().aiAvailable;
   const numberBox = 'h-9 w-20 rounded-lg border bg-background px-2 text-center text-sm tabular-nums text-foreground';
 
+  const engineLabel = { auto: 'Natural', ai: 'AI voice', browser: 'Device' }[voice.engine] || '';
+  const device = isNativeApp ? (phoneWhisper ? { id: 'device', title: 'This phone', icon: Smartphone, words: 'whisper speech model' } : null)
+    : isDesktop ? { id: 'device', title: 'This computer', icon: Monitor, words: 'whisper transcription shortcuts float start with computer calls record' }
+    : { id: 'device', title: 'Get the desktop app', icon: Monitor, words: 'windows mac download' };
+  const menu = [
+    [{ id: 'focus', title: 'Focus timer', icon: Timer, value: `${p.focusMin} min`, words: 'break long goal automatically cues notification pomodoro' },
+     { id: 'reminders', title: 'Reminders', icon: Bell, value: user.reminders?.on ? 'On' : 'Off', words: 'notifications deadlines due tests evening morning' },
+     { id: 'calendar', title: 'Calendar', icon: CalendarDays, words: 'google apple outlook ics subscribe sync' }],
+    [{ id: 'companion', title: 'Hey Companion', icon: Mic, value: handsFree === 'on' ? 'On' : 'Off', words: 'wake word hands-free train voice listen' },
+     { id: 'voice', title: 'Voice', icon: AudioLines, value: engineLabel, words: 'speech read aloud speed ai engine' }],
+    [{ id: 'display', title: 'Display and reading', icon: Palette, value: user.theme !== 'light' ? 'Dark' : 'Light', words: 'dark mode light theme text size font dyslexia contrast motion spacing comfort' }],
+    [device, !isNativeApp && { id: 'phone', title: 'Get the phone app', icon: Smartphone, words: 'android iphone apk download' }].filter(Boolean),
+  ];
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-8">
-      <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Settings</h1>
-      <p className="mb-6 mt-1 text-sm text-muted-foreground">
-        Signed in as <strong className="font-semibold text-foreground">{user.username}</strong>. Everything here is saved to your account.
-      </p>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-8">
+      <SettingsLayout user={user} menu={menu}>
 
       <div className="space-y-5">
+        <Page id="account">
         <Section icon={User} title="Profile" description="How LOCK IN! greets you.">
           <div className="space-y-1.5">
             <Label htmlFor="fullName">Your name</Label>
@@ -393,7 +407,9 @@ export default function Settings() {
             <p className="text-xs text-muted-foreground">Your username, <strong>{user.username}</strong>, is how you sign in, so it can't change.</p>
           </div>
         </Section>
+        </Page>
 
+        <Page id="display">
         <Section icon={Palette} title="Appearance">
           <Row id="darkMode" label="Dark mode" hint="Easier on the eyes at night.">
             <Switch id="darkMode" checked={user.theme !== 'light'} onCheckedChange={(on) => db.auth.updateMe({ theme: on ? 'dark' : 'light' }).catch(() => toast({ title: "Couldn't save that", description: 'Check your connection and try again.', variant: 'destructive' }))} />
@@ -401,10 +417,12 @@ export default function Settings() {
         </Section>
 
         <ComfortSection />
+        </Page>
 
-        <DesktopApp />
-        <PhoneApp />
+        <Page id="device"><DesktopApp /></Page>
+        <Page id="phone"><PhoneApp /></Page>
 
+        <Page id="focus">
         <Section icon={Timer} title="Focus timer" description="Defaults for the Focus page. The presets there change the first two.">
           <div className="grid gap-4 sm:grid-cols-4">
             {[['focusMin', 'Focus', 180], ['breakMin', 'Break', 60], ['longMin', 'Long break', 90]].map(([k, label, max]) => (
@@ -445,13 +463,15 @@ export default function Settings() {
             <Switch id="notify" checked={p.notify} onCheckedChange={setNotify} />
           </Row>
         </Section>
+        </Page>
 
-        <RemindersSection />
+        <Page id="reminders"><RemindersSection /></Page>
 
-        <CalendarSection />
+        <Page id="calendar"><CalendarSection /></Page>
 
-        <HeyCompanionSection />
+        <Page id="companion"><HeyCompanionSection /></Page>
 
+        <Page id="voice">
         <Section icon={AudioLines} title="Voice" description="How the assistant and the timer sound.">
           <fieldset className="space-y-2">
             <legend className="mb-1 text-sm font-medium text-foreground">Engine</legend>
@@ -529,7 +549,9 @@ export default function Settings() {
             {heardWith && <p className="text-xs text-muted-foreground" aria-live="polite">{heardWith}</p>}
           </div>
         </Section>
+        </Page>
 
+        <Page id="account">
         <Section icon={KeyRound} title="Password" description="There's no email on your account, so there's no reset. Changing it signs out your other devices.">
           <form onSubmit={changePassword} className="space-y-3">
             <div className="space-y-1.5">
@@ -588,7 +610,9 @@ export default function Settings() {
             </div>
           </form>
         </Section>
+        </Page>
       </div>
+      </SettingsLayout>
     </div>
   );
 }
@@ -779,5 +803,114 @@ function CalendarSection() {
         </div>
       )}
     </Section>
+  );
+}
+
+/* ------------------------------------------------------------ the menu */
+
+const PageCtx = createContext('');
+
+/** A settings page: shown when it's the one picked in the menu. */
+function Page({ id, children }) {
+  return useContext(PageCtx) === id ? children : null;
+}
+
+function useWide() {
+  const q = '(min-width: 1024px)';
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(q);
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
+
+/**
+ * Settings the way a phone does them: one short menu of grouped rows, each showing
+ * its current value, that opens a page. On a phone the page replaces the menu (with
+ * a way back); on a wide screen the menu stays on the left. The page is in the
+ * address (?s=reminders), so it can be linked to and Back works.
+ */
+function SettingsLayout({ user, menu, children }) {
+  const [params, setParams] = useSearchParams();
+  const wide = useWide();
+  const [query, setQuery] = useState('');
+  const all = menu.flat();
+  const asked = params.get('s');
+  const page = all.some(i => i.id === asked) || asked === 'account' ? asked : (wide ? 'account' : '');
+  const open = (id) => { setParams(id ? { s: id } : {}, { replace: wide }); setQuery(''); window.scrollTo(0, 0); };
+  const q = query.trim().toLowerCase();
+  const found = q ? [{ id: 'account', title: 'Account', icon: User, words: 'name password sign out delete profile' }, ...all]
+    .filter(i => `${i.title} ${i.words || ''}`.toLowerCase().includes(q)) : null;
+  const current = page === 'account' ? 'Account' : all.find(i => i.id === page)?.title || '';
+
+  const row = (i) => {
+    const Icon = i.icon;
+    const on = wide && page === i.id;
+    return (
+      <li key={i.id}>
+        <button type="button" onClick={() => open(i.id)} aria-current={on ? 'page' : undefined}
+          className={cn('flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-secondary', on && 'bg-secondary')}>
+          <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-accent text-primary"><Icon className="h-[18px] w-[18px]" aria-hidden="true" /></span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{i.title}</span>
+          {i.value && <span className="flex-none text-sm text-muted-foreground">{i.value}</span>}
+          <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
+        </button>
+      </li>
+    );
+  };
+
+  const list = (
+    <nav aria-label="Settings" className="space-y-5">
+      <label className="relative block">
+        <span className="sr-only">Search settings</span>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search"
+          className="h-11 w-full rounded-xl border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground" />
+      </label>
+      {found ? (
+        found.length ? <ul className="divide-y overflow-hidden rounded-2xl border bg-card">{found.map(row)}</ul>
+          : <p className="px-1 text-sm text-muted-foreground">No setting called “{query}”.</p>
+      ) : (
+        <>
+          <button type="button" onClick={() => open('account')} aria-current={wide && page === 'account' ? 'page' : undefined}
+            className={cn('flex w-full items-center gap-3 rounded-2xl border bg-card p-3 text-left hover:bg-secondary', wide && page === 'account' && 'bg-secondary')}>
+            <span className="grid h-12 w-12 flex-none place-items-center rounded-full bg-primary text-lg font-bold text-primary-foreground" aria-hidden="true">
+              {(user.full_name || user.username || '?').trim().charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-base font-semibold text-foreground">{user.full_name || user.username}</span>
+              <span className="block truncate text-sm text-muted-foreground">@{user.username} · name, password, sign out</span>
+            </span>
+            <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
+          </button>
+          {menu.filter(g => g.length).map((g, n) => (
+            <ul key={n} className="divide-y overflow-hidden rounded-2xl border bg-card">{g.map(row)}</ul>
+          ))}
+        </>
+      )}
+    </nav>
+  );
+
+  return (
+    <>
+      <h1 className={cn('mb-5 text-2xl font-bold tracking-tight text-foreground sm:text-3xl', !wide && page && 'sr-only')}>Settings</h1>
+      <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        {(wide || !page) && <div className="lg:sticky lg:top-6">{list}</div>}
+        {page && (
+          <div className="min-w-0">
+            {!wide && (
+              <button type="button" onClick={() => open('')} className="-ml-2 mb-3 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-primary hover:bg-accent">
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />Settings
+              </button>
+            )}
+            <h2 className="sr-only">{current}</h2>
+            <PageCtx.Provider value={page}>{children}</PageCtx.Provider>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

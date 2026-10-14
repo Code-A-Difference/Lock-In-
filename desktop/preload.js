@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('lockinDesktop', {
     set: (patch) => ipcRenderer.invoke('prefs:set', patch),
   },
   setRecording: (onOff) => ipcRenderer.send('recording', !!onOff),
+  /** What's running ({recording, focus}), for the floating bar. */
+  reportFloating: (state) => ipcRenderer.send('floating:report', state),
   show: () => ipcRenderer.send('show'),
   /** {type:'assistant'|'catchup'|'record', source?, app?} from shortcuts, the tray and call detection. */
   onCommand: on('command'),

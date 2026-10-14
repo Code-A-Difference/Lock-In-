@@ -22,11 +22,13 @@ const meetings = require('./meetings');
 
 const SITE = process.env.LOCKIN_URL || 'https://codeadifference.ct.ws/lockin/';
 const ORIGIN = new URL(SITE).origin;
-const MINI = { width: 380, height: 600 };
+const FLOAT = { width: 312, height: 64 };   // the floating bar: small on purpose, never resized
 
 // Computer-sound capture on a Mac goes through ScreenCaptureKit (macOS 13+).
 app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
 
+// A second copy for testing (LOCKIN_USER_DATA=<folder>) keeps its own settings and runs alongside the real one.
+if (process.env.LOCKIN_USER_DATA) app.setPath('userData', process.env.LOCKIN_USER_DATA);
 if (!app.requestSingleInstanceLock()) app.quit();
 if (process.platform === 'win32') app.setAppUserModelId('ws.ct.codeadifference.lockin');
 
@@ -34,7 +36,7 @@ if (process.platform === 'win32') app.setAppUserModelId('ws.ct.codeadifference.l
 
 const settingsFile = () => path.join(app.getPath('userData'), 'desktop-settings.json');
 const DEFAULTS = {
-  bounds: null, miniBounds: null, offerRecordCalls: true, toldAboutTray: false,
+  bounds: null, floatPos: null, offerRecordCalls: true, toldAboutTray: false,
   // turbo (Whisper large-v3 turbo) is the goal; base works while it downloads (see warmUp)
   transcription: { enabled: true, model: 'turbo', language: 'en' },
 };
@@ -141,7 +143,7 @@ function createWindow({ hidden = false } = {}) {
 
   const remember = () => {
     if (!win || win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
-    if (mini) settings.miniBounds = win.getBounds(); else settings.bounds = win.getBounds();
+    if (!mini) settings.bounds = win.getBounds();       // the floating bar keeps its own position
     saveSettings();
   };
   win.on('resized', remember);
@@ -160,30 +162,58 @@ function createWindow({ hidden = false } = {}) {
   });
 }
 
-/** The floating mini window: small, on top of everything, in the corner. */
+/**
+ * Float on top: a small bar over every app (and over full-screen ones) with what's
+ * running, a recording or a focus block, and its buttons. It used to be the whole
+ * app squeezed into a corner, which a maximized window could blow back up to full
+ * size. Now it's its own little window: the main one hides, and keeps recording and
+ * timing behind it; the bar shows what the main window reports and sends its
+ * buttons back. Only where it sits is remembered, never a size.
+ */
+let floatWin = null;
+let lastState = { recording: null, focus: null };
+
+function floatPosition() {
+  const p = settings.floatPos;
+  if (p && visibleBounds({ x: p.x, y: p.y, width: FLOAT.width, height: FLOAT.height })) return p;
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  return { x: area.x + area.width - FLOAT.width - 16, y: area.y + area.height - FLOAT.height - 16 };
+}
+
 function setMini(on) {
-  if (!win || on === mini) { send('mini', mini); return; }
+  if (!win || on === mini) { send('mini', false); return; }
+  mini = on;
   if (on) {
-    settings.bounds = win.getBounds();
-    const area = screen.getDisplayMatching(win.getBounds()).workArea;
-    const m = settings.miniBounds || { ...MINI, x: area.x + area.width - MINI.width - 16, y: area.y + area.height - MINI.height - 16 };
-    mini = true;
-    if (win.isMaximized()) win.unmaximize();
-    win.setMinimumSize(300, 360);
-    win.setBounds(m);
-    win.setAlwaysOnTop(true, 'floating');
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    const { x, y } = floatPosition();
+    floatWin = new BrowserWindow({
+      x, y, width: FLOAT.width, height: FLOAT.height,
+      frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
+      skipTaskbar: true, alwaysOnTop: true, hasShadow: false, show: false, title: 'LOCK IN!',
+      webPreferences: { preload: path.join(__dirname, 'mini-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    // above everything, full-screen apps and presentations included
+    floatWin.setAlwaysOnTop(true, 'screen-saver');
+    floatWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    floatWin.loadFile(path.join(__dirname, 'mini.html'));
+    floatWin.once('ready-to-show', () => {
+      floatWin.webContents.send('floating:state', lastState);
+      floatWin.showInactive();                       // doesn't take the keyboard from the app you're in
+    });
+    floatWin.on('moved', () => {
+      if (!floatWin) return;
+      const [fx, fy] = floatWin.getPosition();
+      settings.floatPos = { x: fx, y: fy };
+      saveSettings();
+    });
+    floatWin.on('closed', () => { floatWin = null; if (mini) setMini(false); });
+    win.hide();
   } else {
-    settings.miniBounds = win.getBounds();
-    mini = false;
-    win.setAlwaysOnTop(false);
-    win.setVisibleOnAllWorkspaces(false);
-    win.setMinimumSize(340, 420);
-    if (settings.bounds) win.setBounds(settings.bounds);
+    const f = floatWin;
+    floatWin = null;
+    if (f && !f.isDestroyed()) f.destroy();
+    showWindow();
   }
-  saveSettings();
-  showWindow();
-  send('mini', mini);
+  send('mini', false);                               // the page itself is never "the mini window" any more
   updateTray();
 }
 
@@ -300,6 +330,16 @@ function wireIpc() {
   });
   ipcMain.on('recording', (_e, on) => { recording = !!on; updateTray(); });
   ipcMain.on('show', () => showWindow());
+  // the page tells the floating bar what's running; the bar's buttons come back as commands
+  ipcMain.on('floating:report', (_e, state) => {
+    lastState = state && typeof state === 'object' ? state : lastState;
+    if (floatWin && !floatWin.isDestroyed()) floatWin.webContents.send('floating:state', lastState);
+  });
+  ipcMain.on('floating:act', (_e, action) => {
+    if (action === 'expand') { setMini(false); return; }
+    if (action === 'assistant') { setMini(false); send('command', { type: 'assistant' }); return; }
+    if (['focus-toggle', 'record-pause', 'record-resume', 'record-stop'].includes(action)) send('command', { type: action });
+  });
 }
 
 /**
