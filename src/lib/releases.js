@@ -25,17 +25,17 @@ export const RELEASES = {
     ],
   },
   desktop: {
-    version: '1.0.4',
-    date: '2026-10-13',
+    version: '1.0.5',
+    date: '2026-10-14',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.4/LOCKIN-win-x64.exe`,
-      macArm: `${GH}/download/desktop-v1.0.4/LOCKIN-mac-arm64.dmg`,
-      macIntel: `${GH}/download/desktop-v1.0.4/LOCKIN-mac-x64.dmg`,
+      windows: `${GH}/download/desktop-v1.0.5/LOCKIN-win-x64.exe`,
+      macArm: `${GH}/download/desktop-v1.0.5/LOCKIN-mac-arm64.dmg`,
+      macIntel: `${GH}/download/desktop-v1.0.5/LOCKIN-mac-x64.dmg`,
     },
     notes: [
-      'LOCK IN! always opens where you can see it, even if the screen it was last on is unplugged.',
-      'Say “Hey Companion” to wake the assistant. It learns your voice, so other people and other words are far less likely to wake it.',
-      'Background noise is ignored instead of being sent to the assistant as if you had said it.',
+      'Float on top is now a small bar that stays over every app, full-screen ones too: your recording or focus timer, with pause, stop and a button back to the full window. Drag it anywhere; it stays that small.',
+      'Settings is organised into a short menu, like a phone’s.',
+      'Reminders before homework and tests are due, and your deadlines in Google Calendar.',
     ],
   },
 };

@@ -1,7 +1,7 @@
 {
   "name": "lockin-desktop",
   "productName": "LOCK IN!",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "LOCK IN! for Windows and Mac: private on-device transcription, a floating window, and computer-audio recording.",
   "author": "Code A Difference",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "productName": "LOCK IN!",
     "artifactName": "LOCKIN-${os}-${arch}.${ext}",
     "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "whisper.js", "meetings.js", "offline.html", "build/icon.png", "build/tray*.png", "package.json"],
+    "files": ["main.js", "preload.js", "whisper.js", "meetings.js", "offline.html", "mini.html", "mini.js", "mini-preload.js", "build/icon.png", "build/tray*.png", "package.json"],
     "extraResources": [{ "from": "resources/whisper/${os}-${arch}", "to": "whisper", "filter": ["**/*"] }],
     "win": { "target": "nsis", "icon": "build/icon.png" },
     "nsis": {

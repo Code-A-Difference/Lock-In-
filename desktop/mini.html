@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'">
+<title>LOCK IN! (floating)</title>
+<style>
+  /* A small bar that floats over every app: what's running, and its buttons. Drag it anywhere. */
+  :root { color-scheme: dark; --bg: #1b1e24; --ink: #e8e4dc; --mute: #9aa0aa; --line: #2c3038; --sage: #84b3a6; --rec: #e5484d; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: transparent; overflow: hidden; font: 600 13px/1.2 "Space Grotesk Variable", "Segoe UI", system-ui, sans-serif; color: var(--ink); user-select: none; }
+  .bar { position: absolute; inset: 4px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 12px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 14px; -webkit-app-region: drag;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--mute); }
+  .dot.rec { background: var(--rec); animation: beat 1.6s ease-in-out infinite; }
+  .dot.focus { background: var(--sage); }
+  .dot.paused { background: #d9a441; animation: none; }
+  @keyframes beat { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .dot.rec { animation: none; } }
+  .text { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+  .label { font-size: 11px; font-weight: 600; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .time { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  button { -webkit-app-region: no-drag; flex: none; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 10px;
+    background: transparent; color: var(--ink); cursor: pointer; }
+  button:hover { background: #2a2e36; }
+  button:focus-visible { outline: 2px solid var(--sage); outline-offset: 1px; }
+  button.main { background: var(--sage); color: #14201c; }
+  button.main:hover { background: #95c1b5; }
+  [hidden] { display: none !important; }
+  svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+  <div class="bar" role="toolbar" aria-label="LOCK IN!">
+    <span class="dot" id="dot" aria-hidden="true"></span>
+    <div class="text" aria-live="polite">
+      <span class="label" id="label">LOCK IN!</span>
+      <span class="time" id="time">Ready</span>
+    </div>
+    <button id="toggle" class="main" type="button" aria-label="Start focus" title="Start focus">
+      <svg id="ico-play" viewBox="0 0 24 24"><polygon points="7 4 20 12 7 20 7 4"/></svg>
+      <svg id="ico-pause" viewBox="0 0 24 24" hidden><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+    </button>
+    <button id="stop" type="button" aria-label="Stop recording" title="Stop recording" hidden>
+      <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+    </button>
+    <button id="ask" type="button" aria-label="Ask Companion" title="Ask Companion">
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
+    <button id="expand" type="button" aria-label="Open the full window" title="Full window">
+      <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+    </button>
+  </div>
+  <script src="mini.js"></script>
+</body>
+</html>
