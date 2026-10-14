@@ -746,7 +746,7 @@ function CalendarSection() {
   const webcal = url.replace(/^https?:/, 'webcal:');
   const btn = 'inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary';
   return (
-    <Section icon={CalendarDays} title="Calendar" description="Homework, tests and your study plan in Google Calendar, Apple Calendar or Outlook. It keeps itself up to date.">
+    <Section icon={CalendarDays} title="Calendar" description="Homework, tests and your study plan in your calendar app.">
       {!url ? (
         <button type="button" onClick={() => get(false)} disabled={busy}
           className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
@@ -754,10 +754,15 @@ function CalendarSection() {
         </button>
       ) : (
         <div className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-3">
-            <a className={btn} href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`} target="_blank" rel="noopener noreferrer">Google Calendar</a>
-            <a className={btn} href={webcal}>Apple Calendar</a>
-            <a className={btn} href={`https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(url)}&name=${encodeURIComponent('LOCK IN!')}`} target="_blank" rel="noopener noreferrer">Outlook</a>
+          <a className={cn(btn, 'w-full border-primary/40 font-semibold text-primary sm:w-auto')} href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`} target="_blank" rel="noopener noreferrer">
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />Add to Google Calendar
+          </a>
+          <p className="text-xs text-muted-foreground">
+            Google Calendar keeps it up to date by itself (it checks every few hours), and it shows on your phone too if Google Calendar is there.
+            Apple Calendar and Outlook can’t reach this site to keep checking, so for those, download a copy and open it: it adds what’s there now.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a className={btn} href={url} download="lockin.ics"><Download className="h-4 w-4" aria-hidden="true" />Copy for Apple Calendar or Outlook</a>
           </div>
           <div className="flex gap-2">
             <input readOnly value={url} aria-label="Your private calendar link" onFocus={e => e.target.select()}
@@ -766,10 +771,7 @@ function CalendarSection() {
               <Copy className="h-4 w-4" aria-hidden="true" />{copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Anyone with this link can see your homework and tests, so keep it to yourself. Calendar apps check it every few hours.{' '}
-            <a className="font-medium text-primary underline" href={url} download="lockin.ics">Download a copy</a> instead if you’d rather import it once.
-          </p>
+          <p className="text-xs text-muted-foreground">Anyone with this link can see your homework and tests, so keep it to yourself.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btn} onClick={() => get(true)} disabled={busy}>Make a new link</button>
             <button type="button" className={btn} onClick={off} disabled={busy}>Turn it off</button>
