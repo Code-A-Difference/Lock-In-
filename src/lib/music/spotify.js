@@ -99,5 +99,6 @@ export async function play({ uri, kind = 'track' }) {
 }
 export const resume = () => api('/me/player/play', { method: 'PUT' });
 export const pause = () => api('/me/player/pause', { method: 'PUT' });
+export const seek = (ms) => api(`/me/player/seek?${new URLSearchParams({ position_ms: String(Math.max(0, Math.round(ms))) })}`, { method: 'PUT' });
 export const next = () => api('/me/player/next', { method: 'POST' });
 export const previous = () => api('/me/player/previous', { method: 'POST' });

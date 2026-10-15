@@ -76,6 +76,31 @@ window.floating.onState((s) => {
   paint();
 });
 
+/* click the pill to open LOCK IN!; press and drag to move it. (The bar does its own dragging so that a plain click still gets through.) */
+(function () {
+  var bar = $('bar'), start = null, moved = false, last = null;
+  bar.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    start = { x: e.screenX, y: e.screenY }; last = { x: e.screenX, y: e.screenY }; moved = false;
+    bar.setPointerCapture(e.pointerId);
+  });
+  bar.addEventListener('pointermove', function (e) {
+    if (!start) return;
+    if (!moved && Math.abs(e.screenX - start.x) + Math.abs(e.screenY - start.y) < 5) return;
+    moved = true;
+    window.floating.move(e.screenX - last.x, e.screenY - last.y);
+    last = { x: e.screenX, y: e.screenY };
+  });
+  function end(e) {
+    if (!start) return;
+    var wasDrag = moved; start = null; moved = false;
+    try { bar.releasePointerCapture(e.pointerId); } catch (_) { /* already released */ }
+    if (wasDrag) window.floating.drop(); else window.floating.act('expand');
+  }
+  bar.addEventListener('pointerup', end);
+  bar.addEventListener('pointercancel', function () { start = null; moved = false; });
+})();
+
 $('toggle').addEventListener('click', () => window.floating.act(state.recording ? (state.recording.paused ? 'record-resume' : 'record-pause') : 'focus-toggle'));
 $('stop').addEventListener('click', () => window.floating.act('record-stop'));
 $('ask').addEventListener('click', () => window.floating.act('assistant'));
