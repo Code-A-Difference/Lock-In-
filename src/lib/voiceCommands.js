@@ -141,6 +141,20 @@ export function parseCommand(raw) {
   if (/\b(go|take me|open) (to )?(practice|quizzes|quiz page)\b/.test(t)) return { action: 'navigate', path: '/Study' };
   if (/\b(go|take me|open) (to )?(my )?(notes|lectures)\b/.test(t)) return { action: 'navigate', path: '/Notes' };
 
+  // ---- the floating bar (desktop app), and the music player's controls
+  if (/\b(float(?:ing)?(?: (?:window|bar|timer|mode))?(?: on top)?|(?:keep|stay|put)(?: it| this| the timer)? on top|always on top|on top of (?:my |the )?(?:other )?(?:apps|windows|everything)|mini (?:window|bar|mode|timer)|picture in picture|pip)\b/.test(t) && !/\b(quiz|homework|assignment|test|exam)\b/.test(t)) return { action: 'floatOn' };
+  if (/\b(?:skip|next|change)(?: this| the)? (?:song|track)\b|\bnext (?:song|track)\b/.test(t)) return { action: 'musicNext' };
+  if (/\b(?:previous|last|go back(?: a)?|play the last) (?:song|track)\b/.test(t)) return { action: 'musicPrevious' };
+  if (/\b(?:resume|unpause|continue)(?: the| my)? (?:song|track|music)\b/.test(t)) return { action: 'musicResume' };
+  {
+    // "play Blinding Lights", "play lofi beats on spotify": a song, not the timer's rain or brown noise
+    const play = /^ play (?:me |us )?(?:some |the |my )?(.+?)(?: on (spotify|youtube(?: music)?))? $/.exec(t);
+    const ambient = /^(?:rain|rainy|storm|brown(?: noise)?|drone|ambient|hum|pad|space|music|sounds?|noise|audio)(?: sounds?| noise)?$/;
+    if (play && play[1] && !ambient.test(play[1].trim())) {
+      return { action: 'playMusic', query: play[1].trim(), source: play[2] ? (/spotify/.test(play[2]) ? 'spotify' : 'youtube') : '' };
+    }
+  }
+
   // ---- sound, before plain "stop" so "stop the music" isn't "stop the timer"
   if (/\b(stop|silence|mute|kill|pause|no|turn off|switch off|cut)( the)? (music|sound|sounds|noise|ambient|rain|audio)\b|\b(music|sound|noise|audio) off\b|\bmute\b/.test(t)) {
     return { action: 'sound', kind: 'off' };
@@ -220,4 +234,6 @@ export const VOICE_HELP = [
   ['"Play rain" / "Stop the music"', 'change the background sound'],
   ['"Record the biology lecture" / "Stop recording"', 'transcribe a class into notes'],
   ['"Plan my week" / "Open focus" / "Go to classes"', 'move around the app'],
+  ['"Float on top"', 'shrink the timer to a tiny bar over your other apps (desktop app)'],
+  ['"Play Blinding Lights" / "Skip this song"', 'music while you study'],
 ];
