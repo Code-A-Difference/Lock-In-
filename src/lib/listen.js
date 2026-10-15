@@ -134,6 +134,9 @@ export function listenOnce({ onInterim, onSpeech, recognition, pauseMs = 1600, q
  *    wake phrase. Now it reacts to the interim words, so the "I'm listening"
  *    chime comes the moment you say it.
  */
+// how long after the assistant stops its own voice is still treated as echo
+const ECHO_TAIL_MS = 1600;
+
 export class HandsFree {
   constructor({ onCommand, onWake, onState, onError, onHeard, onNote, onDismiss, recognition } = {}) {
     this.onDismiss = onDismiss;              // "stop" heard while the assistant is talking or listening for a follow-up
@@ -150,6 +153,7 @@ export class HandsFree {
     this.armedUntil = 0;
     this.muted = false;
     this.mutedUntil = 0;
+    this.deafSpans = [];            // when it was deaf, so a sentence heard late can still be judged by when it was SAID
     this.rec = null;
     this.rapid = 0;
     this.openedAt = 0;
@@ -214,8 +218,19 @@ export class HandsFree {
 
   /** While the assistant speaks, listen without hearing: results are dropped, the mic stays open. */
   setMuted(on) {
-    this.muted = !!on;
-    if (!on) this.mutedUntil = Date.now() + 700;   // its own voice echoes for a moment
+    const now = Date.now();
+    on = !!on;
+    if (on && !this.muted) this.deafSpans.push({ a: now, b: null });
+    if (!on && this.muted) { const s = this.deafSpans[this.deafSpans.length - 1]; if (s && s.b === null) s.b = now + ECHO_TAIL_MS; }
+    this.muted = on;
+    if (!on) this.mutedUntil = now + ECHO_TAIL_MS;   // its own voice and the room's echo carry on for a moment
+    this.deafSpans = this.deafSpans.filter((s) => s.b === null || s.b > now - 60000);
+  }
+
+  /** Was any part of this stretch of time spent deaf? (An utterance reaches us after it has ended and been written down; the
+   *  assistant may have been talking when it began.) */
+  _deafBetween(t0, t1) {
+    return this.deafSpans.some((s) => s.a <= t1 && (s.b === null || s.b >= t0));
   }
 
   /** Stop treating plain speech as a request: back to waiting for the wake phrase. */
@@ -321,6 +336,7 @@ export class HandsFree {
           quiet = 0;
           const done = await this.onCommand?.(said);            // answered and spoken before it returns
           if (done && done.followUp === false) break;           // nothing more was asked: back to waiting for the wake phrase
+          await new Promise(res => setTimeout(res, 900));        // let its own voice fade from the room before the mic opens again
         }
       }
     } catch (e) {
@@ -380,7 +396,9 @@ export class HandsFree {
         }).catch(() => {});
       },
       onUtterance: (pcm) => {
-        if (this._deaf()) return;           // the assistant talking, or its echo
+        // when this was said: it ends now, after the quiet that closed it (~0.6 s)
+        const t1 = Date.now(), t0 = t1 - Math.round(pcm.length / 16) - 800;
+        if (this._deaf() || this._deafBetween(t0, t1)) return;           // the assistant talking, or its echo
         const i = seq++;
         queue = queue.then(async () => {
           if (!this.running) return;
@@ -390,7 +408,7 @@ export class HandsFree {
             if (e.off || ++failures >= 3) { this.onError?.(e.off ? 'On-device listening was switched off.' : e.message); this.stop(); }
             return;
           }
-          if (text && this.running && !this._deaf()) this._final(i, text, woken, pcm);
+          if (text && this.running && !this._deaf() && !this._deafBetween(t0, t1)) this._final(i, text, woken, pcm);
         });
       },
     });
