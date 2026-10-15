@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, Music2, Play, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMusic } from '@/lib/MusicContext';
+import { parseYouTube } from '@/lib/music/links';
 import { Waves } from '@/components/lockin/NowPlaying';
 
 const SOURCES = [['youtube', 'YouTube Music'], ['spotify', 'Spotify']];
@@ -21,6 +22,10 @@ export default function Music() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const handled = useRef(false);
+  const [sugg, setSugg] = useState([]);
+  const [active, setActive] = useState(-1);
+  const [open, setOpen] = useState(false);
+  const typed = useRef('');
 
   useEffect(() => { m.loadConfig(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -32,12 +37,32 @@ export default function Music() {
     m.spotify.finish(location.search).then(() => navigate('/Music', { replace: true }));
   }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const go = async (e) => {
-    e.preventDefault();
-    if (!q.trim() || busy) return;
+  // type-ahead: words people search for, as you type (YouTube only; it needs no key)
+  useEffect(() => {
+    const text = q.trim();
+    if (provider !== 'youtube' || text.length < 2 || parseYouTube(text) || text === typed.current) { setSugg([]); return undefined; }
+    const t = setTimeout(async () => {
+      const list = await m.suggest(text);
+      setSugg(list.filter((s) => s.toLowerCase() !== text.toLowerCase()).slice(0, 7)); setActive(-1); setOpen(true);
+    }, 180);
+    return () => clearTimeout(t);
+  }, [q, provider]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pickSuggestion = (s) => { typed.current = s; setQ(s); setSugg([]); setOpen(false); run(s); };
+  const onKey = (e) => {
+    if (!open || !sugg.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => (a + 1) % sugg.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => (a <= 0 ? sugg.length - 1 : a - 1)); }
+    else if (e.key === 'Escape') { setOpen(false); }
+    else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pickSuggestion(sugg[active]); }
+  };
+
+  const go = (e) => { e.preventDefault(); setOpen(false); run(q); };
+  const run = async (text) => {
+    if (!text.trim() || busy) return;
     setBusy(true); setMsg(''); setItems(null); m.setError('');
     try {
-      const r = await m.search(provider, q);
+      const r = await m.search(provider, text);
       if (r.items) { setItems(r.items); if (!r.items.length) setMsg('Nothing found. Try different words, or paste a link.'); }
       else setQ('');
     } catch (err) { setMsg(err.message); }
@@ -80,7 +105,8 @@ export default function Music() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <input id="music-q" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" enterKeyHint="search"
+              <input id="music-q" value={q} onChange={(e) => { typed.current = ''; setQ(e.target.value); setOpen(true); }} onKeyDown={onKey} onBlur={() => setTimeout(() => setOpen(false), 120)} onFocus={() => sugg.length && setOpen(true)}
+                role="combobox" aria-expanded={open && sugg.length > 0} aria-controls="music-suggest" aria-autocomplete="list" aria-activedescendant={active >= 0 ? `sg-${active}` : undefined} autoComplete="off" enterKeyHint="search"
                 placeholder={provider === 'youtube' ? (noSearch ? 'Paste a YouTube or YouTube Music link' : 'Search a song, or paste a link') : 'Search Spotify, or paste a link'}
                 className="h-12 w-full rounded-xl border bg-background pl-10 pr-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
@@ -88,6 +114,16 @@ export default function Music() {
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}{noSearch ? 'Play' : 'Go'}
             </button>
           </div>
+          {open && sugg.length > 0 && (
+            <ul id="music-suggest" role="listbox" aria-label="Suggestions" className="relative z-10 -mt-1 mr-[5.5rem] overflow-hidden rounded-xl border bg-popover shadow-lg">
+              {sugg.map((s, i) => (
+                <li key={s} id={`sg-${i}`} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                  className={cn('flex min-h-11 cursor-pointer items-center gap-3 px-3 text-sm text-foreground', i === active ? 'bg-secondary' : 'hover:bg-muted')}>
+                  <Search className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" /><span className="truncate">{s}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           {noSearch && <p className="mt-2 text-xs text-muted-foreground">Search isn’t switched on yet, but any YouTube or YouTube Music link plays.</p>}
         </form>
       )}

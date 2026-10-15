@@ -148,6 +148,8 @@ function createWindow({ hidden = false } = {}) {
   };
   win.on('resized', remember);
   win.on('moved', remember);
+  // coming back from the taskbar (or the tray) means the full window again, so the little bar goes away
+  win.on('restore', () => { if (mini) setMini(false); });
 
   // Closing keeps LOCK IN! in the tray, so shortcuts, timers and recordings carry on.
   win.on('close', (e) => {
@@ -186,7 +188,7 @@ function setMini(on) {
   if (on) {
     const { x, y } = floatPosition();
     floatWin = new BrowserWindow({
-      x, y, width: FLOAT.width, height: FLOAT.height,
+      x, y, width: FLOAT.width, height: FLOAT.height, minWidth: 60, minHeight: 28, useContentSize: true,
       frame: false, transparent: true, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
       skipTaskbar: true, alwaysOnTop: true, hasShadow: false, show: false, title: 'LOCK IN!',
       webPreferences: { preload: path.join(__dirname, 'mini-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
@@ -206,7 +208,8 @@ function setMini(on) {
       saveSettings();
     });
     floatWin.on('closed', () => { floatWin = null; if (mini) setMini(false); });
-    win.hide();
+    // minimised, not hidden: LOCK IN! stays in the taskbar, and clicking it there brings the full window back
+    win.minimize();
   } else {
     const f = floatWin;
     floatWin = null;
@@ -334,6 +337,20 @@ function wireIpc() {
   ipcMain.on('floating:report', (_e, state) => {
     lastState = state && typeof state === 'object' ? state : lastState;
     if (floatWin && !floatWin.isDestroyed()) floatWin.webContents.send('floating:state', lastState);
+  });
+  // dragging the pill: the bar moves itself (a drag region would swallow the click that opens the app)
+  ipcMain.on('floating:move', (_e, dx, dy) => {
+    if (!floatWin || floatWin.isDestroyed()) return;
+    dx = Math.round(Number(dx) || 0); dy = Math.round(Number(dy) || 0);
+    if (!dx && !dy) return;
+    const [x, y] = floatWin.getPosition();
+    floatWin.setPosition(x + dx, y + dy);
+  });
+  ipcMain.on('floating:drop', () => {
+    if (!floatWin || floatWin.isDestroyed()) return;
+    const b = floatWin.getBounds();
+    settings.floatAnchor = { right: b.x + b.width, y: b.y };
+    saveSettings();
   });
   // the bar is only as wide as its pill; it grows and shrinks leftwards, so its right edge stays where it was put
   ipcMain.on('floating:size', (_e, w, h) => {

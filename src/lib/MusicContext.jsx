@@ -30,7 +30,14 @@ export function MusicProvider({ children }) {
   const creating = useRef(false);
   const pending = useRef(null);          // the first thing to play once the player exists
   const queueRef = useRef({ items: [], i: 0 });
+  const trackRef = useRef(null);
+  const cfgRef = useRef(cfg);
+  const recentRef = useRef(recent);
+  const playedRef = useRef(new Set());              // YouTube ids already played this session, so skipping never loops back
+  const spBase = useRef(null);                      // Spotify's position at the last poll, to count on from
+  const [progress, setProgress] = useState({ pos: 0, dur: 0 });
   const sourceRef = useRef(null);
+  trackRef.current = track; cfgRef.current = cfg; recentRef.current = recent;
   if (import.meta.env.DEV) window.__music = { get player() { return playerRef.current; } };   // for tests only: not in the shipped build
   sourceRef.current = source;
 
@@ -46,6 +53,26 @@ export function MusicProvider({ children }) {
     setCfg(next);
     return next;
   }, [cfg]);
+
+  const loadConfigRef = useRef(null);
+  loadConfigRef.current = loadConfig;
+
+  /** The YouTube search through the site's server (it holds the key). */
+  const fetchSearch = useCallback(async (text) => {
+    const r = await gateFetch(`/api/music.php?action=search&q=${encodeURIComponent(text)}`, { headers: { 'X-LockIn': '1' }, credentials: 'same-origin' });
+    const j = await r.json().catch(() => null);
+    if (!j?.ok) throw new Error(j?.error || 'Search didn’t work just now.');
+    return j.items;
+  }, []);
+
+  /** Type-ahead words for a half-typed search; no key needed. */
+  const suggest = useCallback(async (text) => {
+    try {
+      const r = await gateFetch(`/api/music.php?action=suggest&q=${encodeURIComponent(text)}`, { headers: { 'X-LockIn': '1' }, credentials: 'same-origin' });
+      const j = await r.json();
+      return j?.ok && Array.isArray(j.items) ? j.items : [];
+    } catch (_) { return []; }
+  }, []);
 
   const remember = useCallback((item) => {
     setRecent((r) => {
@@ -79,21 +106,42 @@ export function MusicProvider({ children }) {
   };
 
   const loadInPlayer = (item) => {
+    if (item.id) playedRef.current.add(item.id);
     const p = playerRef.current;
     if (item.list && !item.id) p.loadPlaylist({ list: item.list, listType: 'playlist' });
     else if (item.list) p.loadPlaylist({ list: item.list, listType: 'playlist', index: 0 });
     else p.loadVideoById(item.id);
   };
 
+  const startItem = (it) => {
+    setTrack({ title: it.title, artist: it.channel || it.artist || '', art: it.thumb || it.art || (it.id ? `https://i.ytimg.com/vi/${it.id}/mqdefault.jpg` : '') });
+    setPlaying(true);
+    loadInPlayer(it);
+  };
+
+  /** Nothing is lined up after this song: find more like it (search) or go on through what was played before. */
+  const radio = async () => {
+    const t = trackRef.current;
+    const query = [t?.title, t?.artist].filter(Boolean).join(' ').trim();
+    try {
+      const c = cfgRef.current.loaded ? cfgRef.current : await loadConfigRef.current();
+      if (c.search && query) {
+        const found = (await fetchSearch(query)).filter((x) => !playedRef.current.has(x.id));
+        if (found.length) { queueRef.current = { items: found, i: 0 }; startItem(found[0]); return; }
+      }
+      const older = recentRef.current.filter((x) => x.source === 'youtube' && x.id && !playedRef.current.has(x.id));
+      if (older.length) { queueRef.current = { items: older, i: 0 }; startItem(older[0]); return; }
+      setError('Nothing is lined up to skip to. Search for a song and the next ones line up after it, or paste a playlist link.');
+    } catch (e) { setError(e.message || 'Couldn’t find the next song.'); }
+  };
+
   const ytNext = useCallback(() => {
     const q = queueRef.current;
-    if (q.i + 1 < q.items.length) {
-      q.i += 1;
-      const it = q.items[q.i];
-      setTrack({ title: it.title, artist: it.channel || it.artist || '', art: it.thumb || it.art || '' });
-      loadInPlayer(it);
-    } else if (playerRef.current?.nextVideo) playerRef.current.nextVideo();
-  }, []);
+    const p = playerRef.current;
+    if (q.i + 1 < q.items.length) { q.i += 1; startItem(q.items[q.i]); }
+    else if (p?.getPlaylist && (p.getPlaylist() || []).length > 1) p.nextVideo();     // a real YouTube playlist
+    else radio();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startPlayer = useCallback(async () => {
     if (creating.current || playerRef.current || !hostRef.current || !pending.current) return;
@@ -132,6 +180,7 @@ export function MusicProvider({ children }) {
   const playYouTube = useCallback(async (item, items = []) => {
     setError('');
     if (sourceRef.current === 'spotify') sp.pause().catch(() => {});
+    if (item.id) playedRef.current.add(item.id);
     const i = Math.max(0, items.findIndex((x) => x.id === item.id));
     queueRef.current = { items, i };
     setTrack({ title: item.title || 'YouTube', artist: item.channel || item.artist || '', art: item.thumb || item.art || (item.id ? `https://i.ytimg.com/vi/${item.id}/mqdefault.jpg` : '') });
@@ -152,6 +201,7 @@ export function MusicProvider({ children }) {
       setSource('spotify');
       setTrack({ title: s.track.title, artist: s.track.artist, art: s.track.art });
       setPlaying(s.playing);
+      spBase.current = { pos: s.progress, dur: s.track.duration, playing: s.playing, at: Date.now() };
     } catch (e) { if (e.code === 'auth') { setSpConnected(false); } }
   }, []);
 
@@ -226,27 +276,50 @@ export function MusicProvider({ children }) {
     setSource(null); setTrack(null); setPlaying(false); setError('');
   }, []);
 
+  // where the song is up to, for the seek bar
+  useEffect(() => {
+    if (!source) { setProgress({ pos: 0, dur: 0 }); return undefined; }
+    const t = setInterval(() => {
+      if (sourceRef.current === 'youtube') {
+        const p = playerRef.current;
+        if (p?.getCurrentTime) setProgress({ pos: p.getCurrentTime() || 0, dur: p.getDuration?.() || 0 });
+      } else if (spBase.current) {
+        const b = spBase.current;
+        const pos = b.playing ? b.pos + (Date.now() - b.at) / 1000 : b.pos;
+        setProgress({ pos: b.dur ? Math.min(pos, b.dur) : pos, dur: b.dur || 0 });
+      }
+    }, 500);
+    return () => clearInterval(t);
+  }, [source]);
+
+  const seek = useCallback(async (sec) => {
+    sec = Math.max(0, Number(sec) || 0);
+    setProgress((p) => ({ ...p, pos: sec }));
+    if (sourceRef.current === 'youtube') playerRef.current?.seekTo?.(sec, true);
+    else if (sourceRef.current === 'spotify') {
+      if (spBase.current) spBase.current = { ...spBase.current, pos: sec, at: Date.now() };
+      try { await sp.seek(sec * 1000); } catch (e) { setError(e.message); }
+    }
+  }, []);
+
   /** Search (or a pasted link) for a source. Returns { items } or { played: true }. */
   const search = useCallback(async (provider, q) => {
     const text = q.trim();
     if (provider === 'youtube') {
       const link = parseYouTube(text);
       if (link) { await playYouTube({ id: link.id, list: link.list, title: '' }); return { played: true }; }
-      const r = await gateFetch(`/api/music.php?action=search&q=${encodeURIComponent(text)}`, { headers: { 'X-LockIn': '1' }, credentials: 'same-origin' });
-      const j = await r.json().catch(() => null);
-      if (!j?.ok) throw new Error(j?.error || 'Search didn’t work just now.');
-      return { items: j.items };
+      return { items: await fetchSearch(text) };
     }
     const link = parseSpotify(text);
     if (link) { await playSpotify({ uri: link.uri, kind: link.kind }); return { played: true }; }
     return { items: await sp.search(text) };
-  }, [playSpotify, playYouTube]);
+  }, [playSpotify, playYouTube, fetchSearch]);
 
   const value = useMemo(() => ({
     cfg, loadConfig, source, track, playing, error, setError, recent, hostRef,
     spotify: { connected: spConnected, connect: connectSpotify, finish: finishSpotify, disconnect: disconnectSpotify },
-    search, playYouTube, playSpotify, toggle, next, previous, close,
-  }), [cfg, loadConfig, source, track, playing, error, recent, spConnected, connectSpotify, finishSpotify, disconnectSpotify, search, playYouTube, playSpotify, toggle, next, previous, close]);
+    search, suggest, progress, seek, playYouTube, playSpotify, toggle, next, previous, close,
+  }), [cfg, loadConfig, suggest, progress, seek, source, track, playing, error, recent, spConnected, connectSpotify, finishSpotify, disconnectSpotify, search, playYouTube, playSpotify, toggle, next, previous, close]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

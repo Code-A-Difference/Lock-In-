@@ -2,6 +2,7 @@ import React from 'react';
 import { Pause, Play, SkipBack, SkipForward, X, Music2 } from 'lucide-react';
 import { useMusic } from '@/lib/MusicContext';
 import { cn } from '@/lib/utils';
+import { mmss } from '@/lib/music/links';
 
 /** Little equaliser bars that move while music plays and rest when it doesn't. */
 export function Waves({ playing, className }) {
@@ -29,7 +30,8 @@ export function Waves({ playing, className }) {
 export default function NowPlaying() {
   const m = useMusic();
   if (!m || !m.source) return null;
-  const { source, track, playing, error } = m;
+  const { source, track, playing, error, progress } = m;
+  const dur = Math.round(progress?.dur || 0), pos = Math.min(Math.round(progress?.pos || 0), dur || 0);
   return (
     <section aria-label="Now playing"
       className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-3 z-40 w-[min(21rem,calc(100vw-1.5rem))] rounded-2xl border bg-card/95 p-2 shadow-xl backdrop-blur lg:bottom-4 lg:left-[16.5rem]">
@@ -55,6 +57,14 @@ export default function NowPlaying() {
           </div>
         </div>
       </div>
+      {dur > 0 && (
+        <div className="mt-2 flex items-center gap-2 px-1 text-[11px] tabular-nums text-muted-foreground">
+          <span className="w-9 text-right">{mmss(pos)}</span>
+          <input type="range" min={0} max={dur} step={1} value={pos} onChange={(e) => m.seek(Number(e.target.value))}
+            aria-label="Song position" aria-valuetext={`${mmss(pos)} of ${mmss(dur)}`} className="h-6 min-w-0 flex-1 cursor-pointer accent-primary" />
+          <span className="w-9">{mmss(dur)}</span>
+        </div>
+      )}
       {error && <p role="alert" className="mt-2 rounded-lg bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">{error}</p>}
     </section>
   );

@@ -25,17 +25,17 @@ export const RELEASES = {
     ],
   },
   desktop: {
-    version: '1.0.7',
+    version: '1.0.8',
     date: '2026-10-14',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.7/LOCKIN-win-x64.exe`,
-      macArm: `${GH}/download/desktop-v1.0.7/LOCKIN-mac-arm64.dmg`,
-      macIntel: `${GH}/download/desktop-v1.0.7/LOCKIN-mac-x64.dmg`,
+      windows: `${GH}/download/desktop-v1.0.8/LOCKIN-win-x64.exe`,
+      macArm: `${GH}/download/desktop-v1.0.8/LOCKIN-mac-arm64.dmg`,
+      macIntel: `${GH}/download/desktop-v1.0.8/LOCKIN-mac-x64.dmg`,
     },
     notes: [
-      'Float on top is now a tiny timer pill, about the size of the numbers. Hover it for its buttons; drag it anywhere.',
-      'Music: play YouTube Music or control Spotify from the new Music page. The song, moving waves, pause and skip show right in the floating bar.',
-      'While LOCK IN! works on your answer it shows playful words (Pondering, Mustering, Consulting the Force…) instead of plain “Thinking…”.',
+      'Click the little floating bar to open LOCK IN! again. LOCK IN! now stays in your taskbar while the bar floats, and clicking it there brings the full window back.',
+      'Music: search suggestions as you type, a song position bar you can drag to skip ahead, and Skip always finds the next song.',
+      'Say “float on top” and the timer becomes the tiny floating bar.',
     ],
   },
 };
