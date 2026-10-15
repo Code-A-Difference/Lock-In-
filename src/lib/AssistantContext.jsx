@@ -22,6 +22,8 @@ import { usePlanner } from './PlannerContext.jsx';
 import { niceTime } from './planner.js';
 import { parseCommand } from './voiceCommands.js';
 import { speak, stopSpeaking } from './voice.js';
+import { desktop, isDesktop } from './desktop.js';
+import { useMusic } from './MusicContext.jsx';
 import { allowOutside } from './aiPrefs.js';
 import {
   PLAN_SCHEMA, actionToCommand, parsePlan, spokenVersion, fastCommand,
@@ -97,7 +99,8 @@ export function AssistantProvider({ children }) {
 
   // everything the turn needs, read at the moment it's sent
   const live = useRef({});
-  live.current = { focus, lecture, planner, actions, user, homework, tests, classes, lectures, attachments, pinned, readAloud };
+  const music = useMusic();
+  live.current = { focus, lecture, planner, actions, user, homework, tests, classes, lectures, attachments, pinned, readAloud, music };
 
   const push = useCallback((m) => setMessages(list => [...list, { id: mid(), at: Date.now(), ...m }].slice(-MAX_KEPT)), []);
 
@@ -122,6 +125,32 @@ export function AssistantProvider({ children }) {
     switch (cmd.action) {
       case 'openFocus': f.openFocus(); return 'Focus is open.';
       case 'openPlanner': pl.setOpen(true); return 'Here’s your planner.';
+      case 'floatOn':
+        if (!isDesktop || !desktop?.mini?.set) return 'Float on top is part of the LOCK IN! desktop app, so there is no floating bar here. You can download the desktop app from the Code A Difference site.';
+        await desktop.mini.set(true);
+        return 'Floating the timer on top. Use the little microphone button on it to talk to me.';
+      case 'playMusic': {
+        const M = L.music;
+        const src = cmd.source || (M.spotify.connected ? 'spotify' : 'youtube');
+        try {
+          const r = await M.search(src, cmd.query);
+          if (r.played) return 'Playing that.';
+          const first = r.items && r.items[0];
+          if (!first) return `I couldn't find anything for "${cmd.query}".`;
+          if (src === 'youtube') await M.playYouTube(first, r.items); else await M.playSpotify({ ...first, kind: 'track' });
+          const by = first.channel || first.artist;
+          return `Playing ${first.title}${by ? ` by ${by}` : ''}.`;
+        } catch (e) { return e.message || 'I couldn’t play that.'; }
+      }
+      case 'musicPause': if (L.music.source && L.music.playing) { await L.music.toggle(); return 'Music paused.'; } return 'No music is playing.';
+      case 'musicResume': if (L.music.source && !L.music.playing) { await L.music.toggle(); return 'Back to the music.'; } return L.music.source ? 'It’s already playing.' : 'There’s no song to resume. Say “play” and a song.';
+      case 'musicNext': if (L.music.source) { await L.music.next(); return 'Next song.'; } return 'No music is playing.';
+      case 'musicPrevious': if (L.music.source) { await L.music.previous(); return 'Previous song.'; } return 'No music is playing.';
+      case 'sound':
+        // "stop the music" stops a song too, and "play music" brings a paused song back
+        if (cmd.kind === 'off' && L.music.source && L.music.playing) await L.music.toggle();
+        else if (cmd.kind === 'last' && L.music.source && !L.music.playing) { await L.music.toggle(); return 'Back to the music.'; }
+        return (await f.perform(cmd)).reply;
       case 'navigate': navigate(cmd.path); return cmd.path === '/' ? 'Going to today.' : `Opening ${cmd.path.slice(1)}.`;
       case 'openPractice': navigate('/Study', { state: { tab: cmd.tab, topic: cmd.topic } }); return cmd.topic ? `Opening practice on ${cmd.topic}.` : 'Opening practice.';
       case 'openCamera': window.dispatchEvent(new Event('lockin:camera')); return 'Camera’s open, snap your homework.';
@@ -272,6 +301,7 @@ export function AssistantProvider({ children }) {
               prefs: L.focus.prefs, homework: L.homework, tests: L.tests, classes: L.classes, lectures: L.lectures,
               quiz: quiz ? { topic: quiz.topic, index: quiz.index, total: quiz.questions.length } : null,
               recording: !!L.lecture.active,
+              desktop: isDesktop,
               dark: L.user?.theme !== 'light',
               plan: {
                 slots: L.planner.slots.map(x => `${x.date} ${x.start}-${x.end}`).join(', '),

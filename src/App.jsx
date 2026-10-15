@@ -116,8 +116,8 @@ const AuthenticatedApp = () => {
     <FocusProvider>
     <LectureProvider>
     <PlannerProvider>
-    <AssistantProvider>
     <MusicProvider>
+    <AssistantProvider>
     <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center" role="status" aria-label="Loading"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>}>
     <Routes>
       <Route path="/" element={
@@ -147,8 +147,8 @@ const AuthenticatedApp = () => {
     <GraphPanel />
     <Reminders />
     <NowPlaying />
-    </MusicProvider>
     </AssistantProvider>
+    </MusicProvider>
     </PlannerProvider>
     </LectureProvider>
     </FocusProvider>

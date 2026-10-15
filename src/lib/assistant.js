@@ -49,7 +49,7 @@ export const PLAN_SCHEMA = {
   required: ['reply', 'actions'],
 };
 
-const PAGES = { today: '/', home: '/', classes: '/Classes', class: '/Classes', study: '/Study', practice: '/Study', quizzes: '/Study', notes: '/Notes', lectures: '/Notes', settings: '/Settings' };
+const PAGES = { today: '/', home: '/', classes: '/Classes', class: '/Classes', study: '/Study', practice: '/Study', quizzes: '/Study', notes: '/Notes', lectures: '/Notes', music: '/Music', songs: '/Music', progress: '/Progress', settings: '/Settings' };
 
 /** One of the model's actions -> the command object the app already executes, or null. */
 export function actionToCommand(a) {
@@ -78,6 +78,13 @@ export function actionToCommand(a) {
       return i >= 0 ? { action: 'quizAnswer', answer: i } : null;
     }
     case 'openPlanner': return { action: 'openPlanner' };
+    // the desktop floating bar, and music
+    case 'floatOnTop': return { action: 'floatOn' };
+    case 'playMusic': return a.query || a.title ? { action: 'playMusic', query: String(a.query || a.title), source: ['youtube', 'spotify'].includes(a.source) ? a.source : '' } : null;
+    case 'pauseMusic': return { action: 'musicPause' };
+    case 'resumeMusic': return { action: 'musicResume' };
+    case 'nextSong': return { action: 'musicNext' };
+    case 'previousSong': return { action: 'musicPrevious' };
     // the planner
     case 'addFreeTime': return a.start && a.end ? { action: 'addFreeTime', date: a.date || 'today', start: a.start, end: a.end } : null;
     case 'removeFreeTime': return { action: 'removeFreeTime', date: a.date || '', start: a.start || '' };
@@ -132,7 +139,7 @@ export function spokenVersion(plan) {
 
 /* ----------------------------------------------------------- fast path */
 
-const SAFE_FAST = new Set(['pause', 'start', 'skip', 'reset', 'timeLeft', 'sound', 'volume', 'stopRecording', 'stopQuiz', 'quizAnswer', 'completeStep', 'readStep']);
+const SAFE_FAST = new Set(['pause', 'start', 'skip', 'reset', 'timeLeft', 'sound', 'volume', 'floatOn', 'musicNext', 'musicPrevious', 'musicResume', 'playMusic', 'stopRecording', 'stopQuiz', 'quizAnswer', 'completeStep', 'readStep']);
 
 /**
  * Plain one-to-four word commands skip the model, so "pause" is instant.
@@ -253,7 +260,9 @@ Actions (name and fields; use only these):
 - completeHomework {title}   deleteItem {title, kind: homework|test}
 - recordLecture {className?}   stopRecording
 - createQuiz {topic}   quizAnswer {answer: a|b|c|d}   stopQuiz
-- openPage {path: today|classes|study|notes|settings}   openPlanner   openFocus   openCamera (to photograph homework)
+- openPage {path: today|classes|study|notes|music|progress|settings}   openPlanner   openFocus   openCamera (to photograph homework)
+- floatOnTop {}, turns the timer or recording into a tiny bar that floats over every other app (the desktop app only). ${s.desktop ? 'This IS the desktop app, so do it when asked.' : 'This is NOT the desktop app (it is the web or phone version), so there is no floating bar here: tell them it is a feature of the LOCK IN! desktop app, which they can download from the Code A Difference site.'}
+- Music: playMusic {query, source?: youtube|spotify} searches and plays a song or artist (YouTube Music by default; Spotify if they connected it)   pauseMusic   resumeMusic   nextSong   previousSong
 - updateHomework {title, newTitle?, date?, priority? (low|medium|high|asap), className?}   updateTest {title, newTitle?, date?, className?}
 - breakDown {title}, split a homework item into small steps
 - addClass {title}   renameClass {title, newTitle}   deleteClass {title}
@@ -262,6 +271,7 @@ Actions (name and fields; use only these):
 - graph {expressions: ["y=x^2-4", "y=2x+1"]}, opens Desmos with these (Desmos LaTeX, one equation per item). Use it whenever a graph helps.
 - openPractice {topic?, kind?: quiz|grading}   setGoal {minutes} (daily focus goal)   setDarkMode {on}   setAutoBreak {on}
 - pauseRecording   resumeRecording
+What LOCK IN! has, so you never say it can't do these: a Today agenda; focus timer with rain, brown noise and drone sounds; lecture recording that writes notes on the device (summary, key terms, to-dos, questions); Practice quizzes and flash cards; Classes; a weekly study plan from free time (editable); a Progress page; reminders before things are due; a Google Calendar feed; notes export to Google Docs, OneNote or Notion; a Music page (YouTube Music, and Spotify as a remote) with a now-playing card; "Hey Companion" hands-free; a desktop app with a floating bar and an Android app.
 Write maths in LaTeX between $…$ (inline) or $$…$$ (display), chemistry with \\ce{…} inside $…$ (e.g. $\\ce{2H2 + O2 -> 2H2O}$), never bare LaTeX. In "spoken", say maths in words ("x squared over two"), no symbols.
 Resolve dates yourself from today's date ("Friday", "next week", "the 12th") into YYYY-MM-DD. Match titles to the student's real items below.
 
