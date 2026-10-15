@@ -58,6 +58,19 @@ async function ask(request) {
   }
 }
 
+/** Is what the microphone heard just the assistant's own last reply, coming back through the speakers? */
+export function isOwnVoice(heard, spoken, now = Date.now()) {
+  if (!spoken || !spoken.text) return false;
+  const words = (s) => String(s).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const h = words(heard);
+  if (!h.length) return false;
+  const ago = spoken.endAt ? now - spoken.endAt : 0;          // 0 = it is still talking
+  const bag = new Set(words(spoken.text));
+  const inside = h.filter((w) => bag.has(w)).length / h.length;
+  if (h.length >= 3) return ago < 45000 && inside >= 0.7;
+  return ago < 4000 && inside === 1;                           // a word or two: only right after it stopped
+}
+
 export function AssistantProvider({ children }) {
   const { user } = useAuth();
   const focus = useFocus();
@@ -77,6 +90,7 @@ export function AssistantProvider({ children }) {
   const [pinned, setPinned] = useState([]);               // lecture ids the student chose as sources
   const [readAloud, setReadAloud] = useState(() => { try { return localStorage.getItem('lockin.readaloud') !== 'off'; } catch (_) { return true; } });
 
+  const spokenRef = useRef({ text: '', endAt: 0 });      // the last thing said aloud, and when it ended
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   useEffect(() => { try { localStorage.setItem('lockin.readaloud', readAloud ? 'on' : 'off'); } catch (_) {} }, [readAloud]);
@@ -219,7 +233,8 @@ export function AssistantProvider({ children }) {
 
   const say = useCallback((text, opts = {}) => {
     setSpeaking(true);
-    return speak(text, opts).finally(() => setSpeaking(false));
+    spokenRef.current = { text: String(text || ''), endAt: 0 };
+    return speak(text, opts).finally(() => { spokenRef.current.endAt = Date.now(); setSpeaking(false); });
   }, []);
 
   /**
@@ -230,6 +245,8 @@ export function AssistantProvider({ children }) {
   const send = useCallback(async (text, { via = 'text', focusId = '' } = {}) => {
     const said = String(text || '').trim();
     if (!said) return { reply: '', finished: Promise.resolve() };
+    // The microphone picked up the assistant's own voice (speakers, echo): that is not a request.
+    if (via === 'voice' && isOwnVoice(said, spokenRef.current)) return { reply: '', finished: Promise.resolve() };
     const L = live.current;
     stopSpeaking();
     const history = messagesRef.current;
