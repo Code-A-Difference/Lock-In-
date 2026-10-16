@@ -23,8 +23,7 @@ import { canHandsFree } from '@/lib/listen';
 import { useHandsFree, setHandsFree, useWakePhrase } from '@/lib/handsfreePref';
 import { hasVoiceprint, forgetVoiceprint } from '@/lib/voiceprint';
 import VoiceTraining from '@/components/lockin/VoiceTraining';
-import { allowReminders } from '@/components/lockin/Reminders';
-import { DEFAULT_REMINDERS } from '@/lib/reminders';
+import { allowReminders, remindersFor } from '@/components/lockin/Reminders';
 import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } from '@/lib/desktop';
 import { phoneWhisper, forgetReady } from '@/lib/localEar';
 
@@ -703,7 +702,7 @@ function HeyCompanionSection() {
 /** Deadline reminders: on or off, and when. Saved to the account, shown on every device that's signed in. */
 function RemindersSection() {
   const { user } = useAuth();
-  const r = { ...DEFAULT_REMINDERS, ...(user?.reminders || {}) };
+  const r = remindersFor(user);
   const [note, setNote] = useState('');
   const save = (patch) => db.auth.updateMe({ reminders: { ...r, ...patch } })
     .catch(() => toast({ title: "Couldn't save that", description: 'Check your connection and try again.', variant: 'destructive' }));

@@ -3,6 +3,20 @@ import { useStudyData } from '@/lib/data';
 import { usePlanner } from '@/lib/PlannerContext';
 import { plannedReminders, DEFAULT_REMINDERS } from '@/lib/reminders';
 import { isNativeApp, platform } from '@/lib/native';
+import { isDesktop } from '@/lib/desktop';
+
+const ASKED = 'lockin.reminders.asked';
+
+/**
+ * The reminder settings a student has, with the default filled in. The phone and desktop
+ * apps start with reminders on (they can show them while the app is closed or in the tray);
+ * in a browser they stay opt-in. A student who has already changed the setting keeps it.
+ */
+export function remindersFor(user) {
+  const onByDefault = isNativeApp || isDesktop;
+  return { ...DEFAULT_REMINDERS, on: onByDefault, ...(user?.reminders || {}) };
+}
+export const remindersOnByDefault = () => isNativeApp || isDesktop;
 
 const FIRED = 'lockin.reminders.fired';
 const LATE_OK_MS = 90 * 60 * 1000;      // opened the app a little after a reminder was due: still show it
@@ -41,7 +55,15 @@ export async function allowReminders() {
 export default function Reminders() {
   const { user, homework, tests } = useStudyData();
   const planner = usePlanner();
-  const prefs = useMemo(() => ({ ...DEFAULT_REMINDERS, ...(user?.reminders || {}) }), [user?.reminders]);
+  const prefs = useMemo(() => remindersFor(user), [user]);
+
+  // Ask once, on the first open, when reminders are on by default and nothing has been chosen yet
+  useEffect(() => {
+    if (!user || user.reminders !== undefined || !remindersOnByDefault()) return;
+    let asked = false;
+    try { asked = !!localStorage.getItem(ASKED); localStorage.setItem(ASKED, '1'); } catch (_) { /* private mode */ }
+    if (!asked) allowReminders().catch(() => {});
+  }, [user]);
   const plan = useMemo(() => plannedReminders({ homework, tests, schedule: planner.schedule, prefs }),
     [homework, tests, planner.schedule, prefs]);
   const timers = useRef([]);
