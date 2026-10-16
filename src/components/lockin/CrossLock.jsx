@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import * as Dialog from '@radix-ui/react-alert-dialog';
 import { Lock } from 'lucide-react';
 import { db, sync } from '@/api/db';
 import { useAuth } from '@/lib/AuthContext';
@@ -38,7 +37,6 @@ export default function CrossLock() {
   const published = useRef(null);
   const lastEndsAt = useRef(0);
   const wasStrict = useRef(false);
-  const keep = useRef(null);
 
   const save = (rec) => db.auth.updateMe({ strictSession: rec }).catch(() => {});
 
@@ -135,53 +133,24 @@ export default function CrossLock() {
   const left = Math.max(0, Math.ceil((session.endsAt - now) / 1000));
   const from = KIND_WORDS[session.kind] || 'other device';
   const endNow = () => { const done = confirmSessionExit(session, Date.now()); if (done) save(done); };
+  // a slim bar, not a wall: every LOCK IN! feature stays usable on this device while the lock runs
   return (
-    <Dialog.Root open>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[120] bg-slate-950" />
-        <Dialog.Content
-          onOpenAutoFocus={(e) => { e.preventDefault(); keep.current?.focus(); }}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-          className="fixed inset-0 z-[121] flex flex-col items-center justify-center gap-6 overflow-y-auto p-6 text-center text-slate-100">
-          <span className="grid h-16 w-16 place-items-center rounded-full bg-white/10"><Lock className="h-8 w-8" aria-hidden="true" /></span>
-          <div className="max-w-md">
-            <Dialog.Title className="text-2xl font-bold">Locked in from your {from}</Dialog.Title>
-            <Dialog.Description className="mt-2 text-base text-slate-300">
-              You started a strict focus block on your {from}, and this device is part of it. Calls, texts and emergency apps still work.
-            </Dialog.Description>
-          </div>
-          <p className="text-6xl font-bold tabular-nums" role="timer" aria-label={`${Math.ceil(left / 60)} minutes left`}>{clock(left)}</p>
-
-          {isDesktop && desktop?.strict && (
-            <button type="button" onClick={() => desktop.strict.openSite('')}
-              className="inline-flex min-h-11 items-center rounded-full border border-white/25 px-5 text-sm font-semibold hover:bg-white/10">
-              Open approved sites
-            </button>
-          )}
-
-          {exit.phase === 'waiting' && <p className="text-base">You can end it in <strong className="text-xl tabular-nums">{exit.secondsLeft}</strong> seconds.</p>}
-          {exit.phase === 'ready' && <p className="text-base font-medium">The wait is over. Still want to stop?</p>}
-          <p className="sr-only" role="status" aria-live="polite">{exit.phase === 'ready' ? 'You can end the lock now.' : ''}</p>
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            {exit.phase === 'idle' || exit.phase === 'expired' ? (
-              <button type="button" onClick={() => save(requestSessionExit(session, Date.now()))}
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-white/25 px-5 text-sm font-semibold hover:bg-white/10">
-                End early (short wait)
-              </button>
-            ) : (
-              <button type="button" onClick={endNow} disabled={exit.phase !== 'ready'}
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-white/25 px-5 text-sm font-semibold hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">
-                End early
-              </button>
-            )}
-            <button ref={keep} type="button" onClick={() => { if (session.exitReqAt != null) save(cancelSessionExit(session)); }}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-white px-6 text-sm font-bold text-slate-900 hover:bg-white/90">
-              Keep focusing
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <div role="region" aria-label="Locked from your other device" className="fixed inset-x-0 bottom-0 z-[60] border-t bg-slate-900 px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] text-slate-100 shadow-2xl">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+        <span className="inline-flex items-center gap-2 font-semibold"><Lock className="h-4 w-4" aria-hidden="true" />Locked in from your {from} <span className="tabular-nums" role="timer">{clock(left)}</span></span>
+        {isDesktop && desktop?.strict && (
+          <button type="button" onClick={() => desktop.strict.openSite('')} className="min-h-9 rounded-full border border-white/25 px-3 font-semibold hover:bg-white/10">Approved sites</button>
+        )}
+        {exit.phase === 'waiting' && <span>You can end it in <strong className="tabular-nums">{exit.secondsLeft}</strong>s</span>}
+        {exit.phase === 'idle' || exit.phase === 'expired' ? (
+          <button type="button" onClick={() => save(requestSessionExit(session, Date.now()))} className="min-h-9 rounded-full border border-white/25 px-3 font-semibold hover:bg-white/10">End early</button>
+        ) : (
+          <>
+            <button type="button" onClick={endNow} disabled={exit.phase !== 'ready'} className="min-h-9 rounded-full border border-white/25 px-3 font-semibold hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40">End now</button>
+            <button type="button" onClick={() => save(cancelSessionExit(session))} className="min-h-9 rounded-full bg-white px-3 font-bold text-slate-900 hover:bg-white/90">Keep focusing</button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

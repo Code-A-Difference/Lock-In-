@@ -762,7 +762,7 @@ function StrictSection() {
             {[15, 30, 45, 60, 90, 120].map(s => <option key={s} value={s}>{s} seconds</option>)}
           </select>
         </Row>
-        <Row id="strictMusic" label="Allow music" hint="Keeps the Music player working during a block (what is playing, pause and skip; no searching for new things).">
+        <Row id="strictMusic" label="Allow music" hint="Music stays fully available during a block, including searching for new songs.">
           <Switch id="strictMusic" checked={!!sp.allowMusic} disabled={locked} onCheckedChange={v => save({ allowMusic: v })} />
         </Row>
         <Row id="strictLockOthers" label="Lock my other device too" hint={sp.lockOthers && termsOk
