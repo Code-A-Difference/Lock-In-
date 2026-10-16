@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Pause, Play, RotateCcw, SkipForward, Lock, CloudRain, Waves, AudioLines, VolumeX, Volume1, Volume2, Coffee, Brain, Settings2, ShieldCheck, LogOut } from 'lucide-react';
+import { Pause, Play, RotateCcw, SkipForward, Lock, CloudRain, Waves, AudioLines, VolumeX, Volume1, Volume2, Coffee, Brain, Settings2, ShieldCheck, LogOut, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -136,6 +136,12 @@ export default function Focus() {
                 </button>
               )}
             </div>
+            {strict && window.lockinDesktop?.strict && (
+              <button type="button" onClick={() => window.lockinDesktop.strict.openSite('')}
+                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium hover:bg-secondary">
+                <Globe className="h-4 w-4" aria-hidden="true" />Open approved sites
+              </button>
+            )}
             {strict && (
               <p className="mt-3 max-w-sm text-center text-sm text-muted-foreground">
                 Strict mode is on until {endsAt}. Pausing and skipping are locked. If you really need out, use End early (there’s a {f.exit && f.strictPrefs.exitDelaySec}-second wait).

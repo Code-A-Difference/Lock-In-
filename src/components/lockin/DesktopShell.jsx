@@ -92,10 +92,50 @@ export function DesktopBridge() {
     desktop.reportFloating(state);
   });
 
+  /* Strict focus: main keeps the copy that counts; this page tells it about the block and mirrors the
+     early-exit countdown. Older desktop builds have no desktop.strict and simply skip all of it. */
+  const strictSeen = useRef({ on: false, exitReqAt: null });
+  useEffect(() => {
+    if (!desktop?.strict) return;
+    const snap = focus.strictSnapshot;
+    if (focus.strictOn && focus.status === 'running' && snap && focus.endsAt) {
+      desktop.strict.begin({
+        id: String(focus.startedAt || focus.endsAt), endsAt: focus.endsAt,
+        pages: snap.pages, support: snap.support, music: snap.music, delaySec: snap.exitDelaySec,
+        blockApps: snap.blockApps, appMode: snap.appMode, appList: snap.appList, appAllow: snap.appAllow,
+      }).then((r) => { if (r?.ok) desktop.strict.extend(focus.endsAt); }).catch(() => {});
+    }
+  }, [focus.strictOn, focus.status, focus.startedAt, focus.endsAt]);
+  useEffect(() => {
+    if (!desktop?.strict) return;
+    const prev = strictSeen.current;
+    if (focus.strictOn && focus.exitReqAt != null && prev.exitReqAt == null) desktop.strict.requestExit().catch(() => {});
+    if (focus.strictOn && focus.exitReqAt == null && prev.exitReqAt != null) desktop.strict.cancelExit().catch(() => {});
+    strictSeen.current = { on: focus.strictOn, exitReqAt: focus.exitReqAt };
+    // the block is over here: tell main (it checks its own clock and countdown before it believes this)
+    if (prev.on && !focus.strictOn) {
+      (async () => {
+        let r = await desktop.strict.end('natural').catch(() => null);
+        for (let i = 0; i < 8 && r && !r.ended; i++) {
+          r = await desktop.strict.confirmExit().catch(() => null);
+          if (r && !r.ended) await new Promise(res => setTimeout(res, 600));
+        }
+      })();
+    }
+  }, [focus.strictOn, focus.exitReqAt]);
+  useEffect(() => {
+    if (!desktop?.strict) return undefined;
+    return desktop.strict.onBlocked((b) => {
+      focusRef.current.noteBlocked?.();
+      toast({ title: 'Blocked during strict focus', description: b?.host ? `${b.host} is not on your approved list.` : 'That is not on your approved list.' });
+    });
+  }, []);
+
   useEffect(() => {
     if (!isDesktop) return undefined;
     return desktop.onCommand(async (cmd) => {
       const L = lecRef.current;
+      if (cmd.type === 'strict-exit') { focusRef.current.requestExit?.(); return; }
       if (cmd.type === 'assistant') { window.dispatchEvent(new Event('lockin:assistant')); return; }
       // the floating bar's buttons
       if (cmd.type === 'focus-toggle') { if (!focusRef.current.strictOn) focusRef.current.toggle(); return; }
