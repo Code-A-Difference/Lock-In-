@@ -87,7 +87,11 @@ export default function Music() {
         ))}
       </div>
 
-      {needsConnect ? (
+      {m.locked && (
+        <p role="status" className="mt-5 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">Strict focus is on, so choosing new music is locked. Pause, skip and the song bar still work.</p>
+      )}
+
+      {needsConnect && !m.locked ? (
         <div className="mt-5 rounded-2xl border bg-card p-5">
           <h2 className="text-base font-semibold text-foreground">Connect Spotify</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -105,12 +109,12 @@ export default function Music() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <input id="music-q" value={q} onChange={(e) => { typed.current = ''; setQ(e.target.value); setOpen(true); }} onKeyDown={onKey} onBlur={() => setTimeout(() => setOpen(false), 120)} onFocus={() => sugg.length && setOpen(true)}
+              <input id="music-q" disabled={m.locked} value={q} onChange={(e) => { typed.current = ''; setQ(e.target.value); setOpen(true); }} onKeyDown={onKey} onBlur={() => setTimeout(() => setOpen(false), 120)} onFocus={() => sugg.length && setOpen(true)}
                 role="combobox" aria-expanded={open && sugg.length > 0} aria-controls="music-suggest" aria-autocomplete="list" aria-activedescendant={active >= 0 ? `sg-${active}` : undefined} autoComplete="off" enterKeyHint="search"
                 placeholder={provider === 'youtube' ? (noSearch ? 'Paste a YouTube or YouTube Music link' : 'Search a song, or paste a link') : 'Search Spotify, or paste a link'}
                 className="h-12 w-full rounded-xl border bg-background pl-10 pr-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
-            <button type="submit" disabled={busy || !q.trim()} className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+            <button type="submit" disabled={m.locked || busy || !q.trim()} className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}{noSearch ? 'Play' : 'Go'}
             </button>
           </div>

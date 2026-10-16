@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pause, Play } from 'lucide-react';
+import { Lock, Pause, Play } from 'lucide-react';
 import { useFocus, PHASE_LABEL } from '@/lib/FocusContext';
 import { clock } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
@@ -21,16 +21,17 @@ export default function TimerPill({ className, wide = false }) {
       <button
         type="button"
         onClick={f.toggle}
-        aria-label={f.status === 'running' ? 'Pause timer' : 'Resume timer'}
-        className={cn('grid h-8 w-8 flex-none place-items-center rounded-full text-white',
+        disabled={f.strictOn}
+        aria-label={f.strictOn ? 'Strict block: the timer is locked' : f.status === 'running' ? 'Pause timer' : 'Resume timer'}
+        className={cn('grid h-8 w-8 flex-none place-items-center rounded-full text-white disabled:cursor-not-allowed',
           isBreak ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-primary hover:bg-primary/90')}
       >
-        {f.status === 'running' ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
+        {f.strictOn ? <Lock className="h-3.5 w-3.5" /> : f.status === 'running' ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
       </button>
       <button type="button" onClick={f.openFocus} className="flex min-w-0 flex-1 items-baseline gap-2 rounded-full px-2 py-1.5 text-left" aria-label="Open the focus timer">
         <span className="font-semibold tabular-nums text-foreground">{clock(f.remaining)}</span>
         <span className={cn('truncate text-xs font-medium', isBreak ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary')}>
-          {f.status === 'paused' ? 'Paused' : wide && f.taskItem ? f.taskItem.title : PHASE_LABEL[f.phase]}
+          {f.status === 'paused' ? 'Paused' : f.strictOn ? 'Strict' : wide && f.taskItem ? f.taskItem.title : PHASE_LABEL[f.phase]}
         </span>
       </button>
     </div>

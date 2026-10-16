@@ -229,10 +229,11 @@ export function transcriptOf(messages, turns = 12) {
 export function buildSystem(s) {
   const t = s.timer || {};
   const mins = (sec) => Math.round(sec / 60);
-  const timer = t.status === 'running'
+  const strictNote = t.strict ? ' This is a STRICT block: pausing, skipping, resetting, taking time off and starting a break are locked until it ends (the student can only use End early, which has a short wait). Never say you did any of those, and never list those actions; say they are locked and offer to add time instead.' : '';
+  const timer = (t.status === 'running'
     ? `RUNNING a ${t.phase} block, ${mins(t.remaining)} min left of ${mins(t.total)}${t.taskTitle ? `, on "${t.taskTitle}"` : ''}`
     : t.status === 'paused' ? `PAUSED ${t.phase} block, ${mins(t.remaining)} min left`
-    : `not running (next: ${t.phase || 'focus'} block of ${mins(t.total || 0)} min)`;
+    : `not running (next: ${t.phase || 'focus'} block of ${mins(t.total || 0)} min)`) + strictNote;
   const p = s.prefs || {};
   const open = (s.homework || []).filter(h => !h.is_completed).slice(0, 18)
     .map(h => `- ${h.title}${h.class_name ? ` [${h.class_name}]` : ''}${h.due_date ? ` due ${h.due_date}` : ''}${(h.steps || []).length ? ` (${h.steps.filter(x => x.done).length}/${h.steps.length} steps)` : ''}`).join('\n');

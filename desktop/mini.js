@@ -43,6 +43,10 @@ function paint() {
   $('ico-pause').toggleAttribute('hidden', !running);
   $('toggle').setAttribute('aria-label', mainLabel);
   $('toggle').title = mainLabel;
+  // a strict block can't be paused from here either
+  const locked = !!(f && f.strict && !rec);
+  $('toggle').disabled = locked;
+  if (locked) { $('toggle').title = 'Locked: strict focus'; $('toggle').setAttribute('aria-label', 'Locked: strict focus'); }
   $('stop').hidden = !rec;
 
   // music: its own part of the pill, only while something is loaded

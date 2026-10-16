@@ -23,12 +23,17 @@ import { speak, configureVoice } from './voice.js';
 import { clock, spokenTime } from './agenda.js';
 import { ymd, addDays, relativeDay } from './dates.js';
 import { findByTitle, describeChoices } from './itemMatch.js';
+import {
+  DEFAULT_STRICT, MAX_BLOCK_MIN, normalizeStrictPrefs, compileAllowlist, gateAction, isStrictActive,
+  exitRequest, exitStatus, exitConfirm, refusalText,
+} from './strictFocus.js';
 
 export const DEFAULT_FOCUS = {
   focusMin: 25, breakMin: 5, longMin: 15, longEvery: 4,
   autoBreak: true, autoFocus: false,
   sound: 'off', lastSound: 'rain', volume: 0.5,
   cues: true, notify: false, dailyGoal: 120,
+  strict: DEFAULT_STRICT,
 };
 
 export const PHASE_LABEL = { focus: 'Focus', break: 'Short break', long: 'Long break' };
@@ -39,7 +44,8 @@ const lengthOf = (phase, p) => 60 * (phase === 'focus' ? p.focusMin : phase === 
 const leftOf = (t, now) => (t.status === 'running' ? Math.max(0, (t.endsAt - now) / 1000) : t.remaining);
 const fresh = (p, phase = 'focus', blocks = 0, task = null) => {
   const secs = lengthOf(phase, p);
-  return { phase, status: 'idle', endsAt: null, remaining: secs, total: secs, blocks, task, startedAt: null };
+  return { phase, status: 'idle', endsAt: null, remaining: secs, total: secs, blocks, task, startedAt: null,
+    strict: false, strictSnapshot: null, exitReqAt: null, blockedCount: 0 };
 };
 const clampMin = (m, lo = 1, hi = 180) => Math.max(lo, Math.min(hi, Math.round(Number(m) || 0)));
 
@@ -78,7 +84,7 @@ export function FocusProvider({ children }) {
   const snapKey = `lockin.focus.${user?.username}`;
 
   /* ---------------------------------------------------------------- prefs */
-  const [prefs, setPrefs] = useState(() => ({ ...DEFAULT_FOCUS, ...(user?.focus || {}) }));
+  const [prefs, setPrefs] = useState(() => ({ ...DEFAULT_FOCUS, ...(user?.focus || {}), strict: normalizeStrictPrefs(user?.focus?.strict) }));
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
   const saveTimer = useRef(null);
@@ -87,6 +93,9 @@ export function FocusProvider({ children }) {
   const openFocus = useCallback(() => setOverlayOpen(true), []);
   const closeFocus = useCallback(() => setOverlayOpen(false), []);
   const updatePrefs = useCallback((patch) => {
+    patch = { ...patch };
+    // the approved sites and the other strict settings are fixed for the length of a strict block
+    if ('strict' in patch) { if (isStrictActive(tRef.current)) delete patch.strict; else patch.strict = normalizeStrictPrefs(patch.strict); }
     setPrefs(p => {
       const next = { ...p, ...patch };
       clearTimeout(saveTimer.current);
@@ -98,10 +107,16 @@ export function FocusProvider({ children }) {
   useEffect(() => { configureVoice(user?.voice || {}); }, [user?.voice]);
 
   /* ---------------------------------------------------------------- timer */
+  const strictKey = `lockin.focus.strict.${user?.username}`;
   const [t, setT] = useState(() => {
     try {
       const snap = JSON.parse(sessionStorage.getItem(snapKey) || 'null');
       if (snap && snap.phase) return snap;
+    } catch (_) {}
+    // a strict block belongs to the account, not to one tab: a new tab or window picks it up
+    try {
+      const s = JSON.parse(localStorage.getItem(strictKey) || 'null');
+      if (s && s.strict && s.status === 'running' && s.endsAt > Date.now() - 1000) return s;
     } catch (_) {}
     return fresh(prefs);
   });
@@ -110,7 +125,34 @@ export function FocusProvider({ children }) {
     tRef.current = next;
     setT(next);
     try { sessionStorage.setItem(snapKey, JSON.stringify(next)); } catch (_) {}
-  }, [snapKey]);
+    try { if (next.strict && next.status === 'running') localStorage.setItem(strictKey, JSON.stringify(next)); else localStorage.removeItem(strictKey); } catch (_) {}
+  }, [snapKey, strictKey]);
+
+  /* ------------------------------------------------------- strict mode
+     While a strict focus block runs, anything that would stop, shorten or replace it is refused
+     (voice and the assistant too: perform() checks the same rule) and the only way out is the
+     early-exit countdown. It is a commitment device, not a lock the student can't pick. */
+  const [exitOpen, setExitOpen] = useState(false);
+  const strictOn = isStrictActive(t);
+  const exitDelay = t.strictSnapshot?.exitDelaySec ?? prefs.strict.exitDelaySec;
+  const allowed = useCallback((action, arg) => {
+    const g = gateAction(tRef.current, action, arg);
+    if (!g.ok) setExitOpen(true);
+    return g.ok;
+  }, []);
+  /** A new focus block that starts strict: freeze the approved sites and settings for its whole length. */
+  const beginStrict = (next) => {
+    const sp = prefsRef.current.strict;
+    if (!sp?.enabled || next.phase !== 'focus') return next;
+    const a = compileAllowlist(sp);
+    const total = Math.min(next.total, MAX_BLOCK_MIN * 60);
+    return {
+      ...next, total, remaining: Math.min(next.remaining, total),
+      strict: true, exitReqAt: null, blockedCount: 0,
+      strictSnapshot: { pages: a.pages, support: a.support, music: a.music, exitDelaySec: sp.exitDelaySec,
+        blockApps: sp.blockApps, appMode: sp.appMode, appList: sp.appList, appAllow: sp.appAllow },
+    };
+  };
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -158,7 +200,7 @@ export function FocusProvider({ children }) {
   // Reads the task straight from the vault, not from the query cache: a block
   // that ended while the tab was closed finishes on load, before the lists
   // have arrived, and the minutes still belong to that task.
-  const logFocus = useCallback((seconds) => {
+  const logFocus = useCallback((seconds, meta = {}) => {
     const minutes = Math.round(seconds / 60);
     if (minutes < 1) return 0;
     const ref = tRef.current.task;
@@ -173,6 +215,7 @@ export function FocusProvider({ children }) {
         task_id: item?.id || null,
         title: item?.title || null,
         class_name: item?.class_name || null,
+        ...meta,
       });
       if (item) {
         await entity.update(item.id, { focus_minutes: (item.focus_minutes || 0) + minutes });
@@ -189,7 +232,8 @@ export function FocusProvider({ children }) {
     const elapsed = cur.total - leftOf(cur, Date.now());
 
     if (cur.phase === 'focus') {
-      const minutes = logFocus(elapsed);
+      const minutes = logFocus(elapsed, cur.strict
+        ? { strict: true, ended_early: !!early, blocked_count: cur.blockedCount || 0, planned_minutes: Math.round(cur.total / 60) } : {});
       const blocks = cur.blocks + (minutes ? 1 : 0);
       const phase = blocks > 0 && blocks % p.longEvery === 0 ? 'long' : 'break';
       const next = fresh(p, phase, blocks, cur.task);
@@ -233,7 +277,8 @@ export function FocusProvider({ children }) {
     unlockAudio();
     const cur = tRef.current;
     if (cur.status === 'running') return;
-    const next = { ...cur, status: 'running', endsAt: Date.now() + cur.remaining * 1000, startedAt: cur.startedAt || Date.now() };
+    const base = cur.status === 'idle' ? beginStrict(cur) : cur;
+    const next = { ...base, status: 'running', endsAt: Date.now() + base.remaining * 1000, startedAt: base.startedAt || Date.now() };
     commit(next);
     applySound(next);
     setNow(Date.now());
@@ -242,23 +287,26 @@ export function FocusProvider({ children }) {
   const pause = useCallback(() => {
     const cur = tRef.current;
     if (cur.status !== 'running') return;
+    if (!allowed('pause')) return;
     const next = { ...cur, status: 'paused', remaining: leftOf(cur, Date.now()), endsAt: null };
     commit(next);
     applySound(next);
-  }, [applySound, commit]);
+  }, [allowed, applySound, commit]);
 
   const toggle = useCallback(() => (tRef.current.status === 'running' ? pause() : start()), [pause, start]);
 
   const reset = useCallback(() => {
+    if (!allowed('reset')) return;
     const cur = tRef.current;
     const next = fresh(prefsRef.current, 'focus', cur.blocks, cur.task);
     commit(next);
     applySound(next);
-  }, [applySound, commit]);
+  }, [allowed, applySound, commit]);
 
-  const skip = useCallback(() => finishPhase(true), [finishPhase]);
+  const skip = useCallback(() => { if (allowed('skip')) finishPhase(true); }, [allowed, finishPhase]);
 
   const startBreak = useCallback((minutes) => {
+    if (!allowed('startBreak')) return;
     unlockAudio();
     const cur = tRef.current;
     if (cur.phase === 'focus' && cur.status !== 'idle') logFocus(cur.total - leftOf(cur, Date.now()));
@@ -268,7 +316,7 @@ export function FocusProvider({ children }) {
     commit(next);
     applySound(next);
     setNow(Date.now());
-  }, [applySound, commit, logFocus]);
+  }, [allowed, applySound, commit, logFocus]);
 
   /**
    * "Start a focus session for 50 minutes": a new block of exactly that long,
@@ -277,18 +325,21 @@ export function FocusProvider({ children }) {
    * spent in that one is logged, then this one starts clean.
    */
   const startFocus = useCallback((minutes, task) => {
+    if (!allowed('startFocus')) return;
     unlockAudio();
     const cur = tRef.current;
     if (cur.phase === 'focus' && cur.status !== 'idle') logFocus(cur.total - leftOf(cur, Date.now()));
     const secs = clampMin(minutes || prefsRef.current.focusMin) * 60;
     const base = fresh(prefsRef.current, 'focus', cur.blocks, task ? { type: task.type, id: task.id } : cur.task);
-    const next = { ...base, remaining: secs, total: secs, status: 'running', endsAt: Date.now() + secs * 1000, startedAt: Date.now() };
+    const sized = beginStrict({ ...base, remaining: secs, total: secs });
+    const next = { ...sized, status: 'running', endsAt: Date.now() + sized.total * 1000, startedAt: Date.now() };
     commit(next);
     applySound(next);
     setNow(Date.now());
-  }, [applySound, commit, logFocus]);
+  }, [allowed, applySound, commit, logFocus]);
 
   const adjust = useCallback((minutes) => {
+    if (minutes < 0 && !allowed('adjust', minutes)) return;
     const cur = tRef.current;
     const delta = minutes * 60;
     const left = leftOf(cur, Date.now());
@@ -299,7 +350,7 @@ export function FocusProvider({ children }) {
       : { ...cur, remaining: newLeft, total: cur.total + real };
     commit(next);
     setNow(Date.now());
-  }, [commit]);
+  }, [allowed, commit]);
 
   const setDurations = useCallback((patch) => {
     const clean = {};
@@ -323,7 +374,8 @@ export function FocusProvider({ children }) {
     const cur = tRef.current;
     const taskRefValue = task ? { type: task.type, id: task.id } : cur.task;
     if (cur.phase === 'focus' && cur.status === 'running') { commit({ ...cur, task: taskRefValue }); return; }
-    const base = cur.phase === 'focus' ? cur : fresh(prefsRef.current, 'focus', cur.blocks);
+    const plain = cur.phase === 'focus' ? cur : fresh(prefsRef.current, 'focus', cur.blocks);
+    const base = plain.status === 'idle' ? beginStrict(plain) : plain;
     const next = { ...base, task: taskRefValue, status: 'running', endsAt: Date.now() + base.remaining * 1000, startedAt: Date.now() };
     commit(next);
     applySound(next);
@@ -360,6 +412,45 @@ export function FocusProvider({ children }) {
     return { done: steps[i], next: nextSteps.find(s => !s.done) || null };
   }, [actions]);
 
+  /* ------------------------------------------------------- ending a strict block early */
+  const requestExit = useCallback(() => {
+    const cur = tRef.current;
+    if (!isStrictActive(cur)) return;
+    const asked = exitRequest(cur, Date.now());
+    if (asked.exitReqAt !== cur.exitReqAt) commit({ ...cur, exitReqAt: asked.exitReqAt });
+    setExitOpen(true);
+  }, [commit]);
+  const cancelExit = useCallback(() => {
+    const cur = tRef.current;
+    if (cur.exitReqAt != null) commit({ ...cur, exitReqAt: null });
+    setExitOpen(false);
+  }, [commit]);
+  /** The only way out. Only the dialog's button calls this: voice and the assistant can't. */
+  const confirmExit = useCallback(() => {
+    const cur = tRef.current;
+    if (!isStrictActive(cur)) { setExitOpen(false); return false; }
+    const r = exitConfirm(cur, Date.now(), cur.strictSnapshot?.exitDelaySec);
+    if (!r.ok) return false;
+    commit({ ...cur, exitReqAt: null });
+    setExitOpen(false);
+    finishPhase(true);
+    return true;
+  }, [commit, finishPhase]);
+  /** A blocked link, page or app: counted, and saved with the session. */
+  const noteBlocked = useCallback(() => {
+    const cur = tRef.current;
+    if (isStrictActive(cur)) commit({ ...cur, blockedCount: (cur.blockedCount || 0) + 1 });
+  }, [commit]);
+  const exit = exitStatus(t, now, exitDelay);
+  // a request that lapsed (nobody confirmed in time) is forgotten, so it can be started fresh
+  useEffect(() => {
+    if (t.exitReqAt != null && exit.phase === 'expired') commit({ ...tRef.current, exitReqAt: null });
+  }, [exit.phase, t.exitReqAt, commit]);
+  const strictAllow = useMemo(
+    () => (strictOn && t.strictSnapshot ? compileAllowlist({ allowedSites: t.strictSnapshot.pages, allowMusic: t.strictSnapshot.music }) : null),
+    [strictOn, t.strictSnapshot],
+  );
+
   /* --------------------------------------------------------------- voice */
   /**
    * Carry out one command (the shape parseCommand and the assistant's actions
@@ -371,6 +462,9 @@ export function FocusProvider({ children }) {
     const p = prefsRef.current;
     const item = taskRef.current;
     let reply;
+    if (['pause', 'skip', 'reset', 'startFocus', 'startBreak', 'adjust'].includes(cmd.action) && !gateAction(cur, cmd.action, cmd.minutes).ok) {
+      return { reply: refusalText(cur.strictSnapshot?.exitDelaySec), action: cmd.action, refused: true };
+    }
     switch (cmd.action) {
       case 'start':
         if (cur.status === 'running') reply = `Already going, ${spokenTime(leftOf(cur, Date.now()))} left.`;
@@ -541,6 +635,7 @@ export function FocusProvider({ children }) {
     start, startFocus, pause, toggle, reset, skip, startBreak, adjust, setDurations, setTask, lockIn,
     setSound, setVolume, completeStep, perform, voiceQuiz, updatePrefs,
     overlayOpen, openFocus, closeFocus,
+    strictOn, strictPrefs: prefs.strict, strictAllow, exit, exitOpen, setExitOpen, requestExit, cancelExit, confirmExit, noteBlocked,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

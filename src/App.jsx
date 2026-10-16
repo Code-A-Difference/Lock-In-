@@ -19,6 +19,8 @@ import { PlannerProvider } from '@/lib/PlannerContext';
 import PlannerSheet from '@/components/lockin/PlannerSheet';
 import GraphPanel from '@/components/lockin/GraphPanel';
 import Reminders from '@/components/lockin/Reminders';
+import StrictExitDialog from '@/components/lockin/StrictExitDialog';
+import StrictGuard from '@/components/lockin/StrictGuard';
 import { MusicProvider } from '@/lib/MusicContext';
 import NowPlaying from '@/components/lockin/NowPlaying';
 
@@ -59,7 +61,7 @@ function FocusSurface() {
   useEffect(() => {
     if (!focus.overlayOpen) return undefined;
     const previous = document.activeElement;
-    const onKey = e => { if (e.key === 'Escape') focus.closeFocus(); };
+    const onKey = e => { if (e.key === 'Escape' && !document.querySelector('[role="alertdialog"]')) focus.closeFocus(); };
     document.addEventListener('keydown', onKey);
     closeRef.current?.focus();
     return () => { document.removeEventListener('keydown', onKey); previous?.focus?.(); };
@@ -142,6 +144,8 @@ const AuthenticatedApp = () => {
     </Routes>
     </Suspense>
     <FocusSurface />
+    <StrictGuard />
+    <StrictExitDialog />
     <VoicePanel />
     <PlannerSheet />
     <GraphPanel />

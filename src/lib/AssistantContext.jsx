@@ -326,7 +326,7 @@ export function AssistantProvider({ children }) {
           const raw = await ask({
             system: buildSystem({
               now: new Date(), via,
-              timer: { status: L.focus.status, phase: L.focus.phase, remaining: L.focus.remaining, total: L.focus.total, taskTitle: L.focus.taskItem?.title },
+              timer: { strict: L.focus.strictOn, status: L.focus.status, phase: L.focus.phase, remaining: L.focus.remaining, total: L.focus.total, taskTitle: L.focus.taskItem?.title },
               prefs: L.focus.prefs, homework: L.homework, tests: L.tests, classes: L.classes, lectures: L.lectures,
               quiz: quiz ? { topic: quiz.topic, index: quiz.index, total: quiz.questions.length } : null,
               recording: !!L.lecture.active,

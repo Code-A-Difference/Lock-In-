@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Pause, Play, RotateCcw, SkipForward, Lock, CloudRain, Waves, AudioLines, VolumeX, Volume1, Volume2, Coffee, Brain, Settings2 } from 'lucide-react';
+import { Pause, Play, RotateCcw, SkipForward, Lock, CloudRain, Waves, AudioLines, VolumeX, Volume1, Volume2, Coffee, Brain, Settings2, ShieldCheck, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { useFocus, PHASE_LABEL } from '@/lib/FocusContext';
 import { useStudyData, useActions } from '@/lib/data';
 import { clock, formatMinutes } from '@/lib/agenda';
@@ -44,9 +45,9 @@ export default function Focus() {
       if (e.ctrlKey || e.metaKey || e.altKey || typingIn(e.target)) return;
       if (document.querySelector('[role="menu"]')) return;
       if ([...document.querySelectorAll('[role="dialog"]')].some(d => d.getAttribute('aria-label') !== 'Focus timer')) return;
-      if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); f.toggle(); }
+      if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); if (!f.strictOn) f.toggle(); }
       else if (e.key === '+' || e.key === '=') { e.preventDefault(); f.adjust(5); }
-      else if (e.key === '-' || e.key === '_') { e.preventDefault(); f.adjust(-5); }
+      else if (e.key === '-' || e.key === '_') { e.preventDefault(); if (!f.strictOn) f.adjust(-5); }
       // M (talk) is handled globally in Layout.jsx, so it also works when this overlay is closed.
     };
     window.addEventListener('keydown', onKey);
@@ -66,9 +67,13 @@ export default function Focus() {
   const activePreset = PRESETS.find(([a, b]) => a === f.prefs.focusMin && b === f.prefs.breakMin);
 
   const onMain = () => {
+    if (f.strictOn) return;
     if (f.status === 'idle' && f.phase === 'focus') f.lockIn(null);
     else f.toggle();
   };
+  const strict = f.strictOn;
+  const sp = f.strictPrefs;
+  const approvedCount = sp.allowedSites.length + sp.presets.length;
 
   const breakDown = async () => {
     if (!item || kind !== 'homework') return;
@@ -88,6 +93,11 @@ export default function Focus() {
               <span className={cn('text-xs font-bold uppercase tracking-[0.2em]', isBreak ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary')}>
                 {PHASE_LABEL[f.phase]}
               </span>
+              {strict && (
+                <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
+                  <ShieldCheck className="h-3 w-3" aria-hidden="true" />Strict
+                </span>
+              )}
               <span className="mt-1 text-6xl font-bold tabular-nums tracking-tight text-foreground sm:text-7xl" role="timer" aria-live="off">
                 {clock(f.remaining)}
               </span>
@@ -103,32 +113,44 @@ export default function Focus() {
             </TimerRing>
 
             <div className="mt-6 flex items-center gap-3">
-              <button type="button" onClick={f.reset} aria-label="Reset timer" title="Reset"
-                className="grid h-12 w-12 place-items-center rounded-full border text-muted-foreground hover:bg-secondary hover:text-foreground">
-                <RotateCcw className="h-5 w-5" />
+              <button type="button" onClick={f.reset} disabled={strict} aria-label="Reset timer" title={strict ? 'Locked during a strict block' : 'Reset'}
+                className="grid h-12 w-12 place-items-center rounded-full border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">
+                {strict ? <Lock className="h-5 w-5" /> : <RotateCcw className="h-5 w-5" />}
               </button>
-              <button type="button" onClick={onMain}
-                className={cn('inline-flex h-14 min-w-[10rem] items-center justify-center gap-2 rounded-full px-8 text-base font-bold text-white shadow-sm transition-transform duration-150 active:scale-[0.98]',
+              <button type="button" onClick={onMain} disabled={strict}
+                className={cn('disabled:cursor-not-allowed disabled:opacity-70', 'inline-flex h-14 min-w-[10rem] items-center justify-center gap-2 rounded-full px-8 text-base font-bold text-white shadow-sm transition-transform duration-150 active:scale-[0.98]',
                   f.status === 'idle' && !isBreak ? 'bg-primary text-primary-foreground'
                     : isBreak ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white')}>
-                {running ? <Pause className="h-5 w-5" /> : f.status === 'idle' && !isBreak ? <Lock className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                {running ? 'Pause' : f.status === 'paused' ? 'Resume' : isBreak ? 'Start break' : 'Lock in'}
+                {strict ? <Lock className="h-5 w-5" /> : running ? <Pause className="h-5 w-5" /> : f.status === 'idle' && !isBreak ? <Lock className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                {strict ? 'Locked in' : running ? 'Pause' : f.status === 'paused' ? 'Resume' : isBreak ? 'Start break' : 'Lock in'}
               </button>
-              <button type="button" onClick={f.skip} aria-label={isBreak ? 'Skip the break' : 'End this block now'} title={isBreak ? 'Skip break' : 'End block'}
-                className="grid h-12 w-12 place-items-center rounded-full border text-muted-foreground hover:bg-secondary hover:text-foreground">
-                <SkipForward className="h-5 w-5" />
-              </button>
+              {strict ? (
+                <button type="button" onClick={f.requestExit} aria-label="End this strict block early" title="End early"
+                  className="grid h-12 w-12 place-items-center rounded-full border text-muted-foreground hover:bg-secondary hover:text-foreground">
+                  <LogOut className="h-5 w-5" />
+                </button>
+              ) : (
+                <button type="button" onClick={f.skip} aria-label={isBreak ? 'Skip the break' : 'End this block now'} title={isBreak ? 'Skip break' : 'End block'}
+                  className="grid h-12 w-12 place-items-center rounded-full border text-muted-foreground hover:bg-secondary hover:text-foreground">
+                  <SkipForward className="h-5 w-5" />
+                </button>
+              )}
             </div>
+            {strict && (
+              <p className="mt-3 max-w-sm text-center text-sm text-muted-foreground">
+                Strict mode is on until {endsAt}. Pausing and skipping are locked. If you really need out, use End early (there’s a {f.exit && f.strictPrefs.exitDelaySec}-second wait).
+              </p>
+            )}
 
             <details className="group mt-5 flex w-full flex-col items-center">
               <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
                 <Settings2 className="h-4 w-4" aria-hidden="true" />Adjust the timer
               </summary>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-              <button type="button" onClick={() => f.adjust(-5)} className="h-11 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary">−5 min</button>
+              <button type="button" onClick={() => f.adjust(-5)} disabled={strict} className="h-11 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40">−5 min</button>
               <button type="button" onClick={() => f.adjust(5)} className="h-11 rounded-lg border px-3 text-sm font-medium text-foreground hover:bg-secondary">+5 min</button>
               {!isBreak && (
-                <button type="button" onClick={f.startBreak} className="inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
+                <button type="button" onClick={f.startBreak} disabled={strict} className="inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 dark:hover:bg-emerald-500/10">
                   <Coffee className="h-4 w-4" />Break now
                 </button>
               )}
@@ -185,7 +207,8 @@ export default function Focus() {
               <ul className="mt-2 divide-y">
                 {todays.map(s => (
                   <li key={s.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="min-w-0 truncate text-foreground">{s.title || 'Focus block'}{s.class_name && <span className="text-muted-foreground"> · {s.class_name}</span>}</span>
+                    <span className="min-w-0 truncate text-foreground">{s.title || 'Focus block'}{s.class_name && <span className="text-muted-foreground"> · {s.class_name}</span>}
+                      {s.strict && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{s.ended_early ? 'Strict, ended early' : 'Strict'}</span>}</span>
                     <span className="flex-none tabular-nums text-muted-foreground">
                       {s.minutes}m · {new Date(s.ended_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </span>
@@ -252,6 +275,24 @@ export default function Focus() {
             {!item && (
               <p className="mt-2 text-xs text-muted-foreground">Pick one to see its steps here and log this block's minutes to it.</p>
             )}
+          </section>
+
+          <section className="rounded-2xl border bg-card p-4" aria-labelledby="strict-h">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 id="strict-h" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />Strict focus</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {sp.enabled
+                    ? `Your next block locks pause and skip, and keeps you to ${approvedCount ? `${approvedCount} approved ${approvedCount === 1 ? 'list' : 'lists'} of sites` : 'LOCK IN! only'}${sp.allowMusic ? ', plus music' : ''}.`
+                    : 'Lock your next block: no pausing, and only sites you approve.'}
+                </p>
+              </div>
+              <Switch checked={!!sp.enabled} disabled={strict} aria-label="Strict focus for the next block"
+                onCheckedChange={(on) => f.updatePrefs({ strict: { ...sp, enabled: on } })} />
+            </div>
+            <Link to="/Settings?s=strict" className="mt-3 inline-flex min-h-10 items-center text-xs font-medium text-primary hover:underline">
+              {strict ? 'See what’s approved' : 'Choose the approved sites'}
+            </Link>
           </section>
 
           <section className="rounded-2xl border bg-card p-4" aria-labelledby="sound-h">
