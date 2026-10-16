@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { gateFetch } from '@/api/hostGate';
+import { useFocus } from '@/lib/FocusContext';
 import { parseSpotify, parseYouTube } from '@/lib/music/links';
 import * as sp from '@/lib/music/spotify';
 import { createPlayer, errorText, STATE } from '@/lib/music/youtube';
@@ -30,6 +31,12 @@ export function MusicProvider({ children }) {
   const creating = useRef(false);
   const pending = useRef(null);          // the first thing to play once the player exists
   const queueRef = useRef({ items: [], i: 0 });
+  const focus = useFocus();
+  // During a strict block the player keeps working (or is switched off, if the block was started without music),
+  // but starting something new, searching, or signing in to Spotify is locked.
+  const lockRef = useRef({ strict: false, music: true });
+  lockRef.current = { strict: focus.strictOn, music: focus.strictSnapshot?.music !== false };
+  const LOCKED = 'Choosing new music is locked during a strict block. You can still pause, skip and drag the song along.';
   const trackRef = useRef(null);
   const cfgRef = useRef(cfg);
   const recentRef = useRef(recent);
@@ -178,6 +185,7 @@ export function MusicProvider({ children }) {
   };
 
   const playYouTube = useCallback(async (item, items = []) => {
+    if (lockRef.current.strict) { setError(LOCKED); return; }
     setError('');
     if (sourceRef.current === 'spotify') sp.pause().catch(() => {});
     if (item.id) playedRef.current.add(item.id);
@@ -213,6 +221,7 @@ export function MusicProvider({ children }) {
   }, [spConnected, pollSpotify]);
 
   const playSpotify = useCallback(async (item) => {
+    if (lockRef.current.strict) { setError(LOCKED); return; }
     setError('');
     try {
       if (sourceRef.current === 'youtube') { try { playerRef.current?.pauseVideo?.(); } catch (_) { /* ok */ } }
@@ -227,6 +236,7 @@ export function MusicProvider({ children }) {
   }, [pollSpotify, remember]);
 
   const connectSpotify = useCallback(async () => {
+    if (lockRef.current.strict) { setError(LOCKED); return; }
     const c = await loadConfig();
     if (!c.spotifyClientId) { setError('Spotify isn’t switched on yet. It needs to be set up by whoever runs this site.'); return; }
     sp.connect(c.spotifyClientId);
@@ -304,6 +314,7 @@ export function MusicProvider({ children }) {
 
   /** Search (or a pasted link) for a source. Returns { items } or { played: true }. */
   const search = useCallback(async (provider, q) => {
+    if (lockRef.current.strict) throw new Error(LOCKED);
     const text = q.trim();
     if (provider === 'youtube') {
       const link = parseYouTube(text);
@@ -315,8 +326,13 @@ export function MusicProvider({ children }) {
     return { items: await sp.search(text) };
   }, [playSpotify, playYouTube, fetchSearch]);
 
+  // a strict block started with music off: stop what is playing and keep it off
+  useEffect(() => {
+    if (focus.strictOn && focus.strictSnapshot?.music === false && sourceRef.current) close();
+  }, [focus.strictOn, focus.strictSnapshot, source]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const value = useMemo(() => ({
-    cfg, loadConfig, source, track, playing, error, setError, recent, hostRef,
+    cfg, loadConfig, source, track, playing, error, setError, recent, hostRef, locked: focus.strictOn,
     spotify: { connected: spConnected, connect: connectSpotify, finish: finishSpotify, disconnect: disconnectSpotify },
     search, suggest, progress, seek, playYouTube, playSpotify, toggle, next, previous, close,
   }), [cfg, loadConfig, suggest, progress, seek, source, track, playing, error, recent, spConnected, connectSpotify, finishSpotify, disconnectSpotify, search, playYouTube, playSpotify, toggle, next, previous, close]);

@@ -82,7 +82,7 @@ export function DesktopBridge() {
     const lecture = a ? lectures.find(l => l.id === a.id) : null;
     const state = {
       recording: a && a.state !== 'finishing' ? { title: lecture?.title || 'Recording', elapsed: Math.floor(a.elapsed || 0), paused: a.state === 'paused' } : null,
-      focus: { status: focus.status, phaseLabel: PHASE_LABEL[focus.phase] || 'Focus', endsAt: focus.endsAt, remaining: Math.round(focus.remaining), task: focus.taskItem?.title || '' },
+      focus: { strict: focus.strictOn, status: focus.status, phaseLabel: PHASE_LABEL[focus.phase] || 'Focus', endsAt: focus.endsAt, remaining: Math.round(focus.remaining), task: focus.taskItem?.title || '' },
       music: music?.source ? { title: music.track?.title || '', artist: music.track?.artist || '', playing: !!music.playing, source: music.source } : null,
     };
     // a running timer counts down by itself in the bar: only its end time matters
@@ -98,7 +98,7 @@ export function DesktopBridge() {
       const L = lecRef.current;
       if (cmd.type === 'assistant') { window.dispatchEvent(new Event('lockin:assistant')); return; }
       // the floating bar's buttons
-      if (cmd.type === 'focus-toggle') { focusRef.current.toggle(); return; }
+      if (cmd.type === 'focus-toggle') { if (!focusRef.current.strictOn) focusRef.current.toggle(); return; }
       if (cmd.type === 'record-pause') { L.pause(); return; }
       if (cmd.type === 'record-resume') { L.resume(); return; }
       if (cmd.type === 'record-stop') { L.stop(); return; }

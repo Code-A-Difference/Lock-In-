@@ -26,6 +26,8 @@ import VoiceTraining from '@/components/lockin/VoiceTraining';
 import { allowReminders, remindersFor } from '@/components/lockin/Reminders';
 import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } from '@/lib/desktop';
 import { phoneWhisper, forgetReady } from '@/lib/localEar';
+import { X as XIcon } from 'lucide-react';
+import { PRESETS, presetHosts, normalizeHost, whyRefused } from '@/lib/strictFocus';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
 const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline, let's lock in.";
@@ -382,6 +384,7 @@ export default function Settings() {
     : { id: 'device', title: 'Get the desktop app', icon: Monitor, words: 'windows mac download' };
   const menu = [
     [{ id: 'focus', title: 'Focus timer', icon: Timer, value: `${p.focusMin} min`, words: 'break long goal automatically cues notification pomodoro' },
+     { id: 'strict', title: 'Strict focus', icon: ShieldCheck, value: p.strict?.enabled ? 'On' : 'Off', words: 'strict lock block sites websites approved allowed distraction commitment apps minimise' },
      { id: 'reminders', title: 'Reminders', icon: Bell, value: user.reminders?.on ? 'On' : 'Off', words: 'notifications deadlines due tests evening morning' },
      { id: 'calendar', title: 'Calendar', icon: CalendarDays, words: 'google apple outlook ics subscribe sync' }],
     [{ id: 'companion', title: 'Hey Companion', icon: Mic, value: handsFree === 'on' ? 'On' : 'Off', words: 'wake word hands-free train voice listen' },
@@ -464,6 +467,7 @@ export default function Settings() {
         </Section>
         </Page>
 
+        <Page id="strict"><StrictSection /></Page>
         <Page id="reminders"><RemindersSection /></Page>
 
         <Page id="calendar"><CalendarSection /></Page>
@@ -696,6 +700,125 @@ function HeyCompanionSection() {
       )}
       <VoiceTraining open={training} onOpenChange={setTraining} onDone={() => { if (thenOn) setHandsFree(true); }} />
     </Section>
+  );
+}
+
+/** Strict focus: lock a focus block so it can't be paused, and keep it to approved sites. Saved to the account. */
+function StrictSection() {
+  const focus = useFocus();
+  const sp = focus.strictPrefs;
+  const locked = focus.strictOn;
+  const [draft, setDraft] = useState('');
+  const [err, setErr] = useState('');
+  const [appDraft, setAppDraft] = useState('');
+  const save = (patch) => focus.updatePrefs({ strict: { ...sp, ...patch } });
+  const addSite = (e) => {
+    e?.preventDefault();
+    const host = normalizeHost(draft);
+    if (!host) { setErr(whyRefused(draft)); return; }
+    if (sp.allowedSites.includes(host)) { setErr('That one is already on the list.'); return; }
+    save({ allowedSites: [...sp.allowedSites, host] });
+    setDraft(''); setErr('');
+  };
+  const addApp = (e) => {
+    e?.preventDefault();
+    const name = appDraft.toLowerCase().trim().replace(/\.exe$/, '');
+    if (!/^[a-z0-9 ._+-]{1,60}$/.test(name)) return;
+    if (!sp.appList.includes(name)) save({ appList: [...sp.appList, name] });
+    setAppDraft('');
+  };
+  const chip = 'inline-flex min-h-9 items-center gap-1 rounded-full border bg-background py-1 pl-3 pr-1 text-sm text-foreground';
+  return (
+    <>
+      <Section icon={ShieldCheck} title="Strict focus" description="A focus block that holds you to it: no pausing, and only the sites you approve.">
+        {locked && <p role="status" className="rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">A strict block is running, so these settings are locked until it ends.</p>}
+        <Row id="strictOn" label="Start every focus block in strict mode" hint="You can still turn it off before a block starts. Breaks are never locked.">
+          <Switch id="strictOn" checked={!!sp.enabled} disabled={locked} onCheckedChange={v => save({ enabled: v })} />
+        </Row>
+        <Row id="strictWait" label="Wait before ending a block early" hint="Ending early is always possible, after this wait and a confirmation. It is saved as “ended early”.">
+          <select id="strictWait" value={sp.exitDelaySec} disabled={locked} onChange={e => save({ exitDelaySec: Number(e.target.value) })}
+            className="h-9 rounded-lg border bg-background px-2 text-sm text-foreground disabled:opacity-60">
+            {[15, 30, 45, 60, 90, 120].map(s => <option key={s} value={s}>{s} seconds</option>)}
+          </select>
+        </Row>
+        <Row id="strictMusic" label="Allow music" hint="Keeps the Music player working during a block (what is playing, pause and skip; no searching for new things).">
+          <Switch id="strictMusic" checked={!!sp.allowMusic} disabled={locked} onCheckedChange={v => save({ allowMusic: v })} />
+        </Row>
+      </Section>
+
+      <Section icon={ShieldCheck} title="Approved sites" description="LOCK IN! and the Code A Difference site are always allowed. Add what you need for your work.">
+        <ul className="divide-y rounded-lg border" aria-label="Ready-made lists">
+          {PRESETS.map(pr => {
+            const on = sp.presets.includes(pr.id);
+            const { support } = presetHosts([pr.id]);
+            return (
+              <li key={pr.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <label htmlFor={`pre-${pr.id}`} className="min-w-0 flex-1 cursor-pointer text-sm">
+                  <span className="block font-medium text-foreground">{pr.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{pr.hosts.join(', ')}{support.length ? ` · also allows ${support.join(', ')} so it works` : ''}</span>
+                </label>
+                <Switch id={`pre-${pr.id}`} checked={on} disabled={locked}
+                  onCheckedChange={v => save({ presets: v ? [...sp.presets, pr.id] : sp.presets.filter(x => x !== pr.id) })} />
+              </li>
+            );
+          })}
+        </ul>
+        <form onSubmit={addSite} className="flex flex-wrap items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="strictSite" className="sr-only">Add a website</label>
+            <input id="strictSite" value={draft} onChange={e => { setDraft(e.target.value); setErr(''); }} disabled={locked}
+              placeholder="Add a site, like desmos.com" autoComplete="off" autoCapitalize="off" spellCheck={false}
+              aria-invalid={!!err} aria-describedby={err ? 'strictSiteErr' : undefined}
+              className="h-11 w-full rounded-lg border bg-background px-3 text-sm text-foreground disabled:opacity-60" />
+            {err && <p id="strictSiteErr" role="alert" className="mt-1 text-sm text-red-700 dark:text-red-400">{err}</p>}
+          </div>
+          <Button type="submit" disabled={locked || !draft.trim()} className="h-11">Add</Button>
+        </form>
+        {sp.allowedSites.length > 0 && (
+          <ul className="flex flex-wrap gap-2" aria-label="Your approved sites">
+            {sp.allowedSites.map(h => (
+              <li key={h} className={chip}>{h}
+                <button type="button" disabled={locked} onClick={() => save({ allowedSites: sp.allowedSites.filter(x => x !== h) })} aria-label={`Remove ${h}`}
+                  className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40"><XIcon className="h-3.5 w-3.5" aria-hidden="true" /></button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section icon={Monitor} title="On this computer" description="The desktop app also keeps other programs from pulling you away.">
+        {isDesktop ? (
+          <>
+            <Row id="strictApps" label="Minimise other apps during a block" hint="Browsers, chat and games are minimised and LOCK IN! comes back to the front. Use the approved-sites window for the web. Phone calls and system windows are never touched.">
+              <Switch id="strictApps" checked={!!sp.blockApps} disabled={locked} onCheckedChange={v => save({ blockApps: v })} />
+            </Row>
+            <form onSubmit={addApp} className="flex flex-wrap items-center gap-2">
+              <label htmlFor="strictApp" className="sr-only">Add a program to minimise</label>
+              <input id="strictApp" value={appDraft} onChange={e => setAppDraft(e.target.value)} disabled={locked || !sp.blockApps}
+                placeholder="Also minimise (program name, like discord)" autoComplete="off" spellCheck={false}
+                className="h-11 min-w-0 flex-1 rounded-lg border bg-background px-3 text-sm text-foreground disabled:opacity-60" />
+              <Button type="submit" disabled={locked || !sp.blockApps || !appDraft.trim()} className="h-11">Add</Button>
+            </form>
+            {sp.appList.length > 0 && (
+              <ul className="flex flex-wrap gap-2" aria-label="Programs you added">
+                {sp.appList.map(a => (
+                  <li key={a} className={chip}>{a}
+                    <button type="button" disabled={locked} onClick={() => save({ appList: sp.appList.filter(x => x !== a) })} aria-label={`Stop minimising ${a}`}
+                      className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40"><XIcon className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Minimising other apps and the approved-sites window are part of the desktop app. In the browser and on the phone, strict mode locks the timer and keeps links inside LOCK IN! to your approved sites.</p>
+        )}
+      </Section>
+
+      <p className="px-1 text-sm text-muted-foreground">
+        Strict mode is a promise to yourself, made harder to break. It can’t stop another device, another browser or Task Manager, and you can always end a block early after the wait.
+      </p>
+    </>
   );
 }
 
