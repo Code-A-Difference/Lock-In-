@@ -10,7 +10,8 @@
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { HISTORY_TYPE, toRecord, fromRecord, listOf } from './companionHistory.js';
 import { db } from '@/api/db';
 import { openGraph } from '@/components/lockin/GraphPanel';
 import { useAuth } from '@/lib/AuthContext';
@@ -86,6 +87,17 @@ export function AssistantProvider({ children }) {
   // Each time the assistant is opened is a new conversation (see clear), so
   // nothing is kept between visits.
   const [messages, setMessages] = useState([]);
+  const convIdRef = useRef(null);                  // the saved record this conversation is written to
+  const skipSaveRef = useRef(false);               // opening an old one must not re-save it (and move it to the top)
+  const saveChain = useRef(Promise.resolve());     // saves happen one after another, so a new conversation is never written twice
+
+  // Companion's past conversations, newest first (see lib/companionHistory.js)
+  const historyQ = useQuery({
+    queryKey: ['companionHistory', user?.username],
+    enabled: !!user,
+    queryFn: () => db.entities.StudyHistory.filter({ type: HISTORY_TYPE }, '-created_date', 100),
+    staleTime: 60_000,
+  });
   const [busy, setBusy] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [attachments, setAttachments] = useState([]);     // [{ name, mime, dataUrl }]
@@ -103,6 +115,23 @@ export function AssistantProvider({ children }) {
   live.current = { focus, lecture, planner, actions, user, homework, tests, classes, lectures, attachments, pinned, readAloud, music };
 
   const push = useCallback((m) => setMessages(list => [...list, { id: mid(), at: Date.now(), ...m }].slice(-MAX_KEPT)), []);
+
+  // Save the conversation once a reply has landed (not while it's still being written)
+  useEffect(() => {
+    if (busy || !user) return;
+    if (!messages.length) { convIdRef.current = null; return; }
+    if (skipSaveRef.current) { skipSaveRef.current = false; return; }
+    if (!messages.some(m => m.role === 'user')) return;
+    const rec = toRecord(messages);
+    const id = convIdRef.current;
+    saveChain.current = saveChain.current.then(async () => {
+      try {
+        if (id) await db.entities.StudyHistory.update(id, rec);
+        else { const made = await db.entities.StudyHistory.create(rec); convIdRef.current = made.id; }
+      } catch (_) { if (id) convIdRef.current = null; }
+      qc.invalidateQueries({ queryKey: ['companionHistory'] });
+    });
+  }, [messages, busy, user, qc]);
 
   /** The item whose title best matches what was said, or a reply explaining why there isn't one. */
   const pick = (list, title, what) => {
@@ -369,6 +398,22 @@ export function AssistantProvider({ children }) {
   /** A fresh conversation: every opening of the assistant starts one. */
   const clear = useCallback(() => { stopSpeaking(); setMessages([]); setAttachments([]); setPinned([]); }, []);
 
+  /** Bring an earlier conversation back: it carries on in the same record. */
+  const openConversation = useCallback((rec) => {
+    stopSpeaking();
+    skipSaveRef.current = true;
+    convIdRef.current = rec.id;
+    setAttachments([]); setPinned([]);
+    setMessages(fromRecord(rec));
+  }, []);
+
+  /** Remove one conversation from the history. */
+  const deleteConversation = useCallback(async (id) => {
+    if (convIdRef.current === id) { convIdRef.current = null; clear(); }
+    await db.entities.StudyHistory.delete(id);
+    qc.invalidateQueries({ queryKey: ['companionHistory'] });
+  }, [clear, qc]);
+
   /** A photo from the in-app camera (a data URL). */
   const addPhoto = useCallback((dataUrl) => {
     const size = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4);
@@ -395,7 +440,8 @@ export function AssistantProvider({ children }) {
   const value = useMemo(() => ({
     messages, busy, speaking, send, clear, stop, attachments, addFiles, addPhoto, removeAttachment,
     pinned, togglePinned, readAloud, setReadAloud,
-  }), [messages, busy, speaking, send, clear, stop, attachments, addFiles, addPhoto, removeAttachment, pinned, togglePinned, readAloud]);
+    history: listOf(historyQ.data), historyLoading: historyQ.isLoading, openConversation, deleteConversation,
+  }), [messages, busy, speaking, send, clear, stop, attachments, addFiles, addPhoto, removeAttachment, pinned, togglePinned, readAloud, historyQ.data, historyQ.isLoading, openConversation, deleteConversation]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

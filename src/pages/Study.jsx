@@ -647,7 +647,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
           
           <div className="hidden lg:block">
             <StudyHistorySidebar
-              history={studyHistory.filter(h => h.type !== 'flashcards')}
+              history={studyHistory.filter(h => h.type !== 'flashcards' && h.type !== 'companion')}
               activeType={activeTab === 'grading' ? 'grading' : activeTab === 'quiz' ? 'quiz' : 'all'}
               isLoading={historyLoading}
               onSelectItem={(item) => {
