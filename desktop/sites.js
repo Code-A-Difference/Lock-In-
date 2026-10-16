@@ -125,7 +125,7 @@ function createSites({ strict, onBlocked = () => {} }) {
     w = null; view = null;
   }
 
-  return { open, close, isOpen: () => !!w && !w.isDestroyed(), partition: PARTITION };
+  return { open, close, isOpen: () => !!w && !w.isDestroyed(), isFocused: () => !!w && !w.isDestroyed() && w.isFocused(), partition: PARTITION };
 }
 
 module.exports = { createSites, PARTITION };

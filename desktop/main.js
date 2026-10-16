@@ -21,6 +21,7 @@ const whisper = require('./whisper');
 const meetings = require('./meetings');
 const { createStrict } = require('./strict');
 const { createSites } = require('./sites');
+const { createAppGuard } = require('./appguard');
 
 const SITE = process.env.LOCKIN_URL || 'https://codeadifference.ct.ws/lockin/';
 const ORIGIN = new URL(SITE).origin;
@@ -63,6 +64,8 @@ let quitting = false;
 let recording = false;
 let strictCore = null;      // the strict focus block main keeps (see strict.js)
 let sites = null;           // the approved-sites window (see sites.js)
+let appGuard = null;        // minimises other programs during a strict block (see appguard.js)
+const guardSeen = new Map();
 let shuttingDown = false;   // the computer is shutting down: never hold that up
 
 const send = (channel, data) => { if (win && !win.isDestroyed()) win.webContents.send(channel, data); };
@@ -310,6 +313,14 @@ function setupSession() {
 
 /* ------------------------------------------------------------------ IPC */
 
+/** Start or stop the program-watcher to match the strict block (if any). */
+function syncAppGuard(s) {
+  if (!appGuard) return;
+  if (!s) { appGuard.stop(); guardSeen.clear(); return; }
+  if (appGuard.running() || !s.blockApps) return;
+  appGuard.start({ mode: s.appMode, list: s.appList, allow: s.appAllow, blockApps: s.blockApps });
+}
+
 function wireIpc() {
   /* ---- strict focus. The page asks; main decides (see strict.js). Only the main window's own page may ask. */
   const trusted = (e) => {
@@ -510,7 +521,7 @@ app.on('before-quit', (e) => {
   }
   quitting = true;
 });
-app.on('will-quit', () => { globalShortcut.unregisterAll(); whisper.stop(); if (sites) sites.close(); });
+app.on('will-quit', () => { globalShortcut.unregisterAll(); whisper.stop(); if (sites) sites.close(); if (appGuard) appGuard.stop(); });
 app.on('activate', () => showWindow());
 
 app.whenReady().then(() => {
@@ -522,10 +533,23 @@ app.whenReady().then(() => {
     onChange: (s) => {
       send('strict:state', { state: s, exit: strictCore.exitStatus() });
       if (!s && sites) sites.close();            // the block is over: nothing approved-sites-shaped lingers
+      syncAppGuard(s);
       updateTray();
     },
   });
+  appGuard = createAppGuard({
+    bringForward: () => { if (win && !win.isDestroyed() && !(sites && sites.isFocused())) showWindow(); },
+    onBlocked: (name) => {
+      const t = Date.now();
+      if (t - (guardSeen.get(name) || 0) < 4000) return;      // a program that keeps popping up is counted once per few seconds
+      guardSeen.set(name, t);
+      strictCore.noteBlocked();
+      send('strict:blocked', { kind: 'app', host: name });
+    },
+    onUnavailable: (why) => send('strict:blocked', { kind: 'unavailable', host: String(why || '') }),
+  });
   sites = createSites({ strict: strictCore, onBlocked: (b) => send('strict:blocked', b) });
+  syncAppGuard(strictCore.get());               // a block carried over from the last run
   setInterval(() => strictCore.tick(), 1000);   // lets go of a block that has run its time, even if the page is hung
   try { powerMonitor.on('shutdown', () => { shuttingDown = true; }); } catch (_) { /* not on every platform */ }
   wireIpc();

@@ -25,14 +25,15 @@ export const RELEASES = {
     ],
   },
   desktop: {
-    version: '1.0.9',
+    version: '1.0.10',
     date: '2026-10-16',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.9/LOCKIN-win-x64.exe`,
-      macArm: `${GH}/download/desktop-v1.0.9/LOCKIN-mac-arm64.dmg`,
-      macIntel: `${GH}/download/desktop-v1.0.9/LOCKIN-mac-x64.dmg`,
+      windows: `${GH}/download/desktop-v1.0.10/LOCKIN-win-x64.exe`,
+      macArm: `${GH}/download/desktop-v1.0.10/LOCKIN-mac-arm64.dmg`,
+      macIntel: `${GH}/download/desktop-v1.0.10/LOCKIN-mac-x64.dmg`,
     },
     notes: [
+      'Strict focus now also minimises browsers, chat and games that come to the front during a block (you can edit the list in Settings → Strict focus). Nothing is closed, so no work is lost.',
       'Strict focus: during a strict block, links that are not on your approved list are blocked, and approved ones open in a separate Approved sites window that can only visit those sites. The block survives a restart and quitting LOCK IN! goes through the same short wait as ending early.',
       'Click the little floating bar to open LOCK IN! again. LOCK IN! now stays in your taskbar while the bar floats, and clicking it there brings the full window back.',
       'Music: search suggestions as you type, a song position bar you can drag to skip ahead, and Skip always finds the next song.',
