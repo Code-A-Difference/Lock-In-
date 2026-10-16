@@ -28,6 +28,10 @@ import { desktop, isDesktop, desktopNeedsUpdate, DESKTOP_DOWNLOADS, guessOS } fr
 import { phoneWhisper, forgetReady } from '@/lib/localEar';
 import { X as XIcon } from 'lucide-react';
 import { PRESETS, presetHosts, normalizeHost, whyRefused } from '@/lib/strictFocus';
+import { termsStatus, TERMS_VERSION } from '@/lib/strictTerms';
+import StrictTermsDialog from '@/components/lockin/StrictTermsDialog';
+import PhoneLinkSettings from '@/components/lockin/PhoneLinkSettings';
+import { getDeviceId } from '@/lib/crossLock';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
 const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline, let's lock in.";
@@ -711,7 +715,24 @@ function StrictSection() {
   const [draft, setDraft] = useState('');
   const [err, setErr] = useState('');
   const [appDraft, setAppDraft] = useState('');
+  const { user } = useAuth();
+  const [termsOpen, setTermsOpen] = useState(false);
   const save = (patch) => focus.updatePrefs({ strict: { ...sp, ...patch } });
+  const termsOk = termsStatus(user?.strictTerms, TERMS_VERSION) === 'ok';
+  const toggleLockOthers = (v) => {
+    if (!v) { save({ lockOthers: false }); return; }
+    if (termsOk) save({ lockOthers: true }); else setTermsOpen(true);
+  };
+  const acceptTerms = async (record) => {
+    try {
+      await db.auth.updateMe({ strictTerms: record });
+      save({ lockOthers: true });
+      setTermsOpen(false);
+      toast({ title: 'Lock my other device is on', description: 'Starting a strict block here will now lock your other signed-in device too.' });
+    } catch (e) {
+      toast({ title: 'Could not save your agreement', description: e.message || 'Try again in a moment.', variant: 'destructive' });
+    }
+  };
   const addSite = (e) => {
     e?.preventDefault();
     const host = normalizeHost(draft);
@@ -744,6 +765,16 @@ function StrictSection() {
         <Row id="strictMusic" label="Allow music" hint="Keeps the Music player working during a block (what is playing, pause and skip; no searching for new things).">
           <Switch id="strictMusic" checked={!!sp.allowMusic} disabled={locked} onCheckedChange={v => save({ allowMusic: v })} />
         </Row>
+        <Row id="strictLockOthers" label="Lock my other device too" hint={sp.lockOthers && termsOk
+          ? `On. Starting a strict block here also locks your other signed-in device (a phone shows the focus screen; a computer also blocks other sites and programs). You agreed on ${new Date(user.strictTerms.at).toLocaleDateString()}.`
+          : 'Optional. Starting a strict block here also locks your other signed-in device. You will be asked to read and agree to a short notice first.'}>
+          <Switch id="strictLockOthers" checked={!!sp.lockOthers && termsOk} disabled={locked} onCheckedChange={toggleLockOthers} />
+        </Row>
+        {sp.lockOthers && termsOk && (
+          <button type="button" onClick={() => setTermsOpen(true)} className="w-fit text-sm font-medium text-primary underline-offset-2 hover:underline">Read the notice again</button>
+        )}
+        {isNativeApp && sp.lockOthers && termsOk && <PhoneLinkSettings deviceId={getDeviceId()} />}
+        <StrictTermsDialog open={termsOpen} onOpenChange={setTermsOpen} onAccept={acceptTerms} device={isDesktop ? 'desktop' : isNativeApp ? 'phone' : 'web'} />
       </Section>
 
       <Section icon={ShieldCheck} title="Approved sites" description="LOCK IN! and the Code A Difference site are always allowed. Add what you need for your work.">

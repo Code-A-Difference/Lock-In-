@@ -168,3 +168,14 @@ test('the matching rule agrees with the web app\'s', async () => {
   }
   assert.deepEqual(cleanHosts(['ok.com', 'localhost', 'a b.com', 'x.io']), ['ok.com', 'x.io']);
 });
+
+test('a lock started from the student\'s other device can be ended remotely; an ordinary one cannot', () => {
+  let t = 1_000_000;
+  const mk = (linked) => { const c = createStrict({ now: () => t }); c.begin({ id: 'x', endsAt: t + 600000, pages: ['desmos.com'], linked }); return c; };
+  const plain = mk(false);
+  assert.equal(plain.end('remote').ok, false);
+  assert.equal(plain.active(), true);
+  const linked = mk(true);
+  assert.equal(linked.end('remote').ended, true);
+  assert.equal(linked.active(), false);
+});
