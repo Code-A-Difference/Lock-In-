@@ -87,9 +87,6 @@ export default function Music() {
         ))}
       </div>
 
-      {m.locked && (
-        <p role="status" className="mt-5 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">Strict focus is on, so choosing new music is locked. Pause, skip and the song bar still work.</p>
-      )}
 
       {needsConnect && !m.locked ? (
         <div className="mt-5 rounded-2xl border bg-card p-5">
