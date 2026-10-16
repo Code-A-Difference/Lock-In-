@@ -103,6 +103,7 @@ export function normalizeStrictPrefs(raw) {
     allowedSites: unique(r.allowedSites, (x) => normalizeHost(typeof x === 'string' ? x : x?.host), MAX_SITES),
     presets: unique(r.presets, (x) => (PRESETS.some(p => p.id === x) ? x : null), PRESETS.length),
     allowMusic: r.allowMusic !== false,
+    lockOthers: r.lockOthers === true,
     blockApps: r.blockApps !== false,
     appMode: r.appMode === 'allowlist' ? 'allowlist' : 'blocklist',
     appList: unique(r.appList, procName, MAX_APPS),

@@ -11,6 +11,8 @@ public class MainActivity extends BridgeActivity {
         try { registerPlugin(WakeWordPlugin.class); } catch (Throwable ignored) { }
         // Speech to text with whisper.cpp on the phone (commands, push-to-talk, classes)
         try { registerPlugin(WhisperPlugin.class); } catch (Throwable ignored) { }
+        // The phone side of "lock my other device too": watches the front app during a lock the student opted into
+        try { registerPlugin(StrictLinkPlugin.class); } catch (Throwable ignored) { }
         super.onCreate(savedInstanceState);
     }
 }

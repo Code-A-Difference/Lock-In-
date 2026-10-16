@@ -436,6 +436,14 @@ export function FocusProvider({ children }) {
     finishPhase(true);
     return true;
   }, [commit, finishPhase]);
+  /** The other device's countdown already ran and ended this lock: let go here without a second wait. */
+  const forceEnd = useCallback(() => {
+    const cur = tRef.current;
+    if (!isStrictActive(cur)) return;
+    commit({ ...cur, exitReqAt: null });
+    setExitOpen(false);
+    finishPhase(true);
+  }, [commit, finishPhase]);
   /** A blocked link, page or app: counted, and saved with the session. */
   const noteBlocked = useCallback(() => {
     const cur = tRef.current;
@@ -635,7 +643,7 @@ export function FocusProvider({ children }) {
     start, startFocus, pause, toggle, reset, skip, startBreak, adjust, setDurations, setTask, lockIn,
     setSound, setVolume, completeStep, perform, voiceQuiz, updatePrefs,
     overlayOpen, openFocus, closeFocus,
-    strictOn, strictPrefs: prefs.strict, strictAllow, exit, exitOpen, setExitOpen, requestExit, cancelExit, confirmExit, noteBlocked,
+    strictOn, strictPrefs: prefs.strict, strictAllow, exit, exitOpen, setExitOpen, requestExit, cancelExit, confirmExit, forceEnd, noteBlocked,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -78,7 +78,7 @@ function createStrict({ now = Date.now, load = () => null, save = () => {}, onCh
       delaySec: Math.min(DELAY_MAX, Math.max(DELAY_MIN, Math.round(Number(saved.delaySec)) || DELAY_DEFAULT)),
       blockApps: saved.blockApps !== false, appMode: saved.appMode === 'allowlist' ? 'allowlist' : 'blocklist',
       appList: cleanNames(saved.appList), appAllow: cleanNames(saved.appAllow),
-      exitReqAt: null, blocked: Number(saved.blocked) || 0,
+      exitReqAt: null, blocked: Number(saved.blocked) || 0, linked: saved.linked === true,
     };
     tick();
   }
@@ -103,7 +103,7 @@ function createStrict({ now = Date.now, load = () => null, save = () => {}, onCh
         delaySec: Math.min(DELAY_MAX, Math.max(DELAY_MIN, Math.round(Number(spec.delaySec)) || DELAY_DEFAULT)),
         blockApps: spec.blockApps !== false, appMode: spec.appMode === 'allowlist' ? 'allowlist' : 'blocklist',
         appList: cleanNames(spec.appList), appAllow: cleanNames(spec.appAllow),
-        exitReqAt: null, blocked: 0,
+        exitReqAt: null, blocked: 0, linked: spec.linked === true,
       };
       changed();
       return { ok: true, state: publicCopy() };
@@ -153,6 +153,8 @@ function createStrict({ now = Date.now, load = () => null, save = () => {}, onCh
     end(reason = 'natural') {
       tick();
       if (!s) return { ok: true, ended: true };
+      // a lock started from the student's other device is ended there (after its own countdown); this app is told
+      if (reason === 'remote' && s.linked) { clear('remote'); return { ok: true, ended: true }; }
       if (reason !== 'natural') return { ok: false, reason: 'refused' };
       if (now() < s.endsAt - 1500) return { ok: false, reason: 'early' };
       clear('natural');

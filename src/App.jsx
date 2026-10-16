@@ -21,6 +21,7 @@ import GraphPanel from '@/components/lockin/GraphPanel';
 import Reminders from '@/components/lockin/Reminders';
 import StrictExitDialog from '@/components/lockin/StrictExitDialog';
 import StrictGuard from '@/components/lockin/StrictGuard';
+import CrossLock from '@/components/lockin/CrossLock';
 import { MusicProvider } from '@/lib/MusicContext';
 import NowPlaying from '@/components/lockin/NowPlaying';
 
@@ -146,6 +147,7 @@ const AuthenticatedApp = () => {
     <FocusSurface />
     <StrictGuard />
     <StrictExitDialog />
+    <CrossLock />
     <VoicePanel />
     <PlannerSheet />
     <GraphPanel />
