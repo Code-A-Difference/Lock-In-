@@ -13,12 +13,14 @@
  *  - noticing a Zoom / Teams / browser call starting and offering to record it
  */
 const {
-  app, BrowserWindow, Menu, Tray, Notification, globalShortcut, ipcMain, nativeImage, screen, session, shell, desktopCapturer,
+  app, BrowserWindow, Menu, Tray, Notification, globalShortcut, ipcMain, nativeImage, screen, session, shell, desktopCapturer, powerMonitor,
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const whisper = require('./whisper');
 const meetings = require('./meetings');
+const { createStrict } = require('./strict');
+const { createSites } = require('./sites');
 
 const SITE = process.env.LOCKIN_URL || 'https://codeadifference.ct.ws/lockin/';
 const ORIGIN = new URL(SITE).origin;
@@ -37,6 +39,7 @@ if (process.platform === 'win32') app.setAppUserModelId('ws.ct.codeadifference.l
 const settingsFile = () => path.join(app.getPath('userData'), 'desktop-settings.json');
 const DEFAULTS = {
   bounds: null, floatPos: null, floatAnchor: null, offerRecordCalls: true, toldAboutTray: false,
+  strictState: null,       // a strict focus block in progress, so a restart carries on until it ends
   // turbo (Whisper large-v3 turbo) is the goal; base works while it downloads (see warmUp)
   transcription: { enabled: true, model: 'turbo', language: 'en' },
 };
@@ -58,6 +61,9 @@ let tray = null;
 let mini = false;
 let quitting = false;
 let recording = false;
+let strictCore = null;      // the strict focus block main keeps (see strict.js)
+let sites = null;           // the approved-sites window (see sites.js)
+let shuttingDown = false;   // the computer is shutting down: never hold that up
 
 const send = (channel, data) => { if (win && !win.isDestroyed()) win.webContents.send(channel, data); };
 
@@ -129,14 +135,28 @@ function createWindow({ hidden = false } = {}) {
   screen.on('display-metrics-changed', bringOnScreen);
 
   // Only LOCK IN! itself loads inside the window; other links open in the browser.
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  // During a strict focus block an approved site opens in the approved-sites window and anything else is blocked.
+  const hostOf = (u) => { try { return new URL(u).hostname; } catch (_) { return ''; } };
+  const openOutside = (url) => {
+    if (strictCore && strictCore.active()) {
+      if (strictCore.isAllowedPage(url)) sites.open(url);
+      else { strictCore.noteBlocked(); send('strict:blocked', { kind: 'link', host: hostOf(url) }); }
+      return;
+    }
     if (/^https?:/i.test(url)) shell.openExternal(url);
+  };
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    openOutside(url);
     return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (e, url) => {
+  const leave = (e, url) => {
     if (url.startsWith('file:')) return;
-    if (new URL(url).origin !== ORIGIN) { e.preventDefault(); shell.openExternal(url); }
-  });
+    let origin = '';
+    try { origin = new URL(url).origin; } catch (_) { e.preventDefault(); return; }
+    if (origin !== ORIGIN) { e.preventDefault(); openOutside(url); }
+  };
+  win.webContents.on('will-navigate', leave);
+  win.webContents.on('will-redirect', leave);
   win.webContents.on('did-fail-load', (_e, code, _desc, url, isMain) => {
     if (isMain && code !== -3) win.loadFile(path.join(__dirname, 'offline.html'), { query: { to: SITE } });
   });
@@ -150,6 +170,7 @@ function createWindow({ hidden = false } = {}) {
   win.on('moved', remember);
   // coming back from the taskbar (or the tray) means the full window again, so the little bar goes away
   win.on('restore', () => { if (mini) setMini(false); });
+  win.on('session-end', () => { shuttingDown = true; });       // Windows logging off or shutting down
 
   // Closing keeps LOCK IN! in the tray, so shortcuts, timers and recordings carry on.
   win.on('close', (e) => {
@@ -235,11 +256,16 @@ function updateTray() {
     { type: 'separator' },
     { label: recording ? 'Recording…' : 'Record a class', enabled: !recording, click: () => { showWindow(); send('command', { type: 'record' }); } },
     { label: 'Ask the assistant', click: () => { showWindow(); send('command', { type: 'assistant' }); } },
+    ...(strictCore && strictCore.active() ? [{ label: 'Approved sites (strict focus)', click: () => sites.open() }] : []),
     { type: 'separator' },
     { label: 'Start with my computer', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => setLaunchAtLogin(i.checked) },
     { label: 'Offer to record calls and online classes', type: 'checkbox', checked: settings.offerRecordCalls, click: (i) => { settings.offerRecordCalls = i.checked; saveSettings(); } },
     { type: 'separator' },
-    { label: 'Quit LOCK IN!', click: () => { quitting = true; app.quit(); } },
+    { label: strictCore && strictCore.active() ? 'Quit LOCK IN! (ends your strict block first)' : 'Quit LOCK IN!', click: () => {
+      // a strict block is not left by quitting: it goes through the same early-exit countdown
+      if (strictCore && strictCore.active()) { showWindow(); send('command', { type: 'strict-exit' }); return; }
+      quitting = true; app.quit();
+    } },
   ]));
 }
 
@@ -285,6 +311,20 @@ function setupSession() {
 /* ------------------------------------------------------------------ IPC */
 
 function wireIpc() {
+  /* ---- strict focus. The page asks; main decides (see strict.js). Only the main window's own page may ask. */
+  const trusted = (e) => {
+    try { return !!win && e.sender === win.webContents && e.senderFrame === win.webContents.mainFrame && new URL(e.senderFrame.url).origin === ORIGIN; } catch (_) { return false; }
+  };
+  const strictView = () => ({ state: strictCore.get(), exit: strictCore.exitStatus() });
+  ipcMain.handle('strict:get', (e) => (trusted(e) ? strictView() : null));
+  ipcMain.handle('strict:begin', (e, spec) => (trusted(e) ? { ...strictCore.begin(spec), ...strictView() } : { ok: false, reason: 'untrusted' }));
+  ipcMain.handle('strict:extend', (e, endsAt) => (trusted(e) ? { ...strictCore.extend(endsAt), ...strictView() } : { ok: false }));
+  ipcMain.handle('strict:requestExit', (e) => (trusted(e) ? { ...strictCore.requestExit(), ...strictView() } : { ok: false }));
+  ipcMain.handle('strict:cancelExit', (e) => (trusted(e) ? { ...strictCore.cancelExit(), ...strictView() } : { ok: false }));
+  ipcMain.handle('strict:confirmExit', (e) => (trusted(e) ? { ...strictCore.confirmExit(), ...strictView() } : { ok: false }));
+  ipcMain.handle('strict:end', (e, reason) => (trusted(e) ? { ...strictCore.end(reason), ...strictView() } : { ok: false }));
+  ipcMain.handle('strict:openSite', (e, url) => (trusted(e) ? sites.open(String(url || '')) : false));
+
   const tStatus = () => ({ ...whisper.status(), settings: settings.transcription });
   ipcMain.handle('whisper:status', () => tStatus());
   ipcMain.handle('whisper:set', (_e, patch = {}) => {
@@ -460,13 +500,34 @@ function watchCalls() {
 /* ---------------------------------------------------------------- start */
 
 app.on('second-instance', () => showWindow());
-app.on('before-quit', () => { quitting = true; });
-app.on('will-quit', () => { globalShortcut.unregisterAll(); whisper.stop(); });
+app.on('before-quit', (e) => {
+  // a strict block holds LOCK IN! open too, unless the computer itself is shutting down
+  if (strictCore && strictCore.active() && !shuttingDown) {
+    e.preventDefault();
+    showWindow();
+    send('command', { type: 'strict-exit' });
+    return;
+  }
+  quitting = true;
+});
+app.on('will-quit', () => { globalShortcut.unregisterAll(); whisper.stop(); if (sites) sites.close(); });
 app.on('activate', () => showWindow());
 
 app.whenReady().then(() => {
   loadSettings();
   setupSession();
+  strictCore = createStrict({
+    load: () => settings.strictState,
+    save: (s) => { settings.strictState = s; saveSettings(); },
+    onChange: (s) => {
+      send('strict:state', { state: s, exit: strictCore.exitStatus() });
+      if (!s && sites) sites.close();            // the block is over: nothing approved-sites-shaped lingers
+      updateTray();
+    },
+  });
+  sites = createSites({ strict: strictCore, onBlocked: (b) => send('strict:blocked', b) });
+  setInterval(() => strictCore.tick(), 1000);   // lets go of a block that has run its time, even if the page is hung
+  try { powerMonitor.on('shutdown', () => { shuttingDown = true; }); } catch (_) { /* not on every platform */ }
   wireIpc();
   createWindow({ hidden: process.argv.includes('--hidden') });
   tray = new Tray(appIcon(process.platform === 'darwin' ? 18 : 16));

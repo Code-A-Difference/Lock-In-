@@ -36,6 +36,19 @@ contextBridge.exposeInMainWorld('lockinDesktop', {
     get: () => ipcRenderer.invoke('prefs:get'),
     set: (patch) => ipcRenderer.invoke('prefs:set', patch),
   },
+  /** Strict focus: main keeps the real lock; the page asks. See desktop/strict.js. */
+  strict: {
+    get: () => ipcRenderer.invoke('strict:get'),
+    begin: (spec) => ipcRenderer.invoke('strict:begin', spec),
+    extend: (endsAt) => ipcRenderer.invoke('strict:extend', endsAt),
+    requestExit: () => ipcRenderer.invoke('strict:requestExit'),
+    cancelExit: () => ipcRenderer.invoke('strict:cancelExit'),
+    confirmExit: () => ipcRenderer.invoke('strict:confirmExit'),
+    end: (reason) => ipcRenderer.invoke('strict:end', reason),
+    openSite: (url) => ipcRenderer.invoke('strict:openSite', String(url)),
+    onState: on('strict:state'),
+    onBlocked: on('strict:blocked'),
+  },
   setRecording: (onOff) => ipcRenderer.send('recording', !!onOff),
   /** What's running ({recording, focus}), for the floating bar. */
   reportFloating: (state) => ipcRenderer.send('floating:report', state),
