@@ -1,6 +1,6 @@
 import { readComfort } from '@/lib/comfort';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, Camera, ChevronUp, Film, Globe, LineChart, Loader2, Mic, MicOff, Paperclip, Radio, Send, Sigma, Sparkles, Square, Trash2, Volume2, VolumeX, X } from 'lucide-react';
+import { BookOpen, Camera, ChevronUp, Film, Globe, LineChart, Loader2, Mic, MicOff, Paperclip, Radio, Send, Sigma, Sparkles, Square, Trash2, Volume2, VolumeX, X, Clock } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import RichText from '@/components/lockin/RichText';
 import CameraCapture from '@/components/lockin/CameraCapture';
@@ -41,11 +41,41 @@ const NOTES_IDEAS = ['What did we cover in my last class?', 'Find where we talke
  * open on screen first, all your notes on the Notes page, and by default only
  * from your own material (outside knowledge is one switch away).
  */
+/** Past conversations with Companion: newest first. Open one to carry on with it, or remove it. */
+function HistoryList({ items, loading, onOpen, onDelete }) {
+  const when = (t) => {
+    const d = new Date(t);
+    if (Number.isNaN(d.getTime())) return '';
+    const same = d.toDateString() === new Date().toDateString();
+    return same ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+  if (loading) return <p className="px-4 py-6 text-sm text-muted-foreground" role="status">Loading your history…</p>;
+  if (!items?.length) return <p className="px-4 py-6 text-sm text-muted-foreground">No past conversations yet. Ask Companion something, and it will be kept here.</p>;
+  return (
+    <ul className="min-h-0 flex-1 divide-y overflow-y-auto" aria-label="Past conversations">
+      {items.map((rec) => (
+        <li key={rec.id} className="flex items-start gap-2 px-3 py-2">
+          <button type="button" onClick={() => onOpen(rec)} className="min-w-0 flex-1 rounded-lg px-1 py-1 text-left hover:bg-secondary">
+            <span className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{rec.title || 'Conversation'}</span>
+              <span className="flex-none text-[11px] text-muted-foreground">{when(rec.updated_date || rec.created_date)}</span>
+            </span>
+            {rec.preview && <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{rec.preview}</span>}
+          </button>
+          <button type="button" onClick={() => onDelete(rec.id)} aria-label={`Delete “${rec.title || 'conversation'}”`} title="Delete"
+            className="grid h-8 w-8 flex-none place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function VoicePanel() {
   const a = useAssistant();
   const lecture = useLecture();
   const { lectures } = useStudyData();
   const [expanded, setExpanded] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);   // the list of past conversations, in place of the chat
   const [dockOpen, setDockOpen] = useState(false);   // the bar stays one small button until it is wanted
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState('');
@@ -83,7 +113,8 @@ export default function VoicePanel() {
 
   // Every time the assistant opens it's a new conversation.
   useEffect(() => {
-    if (expanded && !wasOpen.current) { a.clear(); setShowSources(false); setSymbols(false); setError(''); }
+    // Opening by sending a question: the question was just added in the same moment, so it stays (clearing here wiped it).
+    if (expanded && !wasOpen.current && !a.busy) { a.clear(); setShowSources(false); setSymbols(false); setError(''); }
     wasOpen.current = expanded;
   }, [expanded]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -327,6 +358,10 @@ export default function VoicePanel() {
         {expanded && (
           <section className="mb-2 flex max-h-[min(34rem,calc(100dvh-11rem))] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2" aria-label="Companion, the assistant">
             <header className="flex items-center gap-1 border-b px-3 py-2">
+              <button type="button" onClick={() => setShowHistory(v => !v)} aria-pressed={showHistory} aria-label={showHistory ? 'Back to the conversation' : 'Show history'} title={showHistory ? 'Back to the conversation' : 'History'}
+                className={cn('grid h-8 w-8 flex-none place-items-center rounded-lg hover:bg-secondary hover:text-foreground', showHistory ? 'bg-secondary text-foreground' : 'text-muted-foreground')}>
+                <Clock className="h-4 w-4" aria-hidden="true" />
+              </button>
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
                 {focusLec ? <><BookOpen className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />{focusLec.title}{lecture.active?.id === focusLec.id ? ' (live)' : ''}</>
                   : onNotes ? 'All your notes' : 'Companion'}
@@ -349,7 +384,12 @@ export default function VoicePanel() {
                 className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"><X className="h-4 w-4" /></button>
             </header>
 
-            <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3" aria-live="polite">
+            {showHistory && (
+              <HistoryList items={a.history} loading={a.historyLoading}
+                onOpen={(rec) => { a.openConversation(rec); setShowHistory(false); }}
+                onDelete={(id) => a.deleteConversation(id)} />
+            )}
+            <div ref={scroller} hidden={showHistory} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3" aria-live="polite">
               {!a.messages.length && !listening && !heard && (
                 <div className="flex flex-wrap gap-1.5 py-1">
                   {ideas.map(i => <button key={i} type="button" onClick={() => submit(i)}
