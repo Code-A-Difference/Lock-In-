@@ -15,10 +15,12 @@ const GH = 'https://github.com/Code-A-Difference/Lock-In-/releases';
 
 export const RELEASES = {
   android: {
-    version: '1.3.4',
-    date: '2026-10-14',
+    version: '1.3.5',
+    date: '2026-10-16',
     url: `${GH}/latest/download/LOCKIN-android.apk`,
     notes: [
+      'Optional: lock your phone while you lock in on your computer, or the other way round (Settings → Strict focus). You agree to a short notice first and choose the permissions. Calls, texts and emergency apps are never blocked.',
+      'Strict focus: a focus block that can’t be paused, with approved sites only. You can still end it early after a short wait.',
       'While LOCK IN! works on your answer it now shows playful words (Pondering, Mustering, Consulting the Force…) instead of plain “Thinking…”.',
       'Reminders before homework and tests are due, even when the app is closed. Turn them on in Settings → Reminders.',
       'Put your homework, tests and study plan in Google Calendar (Settings → Calendar).',

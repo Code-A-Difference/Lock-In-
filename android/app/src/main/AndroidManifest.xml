@@ -64,5 +64,17 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- the focus lock never brings you back from the home screen, the phone or messages: it has to be able to find them -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
     </queries>
 </manifest>
