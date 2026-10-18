@@ -22,6 +22,7 @@ const meetings = require('./meetings');
 const { createStrict } = require('./strict');
 const { createSites } = require('./sites');
 const { createAppGuard } = require('./appguard');
+const { createUpdater } = require('./updater');
 
 const SITE = process.env.LOCKIN_URL || 'https://codeadifference.ct.ws/lockin/';
 const ORIGIN = new URL(SITE).origin;
@@ -64,6 +65,7 @@ let quitting = false;
 let recording = false;
 let strictCore = null;      // the strict focus block main keeps (see strict.js)
 let sites = null;           // the approved-sites window (see sites.js)
+let updater = null;         // in-app updates (see updater.js)
 let appGuard = null;        // minimises other programs during a strict block (see appguard.js)
 const guardSeen = new Map();
 let shuttingDown = false;   // the computer is shutting down: never hold that up
@@ -318,7 +320,8 @@ function syncAppGuard(s) {
   if (!appGuard) return;
   if (!s) { appGuard.stop(); guardSeen.clear(); return; }
   if (appGuard.running() || !s.blockApps) return;
-  appGuard.start({ mode: s.appMode, list: s.appList, allow: s.appAllow, blockApps: s.blockApps });
+  // pages: the approved sites, so browsers are judged by the address they show instead of being minimised outright
+  appGuard.start({ mode: s.appMode, list: s.appList, allow: s.appAllow, blockApps: s.blockApps, pages: s.pages, browserWatch: true });
 }
 
 function wireIpc() {
@@ -327,6 +330,8 @@ function wireIpc() {
     try { return !!win && e.sender === win.webContents && e.senderFrame === win.webContents.mainFrame && new URL(e.senderFrame.url).origin === ORIGIN; } catch (_) { return false; }
   };
   const strictView = () => ({ state: strictCore.get(), exit: strictCore.exitStatus() });
+  ipcMain.handle('update:install', (e, version) => (trusted(e) ? updater.install(String(version || '')) : { ok: false, reason: 'untrusted' }));
+  ipcMain.handle('update:supported', (e) => trusted(e) && updater.supported());
   ipcMain.handle('strict:get', (e) => (trusted(e) ? strictView() : null));
   ipcMain.handle('strict:begin', (e, spec) => (trusted(e) ? { ...strictCore.begin(spec), ...strictView() } : { ok: false, reason: 'untrusted' }));
   ipcMain.handle('strict:extend', (e, endsAt) => (trusted(e) ? { ...strictCore.extend(endsAt), ...strictView() } : { ok: false }));
@@ -539,12 +544,15 @@ app.whenReady().then(() => {
   });
   appGuard = createAppGuard({
     bringForward: () => { if (win && !win.isDestroyed() && !(sites && sites.isFocused())) showWindow(); },
-    onBlocked: (name) => {
+    onBlocked: (name, info) => {
+      const key = info && info.host ? `${name}:${info.host}` : name;
       const t = Date.now();
-      if (t - (guardSeen.get(name) || 0) < 4000) return;      // a program that keeps popping up is counted once per few seconds
-      guardSeen.set(name, t);
+      if (t - (guardSeen.get(key) || 0) < 4000) return;      // a program that keeps popping up is counted once per few seconds
+      guardSeen.set(key, t);
       strictCore.noteBlocked();
-      send('strict:blocked', { kind: 'app', host: name });
+      if (info && info.kind === 'browser') send('strict:blocked', { kind: 'browser', host: info.host, app: name });
+      else if (info && info.kind === 'browser-unreadable') send('strict:blocked', { kind: 'browser-unreadable', host: name });
+      else send('strict:blocked', { kind: 'app', host: name });
     },
     onUnavailable: (why) => send('strict:blocked', { kind: 'unavailable', host: String(why || '') }),
   });
@@ -552,6 +560,11 @@ app.whenReady().then(() => {
   syncAppGuard(strictCore.get());               // a block carried over from the last run
   setInterval(() => strictCore.tick(), 1000);   // lets go of a block that has run its time, even if the page is hung
   try { powerMonitor.on('shutdown', () => { shuttingDown = true; }); } catch (_) { /* not on every platform */ }
+  updater = createUpdater({
+    send,
+    canInstall: () => !(strictCore && strictCore.active()),
+    prepareQuit: () => { quitting = true; shuttingDown = true; },
+  });
   wireIpc();
   createWindow({ hidden: process.argv.includes('--hidden') });
   tray = new Tray(appIcon(process.platform === 'darwin' ? 18 : 16));

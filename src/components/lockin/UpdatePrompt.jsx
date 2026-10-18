@@ -13,6 +13,15 @@ const KEY = 'lockin.update.later';
 export default function UpdatePrompt() {
   const [offer, setOffer] = useState(null);   // { kind, from, to, notes, url }
   const btn = useRef(null);
+  // Windows desktop app 1.0.12+: update from inside the app, no browser (state: null | {phase, percent, message})
+  const [inApp, setInApp] = useState(false);
+  const [prog, setProg] = useState(null);
+  useEffect(() => {
+    const u = window.lockinDesktop?.update;
+    if (!u) return undefined;
+    u.supported().then((ok) => setInApp(!!ok)).catch(() => {});
+    return u.onState((s) => setProg(s));
+  }, []);
 
   useEffect(() => {
     let off = false;
@@ -40,7 +49,16 @@ export default function UpdatePrompt() {
     try { localStorage.setItem(KEY, JSON.stringify({ version: offer.to, at: Date.now() })); } catch (_) { /* fine */ }
     setOffer(null);
   };
-  const how = offer.kind === 'android'
+  const updating = prog && (prog.phase === 'downloading' || prog.phase === 'installing');
+  const runUpdate = async () => {
+    setProg({ phase: 'downloading', percent: 0 });
+    const r = await window.lockinDesktop.update.install(offer.to).catch(() => ({ ok: false, reason: 'error' }));
+    if (!r?.ok) {
+      const why = r?.reason === 'strict' ? 'Finish your strict focus block first, then update.' : r?.reason === 'none' ? 'You already have the newest version.' : 'The update could not start. You can still download it.';
+      setProg({ phase: 'error', message: why });
+    }
+  };
+  const how = inApp ? 'LOCK IN! downloads the update, restarts itself and opens the new version. Your account and settings stay as they are.' : offer.kind === 'android'
     ? 'It downloads the new app; open it and tap Install. It installs over this one and keeps your account.'
     : 'Run the download and it installs over this version. Your account and settings stay as they are.';
 
@@ -62,12 +80,22 @@ export default function UpdatePrompt() {
           {offer.notes.map((n) => <li key={n} className="flex gap-2"><span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-primary" />{n}</li>)}
         </ul>
         <p className="mt-3 text-xs text-muted-foreground">{how}</p>
+        {prog?.phase === 'error' && <p role="alert" className="mt-2 text-sm font-medium text-red-700 dark:text-red-400">{prog.message}</p>}
+        {updating && <p className="sr-only" role="status" aria-live="polite">{prog.phase === 'installing' ? 'Restarting to finish the update' : `Downloading the update, ${prog.percent || 0} percent`}</p>}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" onClick={later} className="h-11 rounded-xl border text-sm font-medium text-foreground hover:bg-accent">Later</button>
-          <a ref={btn} href={offer.url} target="_blank" rel="noopener" onClick={() => setTimeout(later, 500)}
-            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-            <Download className="h-4 w-4" aria-hidden="true" />Download {offer.to}
-          </a>
+          {inApp && prog?.phase !== 'error' ? (
+            <button ref={btn} type="button" onClick={runUpdate} disabled={updating}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-80">
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {prog?.phase === 'installing' ? 'Restarting…' : prog?.phase === 'downloading' ? `Downloading ${prog.percent || 0}%` : `Update to ${offer.to}`}
+            </button>
+          ) : (
+            <a ref={btn} href={offer.url} target="_blank" rel="noopener" onClick={() => setTimeout(later, 500)}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              <Download className="h-4 w-4" aria-hidden="true" />Download {offer.to}
+            </a>
+          )}
         </div>
       </section>
     </div>

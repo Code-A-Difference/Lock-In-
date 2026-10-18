@@ -777,7 +777,7 @@ function StrictSection() {
         <StrictTermsDialog open={termsOpen} onOpenChange={setTermsOpen} onAccept={acceptTerms} device={isDesktop ? 'desktop' : isNativeApp ? 'phone' : 'web'} />
       </Section>
 
-      <Section icon={ShieldCheck} title="Approved sites" description="LOCK IN! and the Code A Difference site are always allowed. Add what you need for your work.">
+      <Section icon={ShieldCheck} title="Approved sites" description="LOCK IN! and the Code A Difference site are always allowed, and so are the sign-in pages for Google, Microsoft and school accounts. Add the sites you need for your work.">
         <ul className="divide-y rounded-lg border" aria-label="Ready-made lists">
           {PRESETS.map(pr => {
             const on = sp.presets.includes(pr.id);
@@ -820,7 +820,7 @@ function StrictSection() {
       <Section icon={Monitor} title="On this computer" description="The desktop app also keeps other programs from pulling you away.">
         {isDesktop ? (
           <>
-            <Row id="strictApps" label="Minimise other apps during a block" hint="Browsers, chat and games are minimised and LOCK IN! comes back to the front. Use the approved-sites window for the web. Phone calls and system windows are never touched.">
+            <Row id="strictApps" label="Minimise other apps during a block" hint="In Chrome, Edge, Firefox and other browsers, LOCK IN! reads the address of the page in front: approved sites (and the sign-in pages for Google, Microsoft and school accounts) are left alone, anything else minimises the browser. Chat and games are minimised too, and LOCK IN! comes back to the front. Nothing is closed, and phone calls and system windows are never touched.">
               <Switch id="strictApps" checked={!!sp.blockApps} disabled={locked} onCheckedChange={v => save({ blockApps: v })} />
             </Row>
             <form onSubmit={addApp} className="flex flex-wrap items-center gap-2">

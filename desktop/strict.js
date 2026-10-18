@@ -17,7 +17,23 @@ const DELAY_MIN = 15;
 const DELAY_MAX = 120;
 const DELAY_DEFAULT = 30;
 const MAX_HOSTS = 100;
-const TOP_LEVEL_SUPPORT = ['accounts.google.com'];   // sign-in pages a student has to be able to reach, not just load from
+/**
+ * Sign-in pages a student has to be able to reach from an approved site: "Sign in with Google / Microsoft"
+ * and school single sign-on go through these. Without them a school account can't log in at all.
+ * (Never a place to browse: only the login host itself, and only while a block is on.)
+ */
+const SIGN_IN_HOSTS = [
+  'accounts.google.com', 'accounts.youtube.com', 'login.microsoftonline.com', 'login.microsoft.com', 'login.live.com',
+  'account.live.com', 'account.microsoft.com', 'microsoftonline.com', 'msauth.net', 'msftauth.net', 'appleid.apple.com',
+  'clever.com', 'classlink.com', 'okta.com', 'oktapreview.com', 'onelogin.com', 'auth0.com', 'bceid.ca',
+];
+/** A host that is plainly a login page: login.school.ca, sso.school.ca, accounts.something.com, logon7.gov.bc.ca ... */
+const SIGN_IN_LABEL = /^(login|logon|signin|sign-in|sso|auth|oauth|accounts?|idp|adfs|cas)(\d+)?\./;
+function isSignInHost(host) {
+  const h = String(host || '').toLowerCase().replace(/\.$/, '');
+  return !!h && (SIGN_IN_HOSTS.some(e => hostMatches(h, e)) || SIGN_IN_LABEL.test(h));
+}
+const TOP_LEVEL_SUPPORT = SIGN_IN_HOSTS;
 
 const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/;
 
@@ -169,17 +185,17 @@ function createStrict({ now = Date.now, load = () => null, save = () => {}, onCh
       if (!s) return false;
       let u; try { u = new URL(url); } catch (_) { return false; }
       if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
-      return s.pages.some(e => hostMatches(u.hostname, e)) || TOP_LEVEL_SUPPORT.some(e => hostMatches(u.hostname, e));
+      return s.pages.some(e => hostMatches(u.hostname, e)) || isSignInHost(u.hostname);
     },
     /** May an approved page load things (scripts, images, fonts) from this host? */
     isAllowedSupport(host) {
       tick();
       if (!s) return false;
-      return s.pages.some(e => hostMatches(host, e)) || s.support.some(e => hostMatches(host, e));
+      return s.pages.some(e => hostMatches(host, e)) || s.support.some(e => hostMatches(host, e)) || isSignInHost(host);
     },
     pages: () => (s ? s.pages.slice() : []),
     tick,
   };
 }
 
-module.exports = { createStrict, hostMatches, cleanHosts, cleanNames, MAX_BLOCK_MS, DELAY_MIN, DELAY_MAX, DELAY_DEFAULT, CONFIRM_WINDOW_MS, HARD_CEILING_MS, RELEASE_GRACE_MS };
+module.exports = { createStrict, hostMatches, cleanHosts, cleanNames, isSignInHost, SIGN_IN_HOSTS, SIGN_IN_LABEL, MAX_BLOCK_MS, DELAY_MIN, DELAY_MAX, DELAY_DEFAULT, CONFIRM_WINDOW_MS, HARD_CEILING_MS, RELEASE_GRACE_MS };

@@ -127,7 +127,9 @@ export function DesktopBridge() {
     if (!desktop?.strict) return undefined;
     return desktop.strict.onBlocked((b) => {
       focusRef.current.noteBlocked?.();
-      if (b?.kind === 'app') toast({ title: 'Back to work', description: `${b.host} was minimised. LOCK IN! is holding your strict block.` });
+      if (b?.kind === 'browser') toast({ title: 'Back to work', description: `${b.host} isn’t on your approved list, so your browser was minimised. Sign-in pages for your school account still work.` });
+      else if (b?.kind === 'browser-unreadable') toast({ title: 'Back to work', description: `LOCK IN! can’t see which site ${b.host} is on, so it was minimised. Use Approved sites in LOCK IN! instead.` });
+      else if (b?.kind === 'app') toast({ title: 'Back to work', description: `${b.host} was minimised. LOCK IN! is holding your strict block.` });
       else if (b?.kind === 'unavailable') toast({ title: 'Other programs can’t be minimised here', description: 'This computer doesn’t let LOCK IN! watch other programs, so only links and the timer are locked.' });
       else toast({ title: 'Blocked during strict focus', description: b?.host ? `${b.host} is not on your approved list.` : 'That is not on your approved list.' });
     });

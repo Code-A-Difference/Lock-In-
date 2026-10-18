@@ -179,3 +179,13 @@ test('a lock started from the student\'s other device can be ended remotely; an 
   assert.equal(linked.end('remote').ended, true);
   assert.equal(linked.active(), false);
 });
+
+test('sign-in pages for school accounts are reachable from an approved site, other hosts are not', () => {
+  const { isSignInHost } = require('../strict.js');
+  for (const h of ['accounts.google.com', 'login.microsoftonline.com', 'logon7.gov.bc.ca', 'login.sd36.bc.ca', 'sd36.okta.com', 'launchpad.classlink.com', 'sso.myschool.ca']) assert.equal(isSignInHost(h), true, h);
+  for (const h of ['youtube.com', 'evil-login.com', 'loginfoo.com', 'discord.com', 'accounts-fake.com']) assert.equal(isSignInHost(h), false, h);
+  const c = createStrict({ now: () => 1_000_000 });
+  c.begin({ id: 'a', endsAt: 1_000_000 + 600000, pages: ['myeducation.gov.bc.ca'] });
+  assert.equal(c.isAllowedPage('https://logon7.gov.bc.ca/clp-cgi/capBceid/logon.cgi'), true);
+  assert.equal(c.isAllowedPage('https://youtube.com/'), false);
+});

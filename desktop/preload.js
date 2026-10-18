@@ -36,6 +36,12 @@ contextBridge.exposeInMainWorld('lockinDesktop', {
     get: () => ipcRenderer.invoke('prefs:get'),
     set: (patch) => ipcRenderer.invoke('prefs:set', patch),
   },
+  /** Update from inside the app (Windows): install(version) downloads that release and restarts into it. */
+  update: {
+    supported: () => ipcRenderer.invoke('update:supported'),
+    install: (version) => ipcRenderer.invoke('update:install', String(version)),
+    onState: on('update:state'),
+  },
   /** Strict focus: main keeps the real lock; the page asks. See desktop/strict.js. */
   strict: {
     get: () => ipcRenderer.invoke('strict:get'),

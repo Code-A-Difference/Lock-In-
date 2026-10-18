@@ -5,6 +5,8 @@
 #  mac      LOCKIN-mac-arm64.dmg and LOCKIN-mac-x64.dmg, with whisper-server
 #           built here from the same whisper.cpp release (Metal on Apple chips)
 #
+# latest.yml (and the .blockmap) go on the release too: the Windows app reads them to update itself.
+#
 # Neither is signed with a paid certificate: Windows SmartScreen and macOS
 # Gatekeeper ask once ("Run anyway" / "Open Anyway"). The Mac build is
 # ad-hoc signed so Apple-chip Macs will run it at all.
@@ -47,7 +49,13 @@ jobs:
           resources/whisper/win-x64/whisper-server.exe --help > /dev/null
       - run: npm run dist:win
       - uses: actions/upload-artifact@v7
-        with: { name: windows, path: desktop/dist/LOCKIN-win-x64.exe, if-no-files-found: error }
+        with:
+          name: windows
+          path: |
+            desktop/dist/LOCKIN-win-x64.exe
+            desktop/dist/LOCKIN-win-x64.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
 
   mac:
     runs-on: macos-latest
@@ -95,4 +103,4 @@ jobs:
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --latest=false \
             --title "LOCK IN! desktop ${GITHUB_REF_NAME#desktop-v}" \
             --notes "LOCK IN! for Windows and Mac: on-device transcription, a floating window, computer-audio recording, call detection and global shortcuts. Windows: run LOCKIN-win-x64.exe (SmartScreen: More info → Run anyway). Mac: open the .dmg for your chip, drag LOCK IN! to Applications, then right-click → Open the first time (or System Settings → Privacy & Security → Open Anyway)."
-          gh release upload "$GITHUB_REF_NAME" LOCKIN-* SHA256SUMS.txt --clobber
+          gh release upload "$GITHUB_REF_NAME" LOCKIN-* latest.yml SHA256SUMS.txt --clobber

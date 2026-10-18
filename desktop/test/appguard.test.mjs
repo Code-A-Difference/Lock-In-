@@ -6,7 +6,7 @@ const { createAppGuard, shouldMinimise, ALWAYS_OK } = createRequire(import.meta.
 
 test('blocklist: the built-in list and the student\'s own are minimised, nothing else', () => {
   const cfg = { mode: 'blocklist', list: ['obs64'], allow: [] };
-  assert.equal(shouldMinimise('chrome', cfg), true);
+  assert.equal(shouldMinimise('steam', cfg), true);
   assert.equal(shouldMinimise('Discord.exe', cfg), true);
   assert.equal(shouldMinimise('obs64', cfg), true);
   assert.equal(shouldMinimise('notepad', cfg), false);
@@ -20,7 +20,7 @@ test('the system, Task Manager and LOCK IN! are never touched, in either mode', 
 });
 
 test('"never minimise" wins over the list, and allowlist mode minimises everything else', () => {
-  assert.equal(shouldMinimise('chrome', { mode: 'blocklist', list: [], allow: ['chrome'] }), false);
+  assert.equal(shouldMinimise('steam', { mode: 'blocklist', list: [], allow: ['steam'] }), false);
   assert.equal(shouldMinimise('notepad', { mode: 'allowlist', list: [], allow: [] }), true);
   assert.equal(shouldMinimise('winword', { mode: 'allowlist', list: [], allow: ['winword'] }), false);
 });
@@ -43,7 +43,7 @@ test('windows watcher: READY then BLOCK lines bring LOCK IN! forward and report 
   assert.ok(args.a.includes('-EncodedCommand'));
   assert.ok(args.o.windowsHide);
   const set = args.o.env.LK_SET.split(',');
-  assert.ok(set.includes('chrome') && set.includes('obs64'));
+  assert.ok(set.includes('steam') && set.includes('obs64'));
   assert.ok(args.o.env.LK_OK.split(',').includes('firefox') && args.o.env.LK_OK.split(',').includes('taskmgr'));
   child.stdout.emit('data', Buffer.from('READY\nBLOCK|chr'));
   child.stdout.emit('data', Buffer.from('ome\n'));
@@ -78,4 +78,21 @@ test('switched off, or on a system it does not support, it does nothing', () => 
   const l = createAppGuard({ platform: 'linux', onUnavailable: () => { told++; } });
   l.start({ mode: 'blocklist', blockApps: true });
   assert.equal(told, 1);
+});
+
+test('browsers are judged by the address they show, not minimised outright', async () => {
+  const { hostFromAddress, browserVerdict } = createRequire(import.meta.url)('../appguard.js');
+  const cfg = { pages: ['myeducation.gov.bc.ca', 'docs.google.com'] };
+  assert.equal(shouldMinimise('chrome', { mode: 'blocklist', pages: cfg.pages }), false);
+  assert.equal(shouldMinimise('discord', { mode: 'blocklist', pages: cfg.pages }), true);
+  assert.equal(browserVerdict('docs.google.com/document/d/1', cfg), 'allow');
+  assert.equal(browserVerdict('https://www.youtube.com/watch?v=x', cfg), 'block');
+  assert.equal(browserVerdict('accounts.google.com/v3/signin', cfg), 'allow');
+  assert.equal(browserVerdict('logon7.gov.bc.ca/clp-cgi/x', cfg), 'allow');
+  assert.equal(browserVerdict('', cfg), 'allow');
+  assert.equal(browserVerdict('chrome://newtab', cfg), 'allow');
+  assert.equal(browserVerdict('best pizza near me', cfg), 'allow');
+  assert.equal(browserVerdict(null, cfg), 'unknown');
+  assert.equal(hostFromAddress('user@evil.com:8080/x'), 'evil.com');
+  assert.equal(browserVerdict('docs.google.com.evil.io/x', cfg), 'block');
 });
