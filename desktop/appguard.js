@@ -11,12 +11,12 @@
  * macOS: polls `lsappinfo` (no permission needed). It can bring LOCK IN! back but not hide the app.
  */
 const { spawn } = require('child_process');
+const { SIGN_IN_HOSTS, SIGN_IN_LABEL, isSignInHost, hostMatches } = require('./strict');
 
 /** Programs that pull attention away. Students add their own; this is only where the list starts. */
 const DEFAULT_BLOCK = [
-  // browsers (the approved-sites window is the way to use the web during a block)
-  'chrome', 'msedge', 'firefox', 'brave', 'opera', 'opera_gx', 'vivaldi', 'iexplore', 'arc', 'tor',
-  'google chrome', 'safari', 'microsoft edge',
+  // (browsers are not here on Windows: they are judged by the address they are showing, see BROWSERS)
+  'safari', 'google chrome', 'microsoft edge', 'firefox', 'brave browser', 'arc',
   // chat
   'discord', 'whatsapp', 'telegram', 'signal', 'messenger', 'snapchat',
   // games and launchers
@@ -25,6 +25,14 @@ const DEFAULT_BLOCK = [
   // video
   'vlc', 'netflix', 'disneyplus',
 ];
+
+/**
+ * Browsers, by Windows process name. They are not simply minimised: LOCK IN! reads the address of the page in
+ * front (Chrome, Edge, Brave, Opera, Vivaldi and Firefox all show it in the address bar) and only minimises
+ * the browser when that page is not on the approved list. Sign-in pages (Google, Microsoft, school single
+ * sign-on) are always let through so a school account can log in.
+ */
+const BROWSERS = ['chrome', 'msedge', 'brave', 'opera', 'opera_gx', 'vivaldi', 'firefox', 'iexplore', 'arc', 'chromium'];
 
 /** Never minimised, whatever the list says: the system itself and LOCK IN!. */
 const ALWAYS_OK = [
@@ -42,14 +50,41 @@ const norm = (n) => String(n || '').toLowerCase().trim().replace(/\.exe$/, '');
 function shouldMinimise(name, cfg) {
   const n = norm(name);
   if (!n || ALWAYS_OK.includes(n)) return false;
+  if (BROWSERS.includes(n) && cfg.browserWatch !== false && Array.isArray(cfg.pages)) return false;   // judged by its address instead
   const allow = (cfg.allow || []).map(norm);
   if (allow.includes(n)) return false;
   if (cfg.mode === 'allowlist') return true;
   return DEFAULT_BLOCK.includes(n) || (cfg.list || []).map(norm).includes(n);
 }
 
-const PS_SCRIPT = `
+/**
+ * The host in an address bar's text, or '' if it is not a web address to judge (a search being typed,
+ * a blank new tab, the browser's own pages). Chrome and Edge show addresses without "https://".
+ */
+function hostFromAddress(text) {
+  let t = String(text == null ? '' : text).trim().toLowerCase();
+  if (!t) return '';
+  if (/^(chrome|edge|about|brave|opera|vivaldi|chrome-extension|moz-extension|view-source|file|data|javascript|devtools):/.test(t)) return '';
+  t = t.replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
+  if (/\s/.test(t)) return '';
+  let h = t.split(/[/?#]/)[0];
+  h = h.split('@').pop().split(':')[0];
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h) ? h : '';
+}
+
+/** 'allow' | 'block' | 'unknown' for the text a browser's address bar is showing. */
+function browserVerdict(text, cfg) {
+  if (text == null) return 'unknown';
+  const host = hostFromAddress(text);
+  if (!host) return 'allow';
+  if (isSignInHost(host)) return 'allow';
+  return (cfg.pages || []).some((e) => hostMatches(host, e)) ? 'allow' : 'block';
+}
+
+const PS_SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
 Add-Type @"
 using System; using System.Runtime.InteropServices;
 public class LKFG {
@@ -63,25 +98,92 @@ $parent = [int]$env:LK_PARENT
 $mode = $env:LK_MODE
 $set = @{}; foreach ($x in ($env:LK_SET -split ',')) { if ($x) { $set[$x] = $true } }
 $ok = @{}; foreach ($x in ($env:LK_OK -split ',')) { if ($x) { $ok[$x] = $true } }
+$browsers = @{}; foreach ($x in ($env:LK_BROWSERS -split ',')) { if ($x) { $browsers[$x] = $true } }
+$pages = @(); foreach ($x in ($env:LK_PAGES -split ',')) { if ($x) { $pages += $x } }
+$signin = @(); foreach ($x in ($env:LK_SIGNIN -split ',')) { if ($x) { $signin += $x } }
+$loginRe = $env:LK_LOGIN_RE
+$watch = ($env:LK_WATCH -eq '1')
+
+function Match-Host($h, $list) { foreach ($e in $list) { if ($h -eq $e -or $h.EndsWith('.' + $e)) { return $true } } return $false }
+
+# the text in a browser's address bar, or $null if it can't be read (Chrome/Edge/Brave/Opera/Vivaldi: OmniboxViewViews, Firefox: urlbar-input)
+function Get-Address($hwnd) {
+  try {
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+    $c1 = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ClassNameProperty, 'OmniboxViewViews')
+    $c2 = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'urlbar-input')
+    $e = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.OrCondition($c1, $c2)))
+    if (-not $e) { return $null }
+    $vp = $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+    return [string]$vp.Current.Value
+  } catch { return $null }
+}
+
+# 'allow' | 'block' | 'unknown' + the host
+function Judge($text) {
+  if ($null -eq $text) { return @('unknown', '') }
+  $t = $text.Trim().ToLower()
+  if (-not $t) { return @('allow', '') }
+  if ($t -match '^(chrome|edge|about|brave|opera|vivaldi|chrome-extension|moz-extension|view-source|file|data|javascript|devtools):') { return @('allow', '') }
+  $t = $t -replace '^[a-z][a-z0-9+.-]*://', ''
+  if ($t -match '\s') { return @('allow', '') }
+  $h = ($t -split '[/?#]')[0]
+  $h = ($h -split '@')[-1]
+  $h = ($h -split ':')[0]
+  if ($h -notmatch '^[a-z0-9-]+(\.[a-z0-9-]+)+$') { return @('allow', '') }
+  if ((Match-Host $h $signin) -or ($h -match $loginRe)) { return @('allow', $h) }
+  if (Match-Host $h $pages) { return @('allow', $h) }
+  return @('block', $h)
+}
+
 [Console]::Out.WriteLine('READY'); [Console]::Out.Flush()
 $last = [IntPtr]::Zero
+$lastName = ''
+$strikes = 0; $strikeHost = ''; $unreadable = 0; $lastAddr = '#'
 $n = 0
 while ($true) {
   Start-Sleep -Milliseconds 400
   $n++
   if ($n % 5 -eq 0 -and -not (Get-Process -Id $parent -ErrorAction SilentlyContinue)) { exit }
   $h = [LKFG]::GetForegroundWindow()
-  if ($h -eq [IntPtr]::Zero -or $h -eq $last) { continue }
-  $p = [uint32]0
-  [void][LKFG]::GetWindowThreadProcessId($h, [ref]$p)
-  if ($p -eq $own) { $last = $h; continue }
-  try { $name = (Get-Process -Id $p -ErrorAction Stop).ProcessName.ToLower() } catch { continue }
-  $hit = $false
-  if (-not $ok.ContainsKey($name)) { if ($mode -eq 'allowlist') { $hit = $true } elseif ($set.ContainsKey($name)) { $hit = $true } }
-  if ($hit) {
+  if ($h -eq [IntPtr]::Zero) { continue }
+  if ($h -ne $last) {
+    $p = [uint32]0
+    [void][LKFG]::GetWindowThreadProcessId($h, [ref]$p)
+    if ($p -eq $own) { $last = $h; $lastName = ''; continue }
+    try { $name = (Get-Process -Id $p -ErrorAction Stop).ProcessName.ToLower() } catch { continue }
+    $last = $h; $lastName = $name; $strikes = 0; $strikeHost = ''; $unreadable = 0; $lastAddr = '#'
+    if (-not $ok.ContainsKey($name) -and -not ($watch -and $browsers.ContainsKey($name))) {
+      $hit = $false
+      if ($mode -eq 'allowlist') { $hit = $true } elseif ($set.ContainsKey($name)) { $hit = $true }
+      if ($hit) {
+        [void][LKFG]::ShowWindowAsync($h, 6)
+        [Console]::Out.WriteLine('BLOCK|' + $name); [Console]::Out.Flush()
+        $last = [IntPtr]::Zero
+      }
+    }
+    if (-not ($watch -and $browsers.ContainsKey($name))) { continue }
+  }
+  # a browser in front: judge the address it is showing (every tick, since a tab switch keeps the same window)
+  if (-not ($watch -and $browsers.ContainsKey($lastName))) { continue }
+  $addr = Get-Address $h
+  if ($addr -eq $lastAddr) { continue }
+  $lastAddr = $addr
+  $v = Judge $addr
+  if ($v[0] -eq 'allow') { $strikes = 0; $strikeHost = ''; $unreadable = 0; continue }
+  if ($v[0] -eq 'unknown') {
+    $unreadable++
+    if ($unreadable -ge 4) { [void][LKFG]::ShowWindowAsync($h, 6); [Console]::Out.WriteLine('UNREAD|' + $lastName); [Console]::Out.Flush(); $last = [IntPtr]::Zero; $unreadable = 0 }
+    else { $lastAddr = '#' }
+    continue
+  }
+  # blocked: the same address twice in a row (so a half-typed one isn't judged), then minimise the browser
+  if ($v[1] -eq $strikeHost) { $strikes++ } else { $strikeHost = $v[1]; $strikes = 1 }
+  if ($strikes -ge 2) {
     [void][LKFG]::ShowWindowAsync($h, 6)
-    [Console]::Out.WriteLine('BLOCK|' + $name); [Console]::Out.Flush()
-  } else { $last = $h }
+    [Console]::Out.WriteLine('BLOCKURL|' + $lastName + '|' + $v[1]); [Console]::Out.Flush()
+    $last = [IntPtr]::Zero; $strikes = 0; $strikeHost = ''
+  } else { $lastAddr = '#' }
 }
 `;
 
@@ -97,7 +199,7 @@ function createAppGuard({ onBlocked = () => {}, onUnavailable = () => {}, bringF
     told = true;
     try { onUnavailable(why); } catch (_) { /* a listener's problem */ }
   };
-  const hit = (name) => { try { bringForward(); } catch (_) { /* window gone */ } try { onBlocked(name); } catch (_) { /* ditto */ } };
+  const hit = (name, info) => { try { bringForward(); } catch (_) { /* window gone */ } try { onBlocked(name, info); } catch (_) { /* ditto */ } };
 
   function stop() {
     if (timer) { clearInterval(timer); timer = null; }
@@ -114,7 +216,9 @@ function createAppGuard({ onBlocked = () => {}, onUnavailable = () => {}, bringF
     try {
       p = spawnFn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', enc], {
         windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'],
-        env: { ...process.env, LK_OWN: String(ownPid), LK_PARENT: String(ownPid), LK_MODE: c.mode === 'allowlist' ? 'allowlist' : 'blocklist', LK_SET: set.join(','), LK_OK: ok.join(',') },
+        env: { ...process.env, LK_OWN: String(ownPid), LK_PARENT: String(ownPid), LK_MODE: c.mode === 'allowlist' ? 'allowlist' : 'blocklist', LK_SET: set.join(','), LK_OK: ok.join(','),
+          LK_BROWSERS: BROWSERS.join(','), LK_PAGES: (c.pages || []).join(','), LK_SIGNIN: SIGN_IN_HOSTS.join(','), LK_LOGIN_RE: SIGN_IN_LABEL.source,
+          LK_WATCH: (c.browserWatch !== false && Array.isArray(c.pages) && c.pages.length) ? '1' : '0' },
       });
     } catch (e) { unavailable(String(e && e.message || e)); return; }
     child = p;
@@ -126,6 +230,8 @@ function createAppGuard({ onBlocked = () => {}, onUnavailable = () => {}, bringF
         const line = buf.slice(0, i).trim();
         buf = buf.slice(i + 1);
         if (line === 'READY') ready = true;
+        else if (line.startsWith('BLOCKURL|')) { const [, name, host] = line.split('|'); hit(name, { kind: 'browser', host }); }
+        else if (line.startsWith('UNREAD|')) hit(line.slice(7), { kind: 'browser-unreadable' });
         else if (line.startsWith('BLOCK|')) hit(line.slice(6));
       }
     });
@@ -170,4 +276,4 @@ function createAppGuard({ onBlocked = () => {}, onUnavailable = () => {}, bringF
   return { start, stop, running: () => !!child || !!timer, config: () => cfg };
 }
 
-module.exports = { createAppGuard, shouldMinimise, DEFAULT_BLOCK, ALWAYS_OK, PS_SCRIPT };
+module.exports = { createAppGuard, shouldMinimise, hostFromAddress, browserVerdict, BROWSERS, DEFAULT_BLOCK, ALWAYS_OK, PS_SCRIPT };

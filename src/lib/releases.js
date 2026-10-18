@@ -27,14 +27,16 @@ export const RELEASES = {
     ],
   },
   desktop: {
-    version: '1.0.11',
+    version: '1.0.12',
     date: '2026-10-16',
     urls: {
-      windows: `${GH}/download/desktop-v1.0.11/LOCKIN-win-x64.exe`,
+      windows: `${GH}/download/desktop-v1.0.12/LOCKIN-win-x64.exe`,
       macArm: `${GH}/download/desktop-v1.0.11/LOCKIN-mac-arm64.dmg`,
       macIntel: `${GH}/download/desktop-v1.0.11/LOCKIN-mac-x64.dmg`,
     },
     notes: [
+      'Updates now install from inside the app on Windows: press Update and LOCK IN! downloads the new version, restarts and opens it. No browser or download page.',
+      'Strict focus now looks at the address of the page in your real browser (Chrome, Edge, Firefox…): approved sites stay open and anything else minimises the browser. Signing in with Google, Microsoft or your school account now works from an approved site.',
       'Optional: lock your other device too. Start a strict block on your computer and your phone locks, or the other way round (Settings → Strict focus). You agree to a short notice first. Ending it from either device ends it for both.',
       'Strict focus now also minimises browsers, chat and games that come to the front during a block (you can edit the list in Settings → Strict focus). Nothing is closed, so no work is lost.',
       'Strict focus: during a strict block, links that are not on your approved list are blocked, and approved ones open in a separate Approved sites window that can only visit those sites. The block survives a restart and quitting LOCK IN! goes through the same short wait as ending early.',

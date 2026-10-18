@@ -1,7 +1,7 @@
 {
   "name": "lockin-desktop",
   "productName": "LOCK IN!",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "LOCK IN! for Windows and Mac: private on-device transcription, a floating window, and computer-audio recording.",
   "author": "Code A Difference",
   "license": "MIT",
@@ -21,10 +21,43 @@
     "appId": "ws.ct.codeadifference.lockin",
     "productName": "LOCK IN!",
     "artifactName": "LOCKIN-${os}-${arch}.${ext}",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "whisper.js", "meetings.js", "strict.js", "appguard.js", "sites.js", "sites-preload.js", "sites-bar.js", "sites.html", "offline.html", "mini.html", "mini.js", "mini-preload.js", "build/icon.png", "build/tray*.png", "package.json"],
-    "extraResources": [{ "from": "resources/whisper/${os}-${arch}", "to": "whisper", "filter": ["**/*"] }],
-    "win": { "target": "nsis", "icon": "build/icon.png" },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "whisper.js",
+      "meetings.js",
+      "strict.js",
+      "appguard.js",
+      "updater.js",
+      "sites.js",
+      "sites-preload.js",
+      "sites-bar.js",
+      "sites.html",
+      "offline.html",
+      "mini.html",
+      "mini.js",
+      "mini-preload.js",
+      "build/icon.png",
+      "build/tray*.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/whisper/${os}-${arch}",
+        "to": "whisper",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
@@ -32,7 +65,9 @@
       "shortcutName": "LOCK IN!"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.education",
       "icon": "build/icon.png",
       "identity": "-",
@@ -43,6 +78,18 @@
         "NSScreenCaptureUsageDescription": "Recording your computer's sound uses macOS screen and audio capture. LOCK IN! never saves the picture."
       }
     },
-    "dmg": { "title": "LOCK IN!" }
+    "dmg": {
+      "title": "LOCK IN!"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Code-A-Difference",
+        "repo": "Lock-In-"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
