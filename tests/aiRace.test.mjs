@@ -8,11 +8,11 @@ const wait = (ms, signal) => new Promise((res, rej) => {
 });
 
 test('hedge delay is about twice the usual time, within bounds', () => {
-  assert.equal(hedgeDelay(null), 3500);
+  assert.equal(hedgeDelay(null), 2500);
   assert.equal(hedgeDelay(1500), 3000);
-  assert.equal(hedgeDelay(200), 2500);
-  assert.equal(hedgeDelay(30000), 9000);
-  assert.equal(hedgeDelay(null, true), 9000);
+  assert.equal(hedgeDelay(200), 1800);
+  assert.equal(hedgeDelay(30000), 7000);
+  assert.equal(hedgeDelay(null, true), 7000);
   assert.equal(hedgeDelay(5000, true), 10000);
 });
 

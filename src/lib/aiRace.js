@@ -11,7 +11,8 @@
 
 /** How long to wait before racing a second request: about twice the usual time, within bounds. */
 export function hedgeDelay(usualMs, long = false) {
-  const [def, floor, ceil] = long ? [9000, 6000, 20000] : [3500, 2500, 9000];
+  // sooner than before: the second lane starts from another key, so a slow or failing key costs less
+  const [def, floor, ceil] = long ? [7000, 5000, 16000] : [2500, 1800, 7000];
   return Math.round(Math.max(floor, Math.min(ceil, usualMs == null ? def : 2 * usualMs)));
 }
 
