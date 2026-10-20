@@ -23,6 +23,7 @@
 
 import { store, deriveKey, openJson, KDF_ITERATIONS, b64url } from './vault';
 import { gateFetch } from './hostGate';
+import { aiFetch } from '@/lib/aiDev';
 import { escapeLatexInJson } from '@/lib/mathText';
 import { raceAI, usualTime, noteTime } from '@/lib/aiRace';
 
@@ -621,12 +622,12 @@ const integrations = {
       const send = async (lane, signal) => {
         let r;
         try {
-          r = await gateFetch(AI_ENDPOINT, {
+          r = await aiFetch(AI_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(lane ? { ...body, lane } : body),
             signal,
-          });
+          }, feature, lane);
         } catch (e) {
           if (e?.name === 'AbortError') throw e;
           throw new Error('Could not reach the AI service. Check your connection.');

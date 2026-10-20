@@ -6,6 +6,7 @@ import RichText from '@/components/lockin/RichText';
 import CameraCapture from '@/components/lockin/CameraCapture';
 import SymbolPad from '@/components/lockin/SymbolPad';
 import ThinkingWord from '@/components/lockin/ThinkingWord';
+import { openAiLog } from '@/components/lockin/AiDevPanel';
 import { openGraph } from '@/components/lockin/GraphPanel';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
@@ -401,6 +402,11 @@ export default function VoicePanel() {
                   <div className={cn('max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
                     m.role === 'user' ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md bg-secondary text-foreground')}>
                     {m.role === 'user' ? <span className="whitespace-pre-wrap">{m.text}</span> : <RichText text={m.text} />}
+                    {m.dev && (
+                      <button type="button" onClick={() => openAiLog(m.dev)} className="mt-1.5 block font-mono text-[11px] text-primary underline-offset-2 hover:underline">
+                        {'</>'} {m.dev[1] - m.dev[0]} AI request{m.dev[1] - m.dev[0] === 1 ? '' : 's'}: what was sent, the raw replies, which key
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

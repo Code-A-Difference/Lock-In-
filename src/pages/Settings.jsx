@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { readComfort, saveComfort, SIZES } from '@/lib/comfort';
-import { LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic, Bell, CalendarDays, Copy, ChevronRight, ChevronLeft, Search } from "lucide-react";
+import { Code2, LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic, Bell, CalendarDays, Copy, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
@@ -31,6 +31,7 @@ import { PRESETS, presetHosts, normalizeHost, whyRefused } from '@/lib/strictFoc
 import { termsStatus, TERMS_VERSION } from '@/lib/strictTerms';
 import StrictTermsDialog from '@/components/lockin/StrictTermsDialog';
 import PhoneLinkSettings from '@/components/lockin/PhoneLinkSettings';
+import { DeveloperSection, useAiDev } from '@/components/lockin/AiDevPanel';
 import { getDeviceId } from '@/lib/crossLock';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
@@ -382,6 +383,7 @@ export default function Settings() {
   const aiOk = voiceStatus().aiAvailable;
   const numberBox = 'h-9 w-20 rounded-lg border bg-background px-2 text-center text-sm tabular-nums text-foreground';
 
+  const aiDev = useAiDev();
   const engineLabel = { auto: 'Natural', ai: 'AI voice', browser: 'Device' }[voice.engine] || '';
   const device = isNativeApp ? (phoneWhisper ? { id: 'device', title: 'This phone', icon: Smartphone, words: 'whisper speech model' } : null)
     : isDesktop ? { id: 'device', title: 'This computer', icon: Monitor, words: 'whisper transcription shortcuts float start with computer calls record' }
@@ -395,6 +397,8 @@ export default function Settings() {
      { id: 'voice', title: 'Voice', icon: AudioLines, value: engineLabel, words: 'speech read aloud speed ai engine' }],
     [{ id: 'display', title: 'Display and reading', icon: Palette, value: user.theme !== 'light' ? 'Dark' : 'Light', words: 'dark mode light theme text size font dyslexia contrast motion spacing comfort' }],
     [device, !isNativeApp && { id: 'phone', title: 'Get the phone app', icon: Smartphone, words: 'android iphone apk download' }].filter(Boolean),
+    // only for someone signed in to the site's /admin/ in this browser (the server checks)
+    ...(aiDev.available ? [[{ id: 'developer', title: 'Developer', icon: Code2, value: aiDev.on ? 'On' : 'Off', words: 'developer debug ai log request response raw api key model' }]] : []),
   ];
 
   return (
@@ -471,6 +475,7 @@ export default function Settings() {
         </Section>
         </Page>
 
+        <Page id="developer"><DeveloperSection Section={Section} Row={Row} Switch={Switch} /></Page>
         <Page id="strict"><StrictSection /></Page>
         <Page id="reminders"><RemindersSection /></Page>
 

@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { HISTORY_TYPE, toRecord, fromRecord, listOf } from './companionHistory.js';
 import { db } from '@/api/db';
+import { devSeq, devOn } from '@/lib/aiDev';
 import { openGraph } from '@/components/lockin/GraphPanel';
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from './FocusContext.jsx';
@@ -309,6 +310,7 @@ export function AssistantProvider({ children }) {
     stopSpeaking();
     const history = messagesRef.current;
     push({ role: 'user', text: said, via });
+    const devFrom = devSeq();            // developer mode: the AI requests made for this reply
     setBusy(true);
     let reply = '';
     let spoken = '';
@@ -379,9 +381,10 @@ export function AssistantProvider({ children }) {
     } finally {
       setBusy(false);
     }
+    const dev = devOn() ? [devFrom, devSeq()] : null;
     const talk = (via === 'voice' || L.readAloud) && spoken;
     if (!talk) {
-      push({ role: 'assistant', text: reply });
+      push({ role: 'assistant', text: reply, dev });
       return { reply, finished: Promise.resolve() };
     }
     // Spoken: the words appear as the voice starts, not seconds before it (reading a reply to the
@@ -389,7 +392,7 @@ export function AssistantProvider({ children }) {
     // the text back for long.
     let shown = false;
     setBusy(true);                         // still "thinking" on screen until the reply appears
-    const show = () => { if (!shown) { shown = true; setBusy(false); push({ role: 'assistant', text: reply }); } };
+    const show = () => { if (!shown) { shown = true; setBusy(false); push({ role: 'assistant', text: reply, dev }); } };
     const late = setTimeout(show, 3000);
     const finished = say(spoken, { onStart: () => { clearTimeout(late); show(); } }).finally(() => { clearTimeout(late); show(); });
     return { reply, finished };
