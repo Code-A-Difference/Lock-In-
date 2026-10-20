@@ -22,6 +22,7 @@ import Reminders from '@/components/lockin/Reminders';
 import StrictExitDialog from '@/components/lockin/StrictExitDialog';
 import StrictGuard from '@/components/lockin/StrictGuard';
 import CrossLock from '@/components/lockin/CrossLock';
+import AiDevPanel from '@/components/lockin/AiDevPanel';
 import { MusicProvider } from '@/lib/MusicContext';
 import NowPlaying from '@/components/lockin/NowPlaying';
 
@@ -153,6 +154,7 @@ const AuthenticatedApp = () => {
     <GraphPanel />
     <Reminders />
     <NowPlaying />
+    <AiDevPanel />
     </AssistantProvider>
     </MusicProvider>
     </PlannerProvider>
