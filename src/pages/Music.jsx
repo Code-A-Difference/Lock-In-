@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useMusic } from '@/lib/MusicContext';
 import { parseYouTube } from '@/lib/music/links';
 import { Waves } from '@/components/lockin/NowPlaying';
+import MusicForYou from '@/components/lockin/MusicForYou';
 
 const SOURCES = [['youtube', 'YouTube Music'], ['spotify', 'Spotify']];
 
@@ -128,6 +129,8 @@ export default function Music() {
           {noSearch && <p className="mt-2 text-xs text-muted-foreground">Search isn’t switched on yet, but any YouTube or YouTube Music link plays.</p>}
         </form>
       )}
+
+      {!items && <MusicForYou provider={provider} />}
 
       {(msg || m.error) && <p role="alert" className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{msg || m.error}</p>}
 

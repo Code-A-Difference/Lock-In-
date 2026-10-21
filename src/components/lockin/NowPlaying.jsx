@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pause, Play, SkipBack, SkipForward, X, Music2 } from 'lucide-react';
+import { Pause, Play, SkipBack, SkipForward, X, Music2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useMusic } from '@/lib/MusicContext';
 import { cn } from '@/lib/utils';
 import { mmss } from '@/lib/music/links';
@@ -53,6 +53,10 @@ export default function NowPlaying() {
               {playing ? <Pause className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
             </button>
             <button type="button" onClick={m.next} aria-label="Next" className="grid h-8 w-8 place-items-center rounded-lg text-foreground hover:bg-muted"><SkipForward className="h-4 w-4" aria-hidden="true" /></button>
+            {source === 'youtube' && m.nowPlayingItem?.() && (<>
+              <button type="button" onClick={() => m.feedback(m.nowPlayingItem(), 'more')} aria-label="More like this" title="More like this" className="ml-1 grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"><ThumbsUp className="h-4 w-4" aria-hidden="true" /></button>
+              <button type="button" onClick={() => m.feedback(m.nowPlayingItem(), 'less')} aria-label="Not for me (skips it)" title="Not for me" className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"><ThumbsDown className="h-4 w-4" aria-hidden="true" /></button>
+            </>)}
             <button type="button" onClick={m.close} aria-label="Close the player" className="ml-auto grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted"><X className="h-4 w-4" aria-hidden="true" /></button>
           </div>
         </div>
