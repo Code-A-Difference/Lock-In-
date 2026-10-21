@@ -45,7 +45,7 @@ export default function StrictExitDialog() {
           {(waiting || ready) && (
             <div className="rounded-xl border bg-card px-4 py-3 text-center">
               {waiting ? (
-                <p className="text-sm text-foreground">You can end it in <strong className="tabular-nums text-xl">{exit.secondsLeft}</strong> seconds. Use the time to breathe.</p>
+                <p className="text-sm text-foreground">You can end it in <strong className="tabular-nums text-xl">{exit.secondsLeft}</strong>  seconds.</p>
               ) : (
                 <p className="text-sm font-medium text-foreground">The wait is over. Still want to stop?</p>
               )}

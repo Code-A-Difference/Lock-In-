@@ -71,8 +71,8 @@ export default function ClassChat({ lecture, live, lec, onSaveChat, autoAsk, onA
           <Sparkles className="mx-auto h-6 w-6 text-primary" aria-hidden="true" />
           <p className="mt-2 text-base font-semibold text-foreground">{live ? 'Ask about the class, right now' : 'Ask about this class'}</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            {live ? 'Lost focus for a second, or got put on the spot? Tap a quick ask, it reads what was just said.'
-              : 'Anything from the transcript and your notes: what a term meant, what’s due, a worked example again.'}
+            {live ? 'Tap a quick ask about what was just said.'
+              : 'Ask about the transcript or your notes.'}
           </p>
         </div>
       )}

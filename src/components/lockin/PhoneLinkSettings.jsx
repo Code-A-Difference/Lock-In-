@@ -18,10 +18,10 @@ export default function PhoneLinkSettings({ deviceId }) {
   }, [refresh]);
 
   if (isIPhone) {
-    return <p className="text-sm text-muted-foreground">On iPhone and iPad, LOCK IN! shows its focus screen but Apple does not let any app watch other apps. For a full lock, also turn on Do Not Disturb or a Focus in Control Center.</p>;
+    return <p className="text-sm text-muted-foreground">iPhone and iPad only show the focus screen. Turn on a Focus in Control Center too.</p>;
   }
   if (!canWatchApps || s === null) {
-    return <p className="text-sm text-muted-foreground">This phone app is too old to watch other apps. Update the LOCK IN! app, then come back here. Until then it still shows the focus screen.</p>;
+    return <p className="text-sm text-muted-foreground">Update the LOCK IN! app to use this.</p>;
   }
   if (s === undefined) return <p className="text-sm text-muted-foreground" role="status">Checking this phone…</p>;
 
@@ -36,7 +36,7 @@ export default function PhoneLinkSettings({ deviceId }) {
   );
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">To bring you back when another app opens, this phone needs your permission. Phone, messages and emergency apps are never touched. You can switch any of these off in your phone’s settings; the lock then just stops working.</p>
+      <p className="text-sm text-muted-foreground">Needed to bring you back when another app opens. Calls, texts and emergency apps are never blocked.</p>
       <ul className="divide-y rounded-lg border" aria-label="Phone permissions">
         {row('usage', 'Usage access', 'Lets LOCK IN! see which app is in front (never what you do in it).', s.usageAccess, openUsageAccess, 'Open settings')}
         {row('overlay', 'Display over other apps', 'Lets LOCK IN! come back to the front.', s.overlay, openOverlay, 'Open settings')}
@@ -46,7 +46,7 @@ export default function PhoneLinkSettings({ deviceId }) {
       <div className="flex items-start justify-between gap-3">
         <label htmlFor="linkReady" className="min-w-0 text-sm text-foreground">
           <span className="block font-medium">Keep the link ready when the app is closed</span>
-          <span className="block text-xs text-muted-foreground">So a lock started on your computer reaches this phone even if LOCK IN! isn’t open. Shows a small notice all the time. May not work if the phone has been idle a long time.</span>
+          <span className="block text-xs text-muted-foreground">So a lock from your computer reaches this phone. Shows a small notice.</span>
         </label>
         <Switch id="linkReady" checked={ready && linkReady(s)} disabled={!linkReady(s)}
           onCheckedChange={(v) => {

@@ -79,9 +79,7 @@ export default function ClassDetailsDialog({ open, onOpenChange, classItem }) {
               <Share2 className="h-4 w-4 text-primary" /> Share this class
             </p>
             <p className="mb-3 text-xs text-slate-500">
-              Send this code to a classmate. They paste it into <em>Add a shared class</em> and get
-              this class with its homework and tests. Added more since? Send a fresh code, pasting
-              it again only adds what's new.
+              Send this code to a classmate. They paste it into <em>Add a shared class</em>.
             </p>
 
             <div className="relative">

@@ -144,7 +144,7 @@ export default function Focus() {
             )}
             {strict && (
               <p className="mt-3 max-w-sm text-center text-sm text-muted-foreground">
-                Strict mode is on until {endsAt}. Pausing and skipping are locked. If you really need out, use End early (there’s a {f.exit && f.strictPrefs.exitDelaySec}-second wait).
+                Strict until {endsAt}. To stop, use End early.
               </p>
             )}
 

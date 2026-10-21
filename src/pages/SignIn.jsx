@@ -4,20 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Cloud, Eye, EyeOff, Lock, UserRound, Loader2 } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isNativeApp } from '@/lib/native';
 
 // The Code A Difference home page. LOCK IN! is served from /lockin/ inside it.
-import { isNativeApp } from '@/lib/native';
 const SITE_URL = import.meta.env.VITE_SITE_URL || '/';
 
-/**
- * Sign in / create account. The account and everything in it are kept on
- * the Code A Difference server, so any computer will do. There's no email,
- * so there's no password reset either, and the page says so.
- */
+/** Sign in, create an account, or reset a forgotten password with a code sent by email. */
 export default function SignIn() {
-  const [mode, setMode] = useState('signin');          // 'signin' | 'signup'
+  const [mode, setMode] = useState('signin');          // 'signin' | 'signup' | 'forgot'
   const [legacy, setLegacy] = useState([]);            // accounts from when LOCK IN! lived in the browser
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -27,10 +23,12 @@ export default function SignIn() {
   const [rememberDevice, setRememberDevice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [note, setNote] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
   const pwRef = useRef(null);
 
-  // Work saved in this browser before accounts moved to the server: point
-  // the way to bringing it across (sign up with the same name and password).
+  // Work saved in this browser before accounts moved to the server: sign up with the same name and password to bring it across.
   useEffect(() => {
     accounts.legacyAccounts().then(list => {
       setLegacy(list);
@@ -38,9 +36,7 @@ export default function SignIn() {
     });
   }, []);
 
-  const switchMode = (m) => {
-    setMode(m); setError(''); setPassword(''); setConfirm('');
-  };
+  const switchMode = (m) => { setMode(m); setError(''); setNote(''); setPassword(''); setConfirm(''); setCode(''); setCodeSent(false); };
 
   const pick = (a) => {
     setUsername(a.username); setDisplayName(a.displayName || ''); setMode('signup'); setError('');
@@ -50,17 +46,16 @@ export default function SignIn() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (mode === 'signup') {
-      if (password.length < MIN_PASSWORD) return setError(`Use at least ${MIN_PASSWORD} characters for your password.`);
-      if (password !== confirm) return setError('Those two passwords are different. Type them again.');
+    if (mode === 'signup' || (mode === 'forgot' && codeSent)) {
+      if (password.length < MIN_PASSWORD) return setError(`Use at least ${MIN_PASSWORD} characters.`);
+      if (password !== confirm) return setError('The two passwords don’t match.');
     }
     setBusy(true);
     try {
-      if (mode === 'signup') {
-        await accounts.signUp({ username, displayName, password, rememberDevice });
-      } else {
-        await accounts.signIn({ username, password, rememberDevice });
-      }
+      if (mode === 'signup') await accounts.signUp({ username, displayName, password, rememberDevice });
+      else if (mode === 'signin') await accounts.signIn({ username, password, rememberDevice });
+      else if (!codeSent) { setNote(await accounts.forgotStart(username)); setCodeSent(true); setBusy(false); return; }
+      else await accounts.forgotFinish({ who: username, code, password, rememberDevice });
       // AuthContext hears the change and swaps this page for the app.
     } catch (err) {
       setError(err.message || 'Something went wrong.');
@@ -69,6 +64,10 @@ export default function SignIn() {
   };
 
   const isSignup = mode === 'signup';
+  const isForgot = mode === 'forgot';
+  const newPassword = isSignup || (isForgot && codeSent);
+  const title = isSignup ? 'Make your account' : isForgot ? 'Reset your password' : 'Welcome back';
+  const button = isSignup ? 'Create account' : isForgot ? (codeSent ? 'Set new password' : 'Email me a code') : 'Sign in';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 lg:grid lg:grid-cols-[1.05fr_1fr]">
@@ -97,62 +96,41 @@ export default function SignIn() {
             Homework, tests,<br />and a plan.<br />
             <span className="text-amber-300">Then lock in.</span>
           </h1>
-          <p className="mt-5 max-w-md text-base text-white/80 sm:text-lg">
-            Type what is due and it sorts itself. One click starts a focus timer on the most urgent thing, with rain in your ears and the steps beside the clock.
-          </p>
+          <p className="mt-5 max-w-md text-base text-white/80 sm:text-lg">Plan your work, then focus on it.</p>
         </div>
-
-        <ul className="relative mt-10 hidden space-y-3 text-sm text-white/85 lg:block">
-          <li className="flex gap-3"><Cloud className="mt-0.5 h-4 w-4 flex-none" />Saved to your account. Sign in on any phone or computer and it's all there.</li>
-          <li className="flex gap-3"><UserRound className="mt-0.5 h-4 w-4 flex-none" />No email needed. Just a username and a password.</li>
-        </ul>
+        <div />
       </aside>
 
       {/* ── form ───────────────────────────────────────────────── */}
       <main className="flex items-start justify-center px-5 py-10 sm:px-8 lg:items-center">
         <div className="w-full max-w-md">
 
-          <div className="mb-7 grid grid-cols-2 rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800" role="tablist">
-            {[['signin', 'Sign in'], ['signup', 'Create account']].map(([m, label]) => (
-              <button
-                key={m}
-                type="button"
-                role="tab"
-                aria-selected={mode === m}
-                onClick={() => switchMode(m)}
-                className={cn(
-                  'rounded-lg py-2 text-sm font-semibold transition-colors',
-                  mode === m ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
-                             : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                )}
-              >{label}</button>
-            ))}
-          </div>
+          {!isForgot && (
+            <div className="mb-7 grid grid-cols-2 rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800" role="tablist">
+              {[['signin', 'Sign in'], ['signup', 'Create account']].map(([m, label]) => (
+                <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => switchMode(m)}
+                  className={cn('rounded-lg py-2 text-sm font-semibold transition-colors',
+                    mode === m ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
+                               : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200')}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
 
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            {isSignup ? 'Make your account' : 'Welcome back'}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isSignup ? 'No email needed. Sign in on any device.' : 'Pick up where you left off, on any device.'}
-          </p>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{title}</h2>
+          {isForgot && <p className="mt-1 text-sm text-muted-foreground">{codeSent ? note : 'We’ll email a code to the address on your account.'}</p>}
 
-          {legacy.length > 0 && (
+          {legacy.length > 0 && !isForgot && (
             <div className="mt-6 rounded-xl border border-primary/40 bg-accent p-4 text-sm text-primary">
               <p className="font-semibold">Your work from this browser is still here.</p>
-              <p className="mt-1 text-primary/80">
-                LOCK IN! now saves to an account online. Create one with the <strong>same username and password</strong> you
-                used here, and your classes and homework come across.
-              </p>
+              <p className="mt-1 text-primary/80">Create an account with the <strong>same username and password</strong> to bring it across.</p>
               {legacy.length > 1 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {legacy.map(a => (
                     <button key={a.username} type="button" onClick={() => pick(a)}
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                        username === a.username
-                          ? 'border-primary/40 bg-white text-primary'
-                          : 'border-primary/40 bg-white/60 text-primary hover:bg-white dark:bg-transparent'
-                      )}>
+                      className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        username === a.username ? 'border-primary/40 bg-white text-primary' : 'border-primary/40 bg-white/60 text-primary hover:bg-white dark:bg-transparent')}>
                       {a.username}
                     </button>
                   ))}
@@ -165,36 +143,47 @@ export default function SignIn() {
             {isSignup && (
               <div className="space-y-1.5">
                 <Label htmlFor="displayName">Your name</Label>
-                <Input id="displayName" autoComplete="nickname" placeholder="What should we call you?"
-                       value={displayName} onChange={e => setDisplayName(e.target.value)} />
+                <Input id="displayName" autoComplete="nickname" value={displayName} onChange={e => setDisplayName(e.target.value)} />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" autoComplete="username" autoCapitalize="none" spellCheck={false}
-                     placeholder={isSignup ? 'letters, numbers, . _ -' : ''} required
+              <Label htmlFor="username">{isForgot ? 'Username or email' : 'Username'}</Label>
+              <Input id="username" autoComplete={isForgot ? 'email' : 'username'} autoCapitalize="none" spellCheck={false}
+                     placeholder={isSignup ? 'letters, numbers, . _ -' : ''} required disabled={isForgot && codeSent}
                      value={username} onChange={e => setUsername(e.target.value)} />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input id="password" ref={pwRef} required
-                       type={showPw ? 'text' : 'password'}
-                       autoComplete={isSignup ? 'new-password' : 'current-password'}
-                       placeholder={isSignup ? `At least ${MIN_PASSWORD} characters` : ''}
-                       className="pr-10"
-                       value={password} onChange={e => setPassword(e.target.value)} />
-                <button type="button" onClick={() => setShowPw(v => !v)}
-                        aria-label={showPw ? 'Hide password' : 'Show password'}
-                        className="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 hover:text-slate-600">
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            {isForgot && codeSent && (
+              <div className="space-y-1.5">
+                <Label htmlFor="code">Code from the email</Label>
+                <Input id="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} className="tracking-[0.3em]"
+                       value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} />
               </div>
-            </div>
+            )}
 
-            {isSignup && (
+            {(!isForgot || codeSent) && (
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between">
+                  <Label htmlFor="password">{isForgot ? 'New password' : 'Password'}</Label>
+                  {mode === 'signin' && (
+                    <button type="button" onClick={() => switchMode('forgot')} className="text-sm font-medium text-primary hover:underline">Forgot password?</button>
+                  )}
+                </div>
+                <div className="relative">
+                  <Input id="password" ref={pwRef} required type={showPw ? 'text' : 'password'}
+                         autoComplete={newPassword ? 'new-password' : 'current-password'}
+                         placeholder={newPassword ? `At least ${MIN_PASSWORD} characters` : ''}
+                         className="pr-10" value={password} onChange={e => setPassword(e.target.value)} />
+                  <button type="button" onClick={() => setShowPw(v => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}
+                          className="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 hover:text-slate-600">
+                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {newPassword && (
               <div className="space-y-1.5">
                 <Label htmlFor="confirm">Type it again</Label>
                 <Input id="confirm" required type={showPw ? 'text' : 'password'} autoComplete="new-password"
@@ -202,34 +191,25 @@ export default function SignIn() {
               </div>
             )}
 
-            <label className="flex items-start gap-2.5 text-sm text-muted-foreground">
-              <Checkbox checked={rememberDevice} onCheckedChange={v => setRememberDevice(!!v)} className="mt-0.5" />
-              <span>
-                Keep me signed in on this device
-                <span className="block text-xs text-slate-400">
-                  For 60 days. Only on your own device; on a shared computer, leave this off.
-                </span>
-              </span>
-            </label>
-
-            {isSignup && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
-                <strong>There is no password reset.</strong> With no email on the account there's nowhere to send one,
-                so pick a password you'll remember.
-              </p>
+            {(!isForgot || codeSent) && (
+              <label className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                <Checkbox checked={rememberDevice} onCheckedChange={v => setRememberDevice(!!v)} />
+                <span>Keep me signed in (not on a shared computer)</span>
+              </label>
             )}
 
             {error && (
-              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                {error}
-              </p>
+              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">{error}</p>
             )}
-            <Button type="submit" disabled={busy}
-                    className="h-11 w-full text-base font-semibold">
-              {busy
-                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isSignup ? 'Creating…' : 'Signing in…'}</>
-                : (isSignup ? 'Create account' : 'Sign in')}
+            <Button type="submit" disabled={busy} className="h-11 w-full text-base font-semibold">
+              {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />One moment…</> : button}
             </Button>
+            {isForgot && (
+              <div className="flex justify-between text-sm">
+                <button type="button" onClick={() => switchMode('signin')} className="font-medium text-primary hover:underline">Back to sign in</button>
+                {codeSent && <button type="button" onClick={() => { setCodeSent(false); setCode(''); setError(''); }} className="text-muted-foreground hover:underline">Send another code</button>}
+              </div>
+            )}
           </form>
 
         </div>

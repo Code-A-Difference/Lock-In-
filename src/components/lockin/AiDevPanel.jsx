@@ -131,7 +131,7 @@ export function DeveloperSection({ Section, Row, Switch }) {
   const dev = useAiDev();
   return (
     <Section icon={Code2} title="Developer" description="See exactly what every AI feature sends and gets back.">
-      <Row id="aidev" label="AI developer mode" hint="Adds an AI log button. Each request shows what the app sent, every call the server made to an AI provider (which key, masked, and which model), the exact payload, the raw replies and the timings. The Companion chat gets a link under each reply. Only you see this: it works because you are signed in to /admin/ in this browser.">
+      <Row id="aidev" label="AI developer mode" hint="Shows every AI request: what was sent, the raw reply, the key and the timing. Only for /admin/ editors.">
         <Switch id="aidev" checked={dev.on} onCheckedChange={(v) => setDevOn(v)} />
       </Row>
     </Section>
