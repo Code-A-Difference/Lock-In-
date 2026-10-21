@@ -4,7 +4,7 @@ import { useFocus } from '@/lib/FocusContext';
 import { parseSpotify, parseYouTube } from '@/lib/music/links';
 import * as sp from '@/lib/music/spotify';
 import { createPlayer, errorText, STATE } from '@/lib/music/youtube';
-import { rank, learn, cleanProfile, nextQuery, reason, mixes as mixList, STARTER_QUERIES } from '@/lib/music/recommend';
+import { rank, learn, cleanProfile, nextQuery, reason, mixes as mixList, STARTER_QUERIES, channelsToFetch } from '@/lib/music/recommend';
 import { useAuth } from '@/lib/AuthContext';
 import { db } from '@/api/db';
 
@@ -21,6 +21,7 @@ const RECENT_KEY = 'lockin.music.recent';
 const POOL_KEY = 'lockin.music.pool';        // songs seen in searches and plays: what recommendations are picked from
 const TASTE_KEY = 'lockin.music.taste';      // this device's copy of the taste profile (the account has the shared one)
 const ASKED_KEY = 'lockin.music.asked';      // searches made for recommendations, so one isn't repeated within a day
+const CHANNELS_KEY = 'lockin.music.channels'; // channels whose uploads were fetched, and when (once a day each)
 const POOL_MAX = 400;
 const readJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (_) { return d; } };
 const writeJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* private mode */ } };
@@ -44,6 +45,7 @@ export function MusicProvider({ children }) {
   }
   const poolRef = useRef(readJson(POOL_KEY, []));
   const askedRef = useRef(readJson(ASKED_KEY, {}));
+  const channelsRef = useRef(readJson(CHANNELS_KEY, {}));
   const [tasteVer, setTasteVer] = useState(0);
   const nowItem = useRef(null);          // the YouTube song playing now, to learn from when it ends or is skipped
   const progressRef = useRef({ pos: 0, dur: 0 });
@@ -86,7 +88,7 @@ export function MusicProvider({ children }) {
   const phaseNow = () => (focus?.status === 'running' ? (focus.phase === 'focus' ? 'focus' : 'break') : '');
   /** Songs seen anywhere go into the pool recommendations are picked from (newest first, capped). */
   const addToPool = (items) => {
-    const fresh = (items || []).filter((x) => x && x.id).map((x) => ({ id: x.id, title: x.title || '', channel: x.channel || x.artist || '', thumb: x.thumb || x.art || '' }));
+    const fresh = (items || []).filter((x) => x && x.id).map((x) => ({ id: x.id, title: x.title || '', channel: x.channel || x.artist || '', thumb: x.thumb || x.art || '', ...(x.channelId ? { channelId: x.channelId } : {}) }));
     if (!fresh.length) return;
     const ids = new Set(fresh.map((x) => x.id));
     poolRef.current = [...fresh, ...poolRef.current.filter((x) => !ids.has(x.id))].slice(0, POOL_MAX);
@@ -142,11 +144,33 @@ export function MusicProvider({ children }) {
     return j.items;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Ranked picks from the pool; if too few good ones are left, one search (a new one, never repeated within a day) tops it up. */
+  /** A channel's latest uploads, into the pool: 1 unit of YouTube's quota (a search uses one of ~100 a day). Once a day per channel. */
+  const fetchChannel = async (cid) => {
+    channelsRef.current = { ...Object.fromEntries(Object.entries(channelsRef.current).filter(([, t]) => Date.now() - t < 86400000)), [cid]: Date.now() };
+    writeJson(CHANNELS_KEY, channelsRef.current);
+    try {
+      const r = await gateFetch(`/api/music.php?action=channel&id=${encodeURIComponent(cid)}`, { headers: { 'X-LockIn': '1' }, credentials: 'same-origin' });
+      const j = await r.json().catch(() => null);
+      if (j?.ok) addToPool(j.items);
+    } catch (_) { /* offline: the pool has what it has */ }
+  };
+
+  /**
+   * Ranked picks from the pool. When too few good ones are left: first the uploads of channels the
+   * student likes (cheap), and only then one search (a new one, never repeated within a day).
+   */
   const picks = async ({ mode = 'mix', phase = phaseNow(), n = 12, exclude = new Set(), search = true } = {}) => {
     const ctx = { mode, phase, now: Date.now() };
     let list = rank(poolRef.current, tasteRef.current, ctx, n, exclude);
-    if (search && list.length < Math.min(n, 6)) {
+    const enough = () => list.length >= Math.min(n, 6);
+    if (search && !enough()) {
+      const ids = channelsToFetch(tasteRef.current, poolRef.current, channelsRef.current, { now: Date.now(), phase });
+      if (ids.length) {
+        await Promise.all(ids.map(fetchChannel));
+        list = rank(poolRef.current, tasteRef.current, ctx, n, exclude);
+      }
+    }
+    if (search && !enough()) {
       const c = cfgRef.current.loaded ? cfgRef.current : await loadConfigRef.current();
       const q = c.search ? nextQuery(tasteRef.current, { mode, phase, asked: askedRef.current, now: Date.now() }) : null;
       if (q) {
@@ -454,6 +478,8 @@ export function MusicProvider({ children }) {
   const feedback = useCallback((item, kind) => {
     if (!item) return;
     noteTaste(item, kind === 'less' ? 'less' : 'more');
+    const cid = item.channelId || poolRef.current.find((x) => x.id === item.id)?.channelId;
+    if (kind !== 'less' && cid && !(channelsRef.current[cid] && Date.now() - channelsRef.current[cid] < 86400000)) fetchChannel(cid);
     if (kind === 'less' && nowItem.current && item.id === nowItem.current.id) { nowItem.current = null; ytNext(); }
   }, [ytNext]); // eslint-disable-line react-hooks/exhaustive-deps
   const nowPlayingItem = () => nowItem.current;
