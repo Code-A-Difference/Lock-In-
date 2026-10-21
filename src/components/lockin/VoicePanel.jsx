@@ -347,7 +347,7 @@ export default function VoicePanel() {
           <div role="region" aria-label="Hands-free" className="lockin-handsfree-ask mb-2 rounded-2xl border bg-card p-4 shadow-2xl">
             <p className="text-sm font-semibold text-foreground">Talk hands-free: say “{phrase}”</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {checksVoice ? 'It learns your voice in about 20 seconds, so other people and other words are much less likely to wake it.' : 'A small model on this phone listens for it. Nothing is sent anywhere.'}
+              {checksVoice ? 'Takes about 20 seconds.' : 'It listens on this phone only.'}
             </p>
             <div className="mt-3 flex gap-2">
               <button type="button" onClick={() => choose(true)} className="h-11 flex-1 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">Set it up</button>

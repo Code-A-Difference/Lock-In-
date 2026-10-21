@@ -93,7 +93,7 @@ export default function Music() {
         <div className="mt-5 rounded-2xl border bg-card p-5">
           <h2 className="text-base font-semibold text-foreground">Connect Spotify</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            LOCK IN! becomes a remote for your Spotify app: search, play, pause and skip from here. It needs Spotify Premium, and Spotify open on this computer or your phone.
+            Control your Spotify app from here. Needs Spotify Premium.
           </p>
           <button type="button" onClick={m.spotify.connect} disabled={m.cfg.loaded && !m.cfg.spotifyClientId}
             className="mt-4 inline-flex h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">

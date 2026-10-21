@@ -55,7 +55,7 @@ export default function JoinClassDialog({ open, onOpenChange, onSubmit, isLoadin
               required
             />
             <p className="text-xs text-slate-500">
-              Already have this class? Adding it again only brings in homework and tests you don't have yet.
+              Adding a class you already have only brings in what's new.
             </p>
           </div>
 

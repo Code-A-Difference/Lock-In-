@@ -23,6 +23,7 @@ import StrictExitDialog from '@/components/lockin/StrictExitDialog';
 import StrictGuard from '@/components/lockin/StrictGuard';
 import CrossLock from '@/components/lockin/CrossLock';
 import AiDevPanel from '@/components/lockin/AiDevPanel';
+import EmailPrompt from '@/components/lockin/EmailPrompt';
 import { MusicProvider } from '@/lib/MusicContext';
 import NowPlaying from '@/components/lockin/NowPlaying';
 
@@ -155,6 +156,7 @@ const AuthenticatedApp = () => {
     <Reminders />
     <NowPlaying />
     <AiDevPanel />
+    <EmailPrompt />
     </AssistantProvider>
     </MusicProvider>
     </PlannerProvider>

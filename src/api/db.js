@@ -89,6 +89,7 @@ function publicUser() {
     // There is no email here; the username plays that part.
     email: s.username,
     full_name: s.data.profile.full_name || s.user?.displayName || s.username,
+    recoveryEmail: s.user?.recoveryEmail || '',     // for password resets; '' until they add one
   };
 }
 
@@ -370,7 +371,7 @@ export const accounts = {
     } catch (e) {
       // They had an account here before accounts moved to the server.
       if (e.status === 401 && (await legacyAccounts()).some(a => a.username === u)) {
-        throw new Error(`LOCK IN! now saves to an account online. Your work from this browser is still here: choose Create account with the username "${u}" and the same password, and it comes across.`);
+        throw new Error(`Your work from this browser is still here. Choose Create account with the username "${u}" and the same password.`);
       }
       throw e;
     }
@@ -405,6 +406,26 @@ export const accounts = {
     await settle();
     await call('delete', { password });
     drop();
+  },
+
+  /** Forgot password: emails a code to the account (username or email). Always says the same thing. */
+  async forgotStart(who) {
+    if (!String(who || '').trim()) throw new Error('Type your username or email.');
+    return (await call('forgot-start', { who: String(who).trim() })).msg;
+  },
+  /** A new password with the emailed code; signs in. */
+  async forgotFinish({ who, code, password, rememberDevice }) {
+    if (String(password || '').length < MIN_PASSWORD) throw new Error(`Use at least ${MIN_PASSWORD} characters.`);
+    return begin(await call('forgot-finish', { who: String(who).trim(), code: String(code || '').trim(), password, remember: !!rememberDevice }));
+  },
+  /** Add or change the recovery email: a code goes to it first. */
+  async emailStart(email) { need(); return (await call('email-start', { email: String(email || '').trim() })).sentTo; },
+  async emailVerify(code) {
+    const s = need();
+    const j = await call('email-verify', { code: String(code || '').trim() });
+    s.user = j.user;                // only the account part: unsaved changes on this device stay as they are
+    emit();
+    return publicUser();
   },
 
   /** The private link calendar apps subscribe to (fresh: a new one; the old one stops working). */

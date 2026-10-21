@@ -268,7 +268,7 @@ export function MiniView() {
             </button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            This window floats over your other apps. While a class records, ask “catch me up” here, or press {desktop?.platform === 'darwin' ? '⌘' : 'Ctrl'}+Shift+K from anywhere.
+            Ask “catch me up” here, or press {desktop?.platform === 'darwin' ? '⌘' : 'Ctrl'}+Shift+K from anywhere.
           </p>
         </div>
       )}

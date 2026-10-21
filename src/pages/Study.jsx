@@ -312,8 +312,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
                 <div className="flex-1">
                   <p className="text-sm font-medium text-primary">Upcoming Test Alert</p>
                   <p className="text-sm text-primary mt-1">
-                    You have <strong>{upcomingTest.title}</strong>{upcomingTest.class_name ? ` (${upcomingTest.class_name})` : ''} on {format(parseDay(upcomingTest.date), 'MMMM d')}. 
-                    Want to practice with an AI-generated quiz?
+                    You have <strong>{upcomingTest.title}</strong>{upcomingTest.class_name ? ` (${upcomingTest.class_name})` : ''} on {format(parseDay(upcomingTest.date), 'MMMM d')}. Practice with a quiz?
                   </p>
                   <Button 
                     size="sm" 

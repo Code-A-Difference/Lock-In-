@@ -31,6 +31,8 @@ import { PRESETS, presetHosts, normalizeHost, whyRefused } from '@/lib/strictFoc
 import { termsStatus, TERMS_VERSION } from '@/lib/strictTerms';
 import StrictTermsDialog from '@/components/lockin/StrictTermsDialog';
 import PhoneLinkSettings from '@/components/lockin/PhoneLinkSettings';
+import RecoveryEmail from '@/components/lockin/RecoveryEmail';
+import { Mail } from 'lucide-react';
 import { DeveloperSection, useAiDev } from '@/components/lockin/AiDevPanel';
 import { getDeviceId } from '@/lib/crossLock';
 
@@ -45,7 +47,7 @@ function PhoneApp() {
   const apk = true;
   if (isNativeApp) return null;
   return (
-    <Section icon={Smartphone} title="Get the phone app" description="Same account, same work, quicker to open, and the voice assistant works in it.">
+    <Section icon={Smartphone} title="Get the phone app" description="Same account, quicker to open.">
       <div className="grid gap-3 sm:grid-cols-2">
         {apk && (
           <a href={APK_URL} download className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
@@ -108,9 +110,9 @@ function ThisPhone() {
   };
   const dl = st.downloading;
   return (
-    <Section icon={Smartphone} title="This phone" description="Speech is understood on the phone itself, with Whisper.">
+    <Section icon={Smartphone} title="This phone" description="Understands speech on the phone.">
       {!st.available && <p className="text-sm text-amber-200">This phone’s processor can’t run the speech engine, so the phone’s own recogniser is used instead.</p>}
-      <Row id="phone-stt" label="Understand speech on this phone" hint="What you say to the assistant and your class recordings stay on the phone and need no connection. Off: the online service is used.">
+      <Row id="phone-stt" label="Understand speech on this phone" hint="Works offline and stays on the phone.">
         <Switch id="phone-stt" checked={st.enabled} disabled={!st.available} onCheckedChange={(v) => set({ enabled: v })} />
       </Row>
       {st.available && st.enabled && (
@@ -143,7 +145,7 @@ function GetDesktop() {
   const os = guessOS();
   const btn = 'flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold';
   return (
-    <Section icon={Monitor} title="Get the desktop app" description="LOCK IN! for Windows and Mac, same account, and a better experience in class.">
+    <Section icon={Monitor} title="Get the desktop app" description="LOCK IN! for Windows and Mac.">
       <ul className="grid gap-3 sm:grid-cols-2">
         {DESKTOP_PERKS.map(([Icon, title, text]) => (
           <li key={title} className="flex gap-3">
@@ -164,8 +166,7 @@ function GetDesktop() {
         </a>
       </div>
       <p className="text-xs text-muted-foreground">
-        Windows may say it “protected your PC”, choose More info → Run anyway. On a Mac, open the app once from Finder with right-click → Open
-        (or System Settings → Privacy &amp; Security → Open Anyway). The app isn’t signed by Apple or Microsoft yet.
+        Windows: More info → Run anyway. Mac: right-click → Open the first time.
       </p>
     </Section>
   );
@@ -199,7 +200,7 @@ function ThisComputer() {
           A newer desktop app is out. <a className="font-semibold underline" href={desktop.platform === 'darwin' ? DESKTOP_DOWNLOADS.macArm : DESKTOP_DOWNLOADS.windows}>Download it</a> and install over this one.
         </p>
       )}
-      <Row id="local-stt" label="Listen and transcribe on this computer" hint="Classes, “Hey Companion” and the assistant all use Whisper on this computer: private, free, nothing leaves it. Off: the online service is used.">
+      <Row id="local-stt" label="Listen and transcribe on this computer" hint="Transcribes on this computer. Private and free.">
         <Switch id="local-stt" checked={t.enabled} onCheckedChange={(v) => set({ enabled: v })} />
       </Row>
       {t.enabled && (
@@ -232,7 +233,7 @@ function ThisComputer() {
           </Row>
         </>
       )}
-      <Row id="login" label="Start with my computer" hint="Opens quietly in the tray, so shortcuts and call detection are ready.">
+      <Row id="login" label="Start with my computer" hint="Starts quietly in the tray.">
         <Switch id="login" checked={login} onCheckedChange={async (v) => setLogin(await desktop.launchAtLogin.set(v))} />
       </Row>
       <Row id="calls" label="Offer to record calls and online classes" hint="When Zoom, Teams or a browser call starts using the microphone.">
@@ -414,9 +415,10 @@ export default function Settings() {
               <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your name" />
               <Button onClick={saveName} disabled={savingName}>{savingName ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}</Button>
             </div>
-            <p className="text-xs text-muted-foreground">Your username, <strong>{user.username}</strong>, is how you sign in, so it can't change.</p>
+            <p className="text-xs text-muted-foreground">You sign in as <strong>{user.username}</strong>.</p>
           </div>
         </Section>
+        <EmailSection user={user} />
         </Page>
 
         <Page id="display">
@@ -433,7 +435,7 @@ export default function Settings() {
         <Page id="phone"><PhoneApp /></Page>
 
         <Page id="focus">
-        <Section icon={Timer} title="Focus timer" description="Defaults for the Focus page. The presets there change the first two.">
+        <Section icon={Timer} title="Focus timer" description="Defaults for the Focus page.">
           <div className="grid gap-4 sm:grid-cols-4">
             {[['focusMin', 'Focus', 180], ['breakMin', 'Break', 60], ['longMin', 'Long break', 90]].map(([k, label, max]) => (
               <label key={k} className="flex flex-col gap-1.5 text-sm font-medium text-foreground">
@@ -527,13 +529,13 @@ export default function Settings() {
               </div>
               {!aiOk && (
                 <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                  The AI voice didn't answer this session (no key saved yet, or the key can't do speech), so the browser voice is standing in.
+                  The AI voice isn't available right now, so your device's voice is used.
                 </p>
               )}
             </div>
           )}
 
-          <Row id="bvoice" label={voice.engine === 'browser' ? 'Browser voice' : 'Fallback voice'} hint="Best-sounding first. “Natural” and “Google” voices are the good ones.">
+          <Row id="bvoice" label={voice.engine === 'browser' ? 'Browser voice' : 'Fallback voice'} hint="“Natural” voices sound best.">
             <select id="bvoice" value={voice.browserVoice} onChange={e => saveVoice({ browserVoice: e.target.value })}
               className="h-9 max-w-[14rem] rounded-lg border bg-background px-2 text-sm text-foreground">
               <option value="">Best available</option>
@@ -564,7 +566,7 @@ export default function Settings() {
         </Page>
 
         <Page id="account">
-        <Section icon={KeyRound} title="Password" description="There's no email on your account, so there's no reset. Changing it signs out your other devices.">
+        <Section icon={KeyRound} title="Password" description="Changing it signs you out on other devices.">
           <form onSubmit={changePassword} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="pwCurrent">Current password</Label>
@@ -608,7 +610,7 @@ export default function Settings() {
           <form onSubmit={deleteAccount} className="rounded-xl border border-red-200 p-4 dark:border-red-900/50">
             <p className="text-sm font-semibold text-red-700 dark:text-red-400">Delete this account</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Removes the account and all of its classes, homework, tests and study chats from the server. It can't be undone.
+              Deletes everything. This can't be undone.
             </p>
             <Label htmlFor="deletePw" className="mt-3 block text-xs text-muted-foreground">
               Your password, to confirm
@@ -645,7 +647,7 @@ function ComfortSection() {
           ))}
         </div>
       </Row>
-      <Row id="comfortFont" label="Easier-to-read font" hint="Atkinson Hyperlegible, designed so similar letters look different.">
+      <Row id="comfortFont" label="Easier-to-read font" hint="Easier to tell letters apart.">
         <Switch id="comfortFont" checked={c.font} onCheckedChange={on => set({ font: on })} />
       </Row>
       <Row id="comfortSpace" label="Roomier text" hint="More space between lines, letters and words.">
@@ -712,6 +714,23 @@ function HeyCompanionSection() {
   );
 }
 
+/** The email password-reset codes go to. */
+function EmailSection({ user }) {
+  const [changing, setChanging] = useState(false);
+  return (
+    <Section icon={Mail} title="Email" description="For resetting your password.">
+      {user.recoveryEmail && !changing ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-foreground">{user.recoveryEmail}</span>
+          <Button variant="outline" size="sm" onClick={() => setChanging(true)}>Change</Button>
+        </div>
+      ) : (
+        <RecoveryEmail current={user.recoveryEmail} onDone={() => { setChanging(false); toast({ title: 'Email saved' }); }} />
+      )}
+    </Section>
+  );
+}
+
 /** Strict focus: lock a focus block so it can't be paused, and keep it to approved sites. Saved to the account. */
 function StrictSection() {
   const focus = useFocus();
@@ -756,18 +775,18 @@ function StrictSection() {
   const chip = 'inline-flex min-h-9 items-center gap-1 rounded-full border bg-background py-1 pl-3 pr-1 text-sm text-foreground';
   return (
     <>
-      <Section icon={ShieldCheck} title="Strict focus" description="A focus block that holds you to it: no pausing, and only the sites you approve.">
+      <Section icon={ShieldCheck} title="Strict focus" description="No pausing, and only sites you approve.">
         {locked && <p role="status" className="rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">A strict block is running, so these settings are locked until it ends.</p>}
-        <Row id="strictOn" label="Start every focus block in strict mode" hint="You can still turn it off before a block starts. Breaks are never locked.">
+        <Row id="strictOn" label="Start every focus block in strict mode" hint="Breaks are never locked.">
           <Switch id="strictOn" checked={!!sp.enabled} disabled={locked} onCheckedChange={v => save({ enabled: v })} />
         </Row>
-        <Row id="strictWait" label="Wait before ending a block early" hint="Ending early is always possible, after this wait and a confirmation. It is saved as “ended early”.">
+        <Row id="strictWait" label="Wait before ending a block early" hint="How long to wait before you can end a block early.">
           <select id="strictWait" value={sp.exitDelaySec} disabled={locked} onChange={e => save({ exitDelaySec: Number(e.target.value) })}
             className="h-9 rounded-lg border bg-background px-2 text-sm text-foreground disabled:opacity-60">
             {[15, 30, 45, 60, 90, 120].map(s => <option key={s} value={s}>{s} seconds</option>)}
           </select>
         </Row>
-        <Row id="strictMusic" label="Allow music" hint="Music stays fully available during a block, including searching for new songs.">
+        <Row id="strictMusic" label="Allow music" hint="Keep music during a block.">
           <Switch id="strictMusic" checked={!!sp.allowMusic} disabled={locked} onCheckedChange={v => save({ allowMusic: v })} />
         </Row>
         <Row id="strictLockOthers" label="Lock my other device too" hint={sp.lockOthers && termsOk
@@ -782,7 +801,7 @@ function StrictSection() {
         <StrictTermsDialog open={termsOpen} onOpenChange={setTermsOpen} onAccept={acceptTerms} device={isDesktop ? 'desktop' : isNativeApp ? 'phone' : 'web'} />
       </Section>
 
-      <Section icon={ShieldCheck} title="Approved sites" description="LOCK IN! and the Code A Difference site are always allowed, and so are the sign-in pages for Google, Microsoft and school accounts. Add the sites you need for your work.">
+      <Section icon={ShieldCheck} title="Approved sites" description="Sign-in pages are always allowed. Add the sites you need.">
         <ul className="divide-y rounded-lg border" aria-label="Ready-made lists">
           {PRESETS.map(pr => {
             const on = sp.presets.includes(pr.id);
@@ -822,10 +841,10 @@ function StrictSection() {
         )}
       </Section>
 
-      <Section icon={Monitor} title="On this computer" description="The desktop app also keeps other programs from pulling you away.">
+      <Section icon={Monitor} title="On this computer" description="Keep other programs from distracting you.">
         {isDesktop ? (
           <>
-            <Row id="strictApps" label="Minimise other apps during a block" hint="In Chrome, Edge, Firefox and other browsers, LOCK IN! reads the address of the page in front: approved sites (and the sign-in pages for Google, Microsoft and school accounts) are left alone, anything else minimises the browser. Chat and games are minimised too, and LOCK IN! comes back to the front. Nothing is closed, and phone calls and system windows are never touched.">
+            <Row id="strictApps" label="Minimise other apps during a block" hint="Browsers on other sites, chat and games get minimised. Nothing is closed.">
               <Switch id="strictApps" checked={!!sp.blockApps} disabled={locked} onCheckedChange={v => save({ blockApps: v })} />
             </Row>
             <form onSubmit={addApp} className="flex flex-wrap items-center gap-2">
@@ -847,13 +866,10 @@ function StrictSection() {
             )}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Minimising other apps and the approved-sites window are part of the desktop app. In the browser and on the phone, strict mode locks the timer and keeps links inside LOCK IN! to your approved sites.</p>
+          <p className="text-sm text-muted-foreground">Get the desktop app for this.</p>
         )}
       </Section>
 
-      <p className="px-1 text-sm text-muted-foreground">
-        Strict mode is a promise to yourself, made harder to break. It can’t stop another device, another browser or Task Manager, and you can always end a block early after the wait.
-      </p>
     </>
   );
 }
@@ -940,8 +956,7 @@ function CalendarSection() {
             <CalendarDays className="h-4 w-4" aria-hidden="true" />Add to Google Calendar
           </a>
           <p className="text-xs text-muted-foreground">
-            Google Calendar keeps it up to date by itself (it checks every few hours), and it shows on your phone too if Google Calendar is there.
-            Apple Calendar and Outlook can’t reach this site to keep checking, so for those, download a copy and open it: it adds what’s there now.
+            Google Calendar keeps it up to date. For Apple Calendar or Outlook, download a copy.
           </p>
           <div className="flex flex-wrap gap-2">
             <a className={btn} href={url} download="lockin.ics"><Download className="h-4 w-4" aria-hidden="true" />Copy for Apple Calendar or Outlook</a>
@@ -1000,7 +1015,7 @@ function SettingsLayout({ user, menu, children }) {
   const page = all.some(i => i.id === asked) || asked === 'account' ? asked : (wide ? 'account' : '');
   const open = (id) => { setParams(id ? { s: id } : {}, { replace: wide }); setQuery(''); window.scrollTo(0, 0); };
   const q = query.trim().toLowerCase();
-  const found = q ? [{ id: 'account', title: 'Account', icon: User, words: 'name password sign out delete profile' }, ...all]
+  const found = q ? [{ id: 'account', title: 'Account', icon: User, words: 'name password email reset forgot sign out delete profile' }, ...all]
     .filter(i => `${i.title} ${i.words || ''}`.toLowerCase().includes(q)) : null;
   const current = page === 'account' ? 'Account' : all.find(i => i.id === page)?.title || '';
 
