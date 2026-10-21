@@ -105,3 +105,16 @@ test('profiles stay small and survive bad data', () => {
   assert.equal(mixes({ phase: 'break' })[0].id, 'break');
   assert.equal(mixes({ phase: 'focus' })[0].id, 'focus');
 });
+
+test('top-ups come from liked channels (1 unit each), not searches, and not twice a day', async () => {
+  const { channelsToFetch } = await import('../src/lib/music/recommend.js');
+  const UC = (c) => 'UC' + c.repeat(22).slice(0, 22);
+  const pool = [{ id: 'a', title: 'lofi beats', channel: 'Lofi Girl', channelId: UC('a') }, { id: 'b', title: 'piano', channel: 'Piano Dreams', channelId: UC('b') }, { id: 'c', title: 'rap', channel: 'Rap Nation', channelId: UC('c') }];
+  let p = emptyProfile(T0);
+  p = learn(p, pool[0], 'finish', { now: T0 }); p = learn(p, pool[0], 'finish', { now: T0 });
+  p = learn(p, pool[1], 'finish', { now: T0 });
+  p = learn(p, pool[2], 'skip', { listened: 3, duration: 200, now: T0 });
+  assert.deepEqual(channelsToFetch(p, pool, {}, { now: T0 }), [UC('a'), UC('b')], 'liked channels, best first; disliked left out');
+  assert.deepEqual(channelsToFetch(p, pool, { [UC('a')]: T0 - 3600000 }, { now: T0 }), [UC('b')], 'looked up an hour ago: skipped');
+  assert.deepEqual(channelsToFetch(p, [{ id: 'z', title: 'x', channel: 'Lofi Girl' }], {}, { now: T0 }), [], 'no channel id known: nothing to fetch');
+});

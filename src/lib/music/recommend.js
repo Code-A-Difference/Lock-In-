@@ -232,3 +232,24 @@ export function nextQuery(profile, { mode = 'mix', phase = '', asked = {}, now =
   const fresh = candidates.find(q => !(asked[q] && now - asked[q] < DAY));
   return fresh || null;
 }
+
+/**
+ * Channels worth topping the pool up from: the ones the student likes most whose id we know
+ * (from a song of theirs in the pool), not looked up in the last day. A channel's uploads cost
+ * YouTube 1 unit, while a search is one of only ~100 a day, so this comes before any search.
+ */
+export function channelsToFetch(profile, pool, fetched = {}, { now = now0(), n = 2, phase = '' } = {}) {
+  const p = cleanProfile(profile, now);
+  const bucket = phase === 'focus' || phase === 'break' ? { ...p.any, ...p[phase] } : p.any;
+  const idOf = new Map();
+  for (const t of pool || []) {
+    const ch = features(t).channel;
+    if (ch && t.channelId && /^UC[A-Za-z0-9_-]{22}$/.test(t.channelId) && !idOf.has(ch)) idOf.set(ch, t.channelId);
+  }
+  return Object.entries(bucket)
+    .filter(([k, w]) => k.startsWith('ch:') && w > 0.3 && idOf.has(k.slice(3)))
+    .sort((a, b) => b[1] - a[1])
+    .map(([k]) => idOf.get(k.slice(3)))
+    .filter((id) => !(fetched[id] && now - fetched[id] < DAY))
+    .slice(0, n);
+}
