@@ -79,6 +79,14 @@ function need() {
   return session;
 }
 
+/** After an authenticator change: only the account part is replaced, unsaved changes on this device stay. */
+function totpDone(j) {
+  const s = need();
+  if (j.user) s.user = j.user;
+  emit();
+  return j.recoveryCodes || [];
+}
+
 function publicUser() {
   const s = need();
   return {
@@ -89,7 +97,8 @@ function publicUser() {
     // There is no email here; the username plays that part.
     email: s.username,
     full_name: s.data.profile.full_name || s.user?.displayName || s.username,
-    recoveryEmail: s.user?.recoveryEmail || '',     // for password resets; '' until they add one
+    authenticator: !!s.user?.authenticator,           // an authenticator app is set up, for password resets
+    recoveryLeft: Number(s.user?.recoveryLeft) || 0,   // unused recovery codes
   };
 }
 
@@ -408,25 +417,20 @@ export const accounts = {
     drop();
   },
 
-  /** Forgot password: emails a code to the account (username or email). Always says the same thing. */
-  async forgotStart(who) {
-    if (!String(who || '').trim()) throw new Error('Type your username or email.');
-    return (await call('forgot-start', { who: String(who).trim() })).msg;
-  },
-  /** A new password with the emailed code; signs in. */
-  async forgotFinish({ who, code, password, rememberDevice }) {
+  /** Forgot password: a code from the account's authenticator app (or a recovery code) sets a new one, then signs in. */
+  async forgotReset({ username, code, password, rememberDevice }) {
+    if (!String(username || '').trim()) throw new Error('Type your username.');
+    if (!String(code || '').trim()) throw new Error('Type the code from your authenticator app.');
     if (String(password || '').length < MIN_PASSWORD) throw new Error(`Use at least ${MIN_PASSWORD} characters.`);
-    return begin(await call('forgot-finish', { who: String(who).trim(), code: String(code || '').trim(), password, remember: !!rememberDevice }));
+    return begin(await call('forgot', { username: String(username).trim(), code: String(code).trim(), password, remember: !!rememberDevice }));
   },
-  /** Add or change the recovery email: a code goes to it first. */
-  async emailStart(email) { need(); return (await call('email-start', { email: String(email || '').trim() })).sentTo; },
-  async emailVerify(code) {
-    const s = need();
-    const j = await call('email-verify', { code: String(code || '').trim() });
-    s.user = j.user;                // only the account part: unsaved changes on this device stay as they are
-    emit();
-    return publicUser();
-  },
+  /** Set up an authenticator app: a new secret and the otpauth:// link its QR code holds. */
+  async totpStart() { need(); const j = await call('totp-start'); return { secret: j.secret, pretty: j.pretty, uri: j.uri }; },
+  /** Finish with a code from the app. Returns the recovery codes (shown once). */
+  async totpConfirm(code) { return totpDone(await call('totp-confirm', { code: String(code || '').trim() })); },
+  /** Ten new recovery codes; the old ones stop working. */
+  async totpRecovery(password) { return totpDone(await call('totp-recovery', { password })); },
+  async totpOff(password) { totpDone(await call('totp-off', { password })); },
 
   /** The private link calendar apps subscribe to (fresh: a new one; the old one stops working). */
   async calendarLink(fresh = false) {
