@@ -31,8 +31,7 @@ import { PRESETS, presetHosts, normalizeHost, whyRefused } from '@/lib/strictFoc
 import { termsStatus, TERMS_VERSION } from '@/lib/strictTerms';
 import StrictTermsDialog from '@/components/lockin/StrictTermsDialog';
 import PhoneLinkSettings from '@/components/lockin/PhoneLinkSettings';
-import RecoveryEmail from '@/components/lockin/RecoveryEmail';
-import { Mail } from 'lucide-react';
+import AuthenticatorSetup, { RecoveryCodes } from '@/components/lockin/AuthenticatorSetup';
 import { DeveloperSection, useAiDev } from '@/components/lockin/AiDevPanel';
 import { getDeviceId } from '@/lib/crossLock';
 
@@ -307,6 +306,7 @@ export default function Settings() {
 
   useEffect(() => () => stopSpeaking(), []);
 
+  const aiDev = useAiDev();      // before the early return: hooks run in the same order every render
   if (!user) return null;
 
   const saveName = async () => {
@@ -384,7 +384,6 @@ export default function Settings() {
   const aiOk = voiceStatus().aiAvailable;
   const numberBox = 'h-9 w-20 rounded-lg border bg-background px-2 text-center text-sm tabular-nums text-foreground';
 
-  const aiDev = useAiDev();
   const engineLabel = { auto: 'Natural', ai: 'AI voice', browser: 'Device' }[voice.engine] || '';
   const device = isNativeApp ? (phoneWhisper ? { id: 'device', title: 'This phone', icon: Smartphone, words: 'whisper speech model' } : null)
     : isDesktop ? { id: 'device', title: 'This computer', icon: Monitor, words: 'whisper transcription shortcuts float start with computer calls record' }
@@ -418,7 +417,7 @@ export default function Settings() {
             <p className="text-xs text-muted-foreground">You sign in as <strong>{user.username}</strong>.</p>
           </div>
         </Section>
-        <EmailSection user={user} />
+        <AuthenticatorSection user={user} />
         </Page>
 
         <Page id="display">
@@ -714,19 +713,61 @@ function HeyCompanionSection() {
   );
 }
 
-/** The email password-reset codes go to. */
-function EmailSection({ user }) {
-  const [changing, setChanging] = useState(false);
-  return (
-    <Section icon={Mail} title="Email" description="For resetting your password.">
-      {user.recoveryEmail && !changing ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-foreground">{user.recoveryEmail}</span>
-          <Button variant="outline" size="sm" onClick={() => setChanging(true)}>Change</Button>
+/** The authenticator app that resets a forgotten password, and its recovery codes. */
+function AuthenticatorSection({ user }) {
+  const [step, setStep] = useState('');          // '' | 'setup' | 'off' | 'codes' (asks for the password first)
+  const [password, setPassword] = useState('');
+  const [codes, setCodes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const reset = () => { setStep(''); setPassword(''); setError(''); setCodes(null); };
+
+  const withPassword = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError('');
+    try {
+      if (step === 'off') { await accounts.totpOff(password); reset(); toast({ title: 'Authenticator app removed' }); }
+      else { setCodes(await accounts.totpRecovery(password)); setPassword(''); }
+    } catch (err) { setError(err.message); }
+    setBusy(false);
+  };
+
+  let body;
+  if (codes) body = <RecoveryCodes codes={codes} username={user.username} onDone={reset} />;
+  else if (step === 'setup' || (!user.authenticator && step === '')) {
+    body = <AuthenticatorSetup username={user.username} autoStart={step === 'setup'}
+      onDone={() => { reset(); toast({ title: 'Authenticator app set up' }); }} />;
+  } else if (step === 'off' || step === 'codes') {
+    body = (
+      <form onSubmit={withPassword} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="totpPw">Your password</Label>
+          <Input id="totpPw" type="password" autoComplete="current-password" autoFocus value={password} onChange={e => setPassword(e.target.value)} />
         </div>
-      ) : (
-        <RecoveryEmail current={user.recoveryEmail} onDone={() => { setChanging(false); toast({ title: 'Email saved' }); }} />
-      )}
+        {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" variant={step === 'off' ? 'destructive' : 'default'} disabled={busy || !password}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{step === 'off' ? 'Remove it' : 'Make new codes'}
+          </Button>
+          <Button type="button" variant="ghost" onClick={reset}>Cancel</Button>
+        </div>
+      </form>
+    );
+  } else {
+    body = (
+      <div className="space-y-3">
+        <p className="text-sm text-foreground">On. {user.recoveryLeft} recovery code{user.recoveryLeft === 1 ? '' : 's'} left.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setStep('setup')}>New phone</Button>
+          <Button variant="outline" size="sm" onClick={() => setStep('codes')}>New recovery codes</Button>
+          <Button variant="outline" size="sm" onClick={() => setStep('off')}>Remove</Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <Section icon={ShieldCheck} title="Authenticator app" description="Resets your password if you forget it.">
+      {body}
     </Section>
   );
 }
@@ -1015,7 +1056,7 @@ function SettingsLayout({ user, menu, children }) {
   const page = all.some(i => i.id === asked) || asked === 'account' ? asked : (wide ? 'account' : '');
   const open = (id) => { setParams(id ? { s: id } : {}, { replace: wide }); setQuery(''); window.scrollTo(0, 0); };
   const q = query.trim().toLowerCase();
-  const found = q ? [{ id: 'account', title: 'Account', icon: User, words: 'name password email reset forgot sign out delete profile' }, ...all]
+  const found = q ? [{ id: 'account', title: 'Account', icon: User, words: 'name password authenticator app code reset forgot recovery two factor sign out delete profile' }, ...all]
     .filter(i => `${i.title} ${i.words || ''}`.toLowerCase().includes(q)) : null;
   const current = page === 'account' ? 'Account' : all.find(i => i.id === page)?.title || '';
 

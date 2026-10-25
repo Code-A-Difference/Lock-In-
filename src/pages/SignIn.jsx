@@ -11,7 +11,7 @@ import { isNativeApp } from '@/lib/native';
 // The Code A Difference home page. LOCK IN! is served from /lockin/ inside it.
 const SITE_URL = import.meta.env.VITE_SITE_URL || '/';
 
-/** Sign in, create an account, or reset a forgotten password with a code sent by email. */
+/** Sign in, create an account, or reset a forgotten password with a code from the account's authenticator app. */
 export default function SignIn() {
   const [mode, setMode] = useState('signin');          // 'signin' | 'signup' | 'forgot'
   const [legacy, setLegacy] = useState([]);            // accounts from when LOCK IN! lived in the browser
@@ -23,9 +23,7 @@ export default function SignIn() {
   const [rememberDevice, setRememberDevice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [note, setNote] = useState('');
   const [code, setCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
   const pwRef = useRef(null);
 
   // Work saved in this browser before accounts moved to the server: sign up with the same name and password to bring it across.
@@ -36,7 +34,7 @@ export default function SignIn() {
     });
   }, []);
 
-  const switchMode = (m) => { setMode(m); setError(''); setNote(''); setPassword(''); setConfirm(''); setCode(''); setCodeSent(false); };
+  const switchMode = (m) => { setMode(m); setError(''); setPassword(''); setConfirm(''); setCode(''); };
 
   const pick = (a) => {
     setUsername(a.username); setDisplayName(a.displayName || ''); setMode('signup'); setError('');
@@ -46,7 +44,7 @@ export default function SignIn() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (mode === 'signup' || (mode === 'forgot' && codeSent)) {
+    if (mode === 'signup' || mode === 'forgot') {
       if (password.length < MIN_PASSWORD) return setError(`Use at least ${MIN_PASSWORD} characters.`);
       if (password !== confirm) return setError('The two passwords don’t match.');
     }
@@ -54,8 +52,7 @@ export default function SignIn() {
     try {
       if (mode === 'signup') await accounts.signUp({ username, displayName, password, rememberDevice });
       else if (mode === 'signin') await accounts.signIn({ username, password, rememberDevice });
-      else if (!codeSent) { setNote(await accounts.forgotStart(username)); setCodeSent(true); setBusy(false); return; }
-      else await accounts.forgotFinish({ who: username, code, password, rememberDevice });
+      else await accounts.forgotReset({ username, code, password, rememberDevice });
       // AuthContext hears the change and swaps this page for the app.
     } catch (err) {
       setError(err.message || 'Something went wrong.');
@@ -65,9 +62,9 @@ export default function SignIn() {
 
   const isSignup = mode === 'signup';
   const isForgot = mode === 'forgot';
-  const newPassword = isSignup || (isForgot && codeSent);
+  const newPassword = isSignup || isForgot;
   const title = isSignup ? 'Make your account' : isForgot ? 'Reset your password' : 'Welcome back';
-  const button = isSignup ? 'Create account' : isForgot ? (codeSent ? 'Set new password' : 'Email me a code') : 'Sign in';
+  const button = isSignup ? 'Create account' : isForgot ? 'Set new password' : 'Sign in';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 lg:grid lg:grid-cols-[1.05fr_1fr]">
@@ -119,7 +116,7 @@ export default function SignIn() {
           )}
 
           <h2 className="text-2xl font-bold tracking-tight text-foreground">{title}</h2>
-          {isForgot && <p className="mt-1 text-sm text-muted-foreground">{codeSent ? note : 'We’ll email a code to the address on your account.'}</p>}
+          {isForgot && <p className="mt-1 text-sm text-muted-foreground">Use the code from the authenticator app you set up for LOCK IN!.</p>}
 
           {legacy.length > 0 && !isForgot && (
             <div className="mt-6 rounded-xl border border-primary/40 bg-accent p-4 text-sm text-primary">
@@ -148,40 +145,40 @@ export default function SignIn() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="username">{isForgot ? 'Username or email' : 'Username'}</Label>
-              <Input id="username" autoComplete={isForgot ? 'email' : 'username'} autoCapitalize="none" spellCheck={false}
-                     placeholder={isSignup ? 'letters, numbers, . _ -' : ''} required disabled={isForgot && codeSent}
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" autoComplete="username" autoCapitalize="none" spellCheck={false}
+                     placeholder={isSignup ? 'letters, numbers, . _ -' : ''} required
                      value={username} onChange={e => setUsername(e.target.value)} />
             </div>
 
-            {isForgot && codeSent && (
+            {isForgot && (
               <div className="space-y-1.5">
-                <Label htmlFor="code">Code from the email</Label>
-                <Input id="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} className="tracking-[0.3em]"
-                       value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} />
+                <Label htmlFor="code">Code from your authenticator app</Label>
+                <Input id="code" autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false} maxLength={11}
+                       inputMode={/[a-z]/i.test(code) ? 'text' : 'numeric'} placeholder="123456"
+                       className="tracking-[0.2em]" value={code} onChange={e => setCode(e.target.value.replace(/[^0-9a-z-]/gi, ''))} />
+                <p className="text-xs text-muted-foreground">Lost your phone? Type one of your recovery codes instead.</p>
               </div>
             )}
 
-            {(!isForgot || codeSent) && (
-              <div className="space-y-1.5">
-                <div className="flex items-baseline justify-between">
-                  <Label htmlFor="password">{isForgot ? 'New password' : 'Password'}</Label>
-                  {mode === 'signin' && (
-                    <button type="button" onClick={() => switchMode('forgot')} className="text-sm font-medium text-primary hover:underline">Forgot password?</button>
-                  )}
-                </div>
-                <div className="relative">
-                  <Input id="password" ref={pwRef} required type={showPw ? 'text' : 'password'}
-                         autoComplete={newPassword ? 'new-password' : 'current-password'}
-                         placeholder={newPassword ? `At least ${MIN_PASSWORD} characters` : ''}
-                         className="pr-10" value={password} onChange={e => setPassword(e.target.value)} />
-                  <button type="button" onClick={() => setShowPw(v => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}
-                          className="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 hover:text-slate-600">
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="password">{isForgot ? 'New password' : 'Password'}</Label>
+                {mode === 'signin' && (
+                  <button type="button" onClick={() => switchMode('forgot')} className="text-sm font-medium text-primary hover:underline">Forgot password?</button>
+                )}
               </div>
-            )}
+              <div className="relative">
+                <Input id="password" ref={pwRef} required type={showPw ? 'text' : 'password'}
+                       autoComplete={newPassword ? 'new-password' : 'current-password'}
+                       placeholder={newPassword ? `At least ${MIN_PASSWORD} characters` : ''}
+                       className="pr-10" value={password} onChange={e => setPassword(e.target.value)} />
+                <button type="button" onClick={() => setShowPw(v => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}
+                        className="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 hover:text-slate-600">
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
 
             {newPassword && (
               <div className="space-y-1.5">
@@ -191,12 +188,10 @@ export default function SignIn() {
               </div>
             )}
 
-            {(!isForgot || codeSent) && (
-              <label className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                <Checkbox checked={rememberDevice} onCheckedChange={v => setRememberDevice(!!v)} />
-                <span>Keep me signed in (not on a shared computer)</span>
-              </label>
-            )}
+            <label className="flex items-center gap-2.5 text-sm text-muted-foreground">
+              <Checkbox checked={rememberDevice} onCheckedChange={v => setRememberDevice(!!v)} />
+              <span>Keep me signed in (not on a shared computer)</span>
+            </label>
 
             {error && (
               <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">{error}</p>
@@ -207,7 +202,6 @@ export default function SignIn() {
             {isForgot && (
               <div className="flex justify-between text-sm">
                 <button type="button" onClick={() => switchMode('signin')} className="font-medium text-primary hover:underline">Back to sign in</button>
-                {codeSent && <button type="button" onClick={() => { setCodeSent(false); setCode(''); setError(''); }} className="text-muted-foreground hover:underline">Send another code</button>}
               </div>
             )}
           </form>
