@@ -4,12 +4,79 @@
  */
 
 /**
+ * Pair up the dollar signs in a reply so the maths renders and the prose doesn't.
+ * Models get these wrong in a few predictable ways: a stray $ inside a $$…$$
+ * formula, $$$ where $$ was meant, or a $ with nothing to pair with, which turns
+ * everything after it into maths. A stray $ inside a formula is dropped, $$$ is
+ * read as $$, and a $ that can't pair is escaped so it shows as a dollar sign.
+ * Code (fenced or in backticks) and \$ are left alone, and a $$ block on lines of
+ * its own runs until its closing $$.
+ */
+export function repairDollars(text) {
+  let inFence = false;
+  let inBlock = false;
+  return String(text || '').split('\n').map((line) => {
+    if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return line; }
+    if (inFence) return line;
+    const bare = line.trim();
+    if (inBlock) {
+      if (bare.includes('$$')) inBlock = false;
+      return line;
+    }
+    if (bare === '$$') { inBlock = true; return line; }
+    return repairDollarLine(line);
+  }).join('\n');
+}
+
+/** One line: pair its dollar runs left to right, then write the line back with the repairs. */
+function repairDollarLine(line) {
+  const runs = [];
+  let inCode = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '`') inCode = !inCode;
+    else if (inCode) continue;
+    else if (c === '\\') i++;                        // \$ and \\ are not delimiters
+    else if (c === '$') {
+      let j = i;
+      while (line[j] === '$') j++;
+      runs.push({ start: i, end: j, display: j - i > 1, action: '' });
+      i = j - 1;
+    }
+  }
+  let open = null;
+  for (const run of runs) {
+    if (!open) open = run;
+    else if (open.display) {
+      if (run.display) { open.action = run.action = 'keep'; open = null; }
+      else run.action = 'drop';                      // a lone $ inside a formula
+    } else if (run.display) {
+      open.action = 'literal';                       // the lone $ never closed
+      open = run;
+    } else {
+      open.action = run.action = 'keep';
+      open = null;
+    }
+  }
+  if (open) open.action = 'literal';
+  let out = '';
+  let last = 0;
+  for (const run of runs) {
+    out += line.slice(last, run.start);
+    if (run.action === 'literal') out += '\\$'.repeat(run.end - run.start);
+    else if (run.action === 'keep') out += run.display ? '$$' : '$';
+    last = run.end;
+  }
+  return out + line.slice(last);
+}
+
+/**
  * Models write maths several ways. KaTeX (through remark-math) understands
  * $…$ and $$…$$, so the other delimiters are rewritten to those, and a bare
  * \ce{…} or \frac{…}{…} outside any delimiters gets wrapped.
  */
 export function normaliseMath(text) {
-  let t = String(text || '');
+  let t = repairDollars(text);
   t = t.replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => `\n$$${m.trim()}$$\n`);
   t = t.replace(/\\\(([\s\S]+?)\\\)/g, (_, m) => `$${m.trim()}$`);
   // a lone \ce{...} or \frac... that isn't already inside $…$
@@ -146,8 +213,9 @@ export function chemToSpeech(src) {
 /** Turn every $…$ / $$…$$ / \(…\) / \[…\] in a reply into speech. */
 export function speakMath(text) {
   return normaliseMath(text)
-    .replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => ` ${latexToSpeech(m)}. `)
-    .replace(/\$([^$\n]+)\$/g, (_, m) => ` ${latexToSpeech(m)} `);
+    .replace(/(?<!\\)\$\$([\s\S]+?)(?<!\\)\$\$/g, (_, m) => ` ${latexToSpeech(m)}. `)
+    .replace(/(?<!\\)\$([^$\n]+)\$/g, (_, m) => ` ${latexToSpeech(m)} `)
+    .replace(/\\\$/g, '$');                       // dollars that didn't pair are spoken as dollars
 }
 
 /** Unicode symbols typed with the symbol pad, read aloud. */
