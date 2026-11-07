@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { readComfort, saveComfort, SIZES } from '@/lib/comfort';
-import { Code2, LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic, Bell, CalendarDays, Copy, ChevronRight, ChevronLeft, Search } from "lucide-react";
+import { Code2, LogOut, User, Palette, Trash2, Loader2, KeyRound, Timer, AudioLines, Play, Square, Smartphone, Download, Monitor, Check, ShieldCheck, PictureInPicture2, MonitorSpeaker, Keyboard, PhoneCall, Mic, Bell, CalendarDays, Copy, ChevronRight, ChevronLeft, Search, NotebookPen } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from '@/lib/AuthContext';
 import { useFocus } from '@/lib/FocusContext';
@@ -34,6 +34,8 @@ import PhoneLinkSettings from '@/components/lockin/PhoneLinkSettings';
 import AuthenticatorSetup, { RecoveryCodes } from '@/components/lockin/AuthenticatorSetup';
 import { DeveloperSection, useAiDev } from '@/components/lockin/AiDevPanel';
 import { getDeviceId } from '@/lib/crossLock';
+import { wantAudio, setWantAudio, audioIndex, dropAudio } from '@/lib/pendingAudio';
+import MicCheck from '@/components/lockin/MicCheck';
 
 const VOICE_DEFAULTS = { engine: 'auto', aiVoice: 'Aoede', browserVoice: '', rate: 1, readAloud: false };
 const SAMPLE = "Hey! I'm your study buddy. Twenty-five minutes on your essay outline, let's lock in.";
@@ -278,6 +280,47 @@ function Row({ id, label, hint, children }) {
   );
 }
 
+/** How a recording is kept, and which microphone hears it. Both are about this device, so they are saved on it. */
+function LecturesSection() {
+  const [keep, setKeep] = useState(wantAudio);
+  const [kept, setKept] = useState(null);          // { lectures, bytes } of the audio stored here
+  const [busy, setBusy] = useState(false);
+  const refresh = () => audioIndex().then(all => setKept({ lectures: all.length, bytes: all.reduce((n, x) => n + (x.bytes || 0), 0) }));
+  useEffect(() => { refresh(); }, []);
+  const toggle = (on) => { setKeep(on); setWantAudio(on); };
+  const clear = async () => {
+    setBusy(true);
+    const all = await audioIndex();
+    await Promise.all(all.map(x => dropAudio(x.lectureId)));
+    setBusy(false);
+    refresh();
+    toast({ title: 'Lecture audio deleted from this device', description: 'Transcripts and notes are kept.' });
+  };
+  const mb = kept ? Math.max(kept.lectures ? 1 : 0, Math.round(kept.bytes / 1048576)) : 0;
+  return (
+    <Section icon={NotebookPen} title="Lectures" description="How a recording is kept, and which microphone hears it. Saved on this device only.">
+      <Row id="keepAudio" label="Keep lecture audio on this device"
+        hint="So a lecture can be played back, saved as a file, and transcribed again if the AI service was busy. It never leaves this device except to be transcribed. Off, only the words are kept.">
+        <Switch id="keepAudio" checked={keep} onCheckedChange={toggle} />
+      </Row>
+      <div>
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {kept && (kept.lectures ? `${mb} MB of audio from ${kept.lectures} lecture${kept.lectures === 1 ? '' : 's'} is kept on this device.` : 'No lecture audio is kept on this device.')}
+        </p>
+        {kept?.lectures > 0 && (
+          <Button variant="outline" className="mt-2" onClick={clear} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Delete all kept audio
+          </Button>
+        )}
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-medium text-foreground">Microphone</p>
+        <MicCheck />
+      </div>
+    </Section>
+  );
+}
+
 /**
  * Settings. Everything here is saved to the student's account on the
  * server, so it follows them to any computer they sign in on.
@@ -394,7 +437,8 @@ export default function Settings() {
      { id: 'reminders', title: 'Reminders', icon: Bell, value: user.reminders?.on ? 'On' : 'Off', words: 'notifications deadlines due tests evening morning' },
      { id: 'calendar', title: 'Calendar', icon: CalendarDays, words: 'google apple outlook ics subscribe sync' }],
     [{ id: 'companion', title: 'Hey Companion', icon: Mic, value: handsFree === 'on' ? 'On' : 'Off', words: 'wake word hands-free train voice listen' },
-     { id: 'voice', title: 'Voice', icon: AudioLines, value: engineLabel, words: 'speech read aloud speed ai engine' }],
+     { id: 'voice', title: 'Voice', icon: AudioLines, value: engineLabel, words: 'speech read aloud speed ai engine' },
+     { id: 'lectures', title: 'Lectures', icon: NotebookPen, value: wantAudio() ? 'Audio kept' : 'Words only', words: 'lecture recording audio keep delete microphone mic storage space transcribe notes' }],
     [{ id: 'display', title: 'Display and reading', icon: Palette, value: user.theme !== 'light' ? 'Dark' : 'Light', words: 'dark mode light theme text size font dyslexia contrast motion spacing comfort' }],
     [device, !isNativeApp && { id: 'phone', title: 'Get the phone app', icon: Smartphone, words: 'android iphone apk download' }].filter(Boolean),
     // only for someone signed in to the site's /admin/ in this browser (the server checks)
@@ -563,6 +607,8 @@ export default function Settings() {
           </div>
         </Section>
         </Page>
+
+        <Page id="lectures"><LecturesSection /></Page>
 
         <Page id="account">
         <Section icon={KeyRound} title="Password" description="Changing it signs you out on other devices.">

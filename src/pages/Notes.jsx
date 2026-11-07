@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Mic, Pause, Play, Square, ChevronLeft, ChevronDown, Loader2, Sparkles, Trash2, Copy, Share2, Brain, Plus, Check,
-  AlertTriangle, FileText, RefreshCw, Folder, Layers, Presentation, X, MoreHorizontal, NotebookPen, Download,
+  AlertTriangle, FileText, RefreshCw, Folder, Layers, Presentation, X, MoreHorizontal, NotebookPen, Download, AudioLines,
 } from 'lucide-react';
 import { lectureMarkdown, lectureHtml, bundle, wordDocument, fileName, download, copyFormatted } from '@/lib/noteExport';
 import { MathLine } from '@/components/lockin/RichText';
 import NoteGraph from '@/components/lockin/NoteGraph';
 import RichText from '@/components/lockin/RichText';
 import Sheet from '@/components/lockin/Sheet';
+import MicCheck from '@/components/lockin/MicCheck';
 import { SourcePicker, preferredSource } from '@/components/lockin/DesktopShell';
 import { isDesktop } from '@/lib/desktop';
 import { NOTE_TEMPLATES } from '@/lib/classChat';
@@ -110,7 +111,7 @@ function LectureList() {
           <span className="flex-1 text-base font-bold">Recording · {clock(lec.active.elapsed)}</span>
         </button>
       ) : (
-        <button type="button" onClick={() => (classes.length || isDesktop ? setPicking(true) : record(null))} disabled={!lec.canRecord}
+        <button type="button" onClick={() => setPicking(true)} disabled={!lec.canRecord}
           className="flex w-full items-center gap-3 rounded-2xl bg-primary p-3.5 text-left text-primary-foreground shadow-sm active:scale-[0.99] disabled:opacity-50">
           <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-white/15"><Mic className="h-5 w-5" aria-hidden="true" /></span>
           <span className="flex-1 text-base font-bold">{lec.canRecord ? 'Record a lecture' : 'This browser can’t record'}</span>
@@ -171,8 +172,11 @@ function LectureList() {
       </section>
 
       {picking && (
-        <Sheet title={isDesktop ? 'What are you recording?' : 'Which class?'} onClose={() => setPicking(false)}>
-          <SourcePicker value={source} onChange={setSource} className="mb-3" />
+        <Sheet title={isDesktop ? 'What are you recording?' : classes.length ? 'Which class?' : 'Record a lecture'} onClose={() => setPicking(false)}>
+          <div className="space-y-3 px-3 pb-2">
+            {isDesktop && <SourcePicker value={source} onChange={setSource} />}
+            {(!isDesktop || source !== 'system') && <MicCheck />}
+          </div>
           <ul className="space-y-1">
             {classes.map(c => (
               <li key={c.id}>
@@ -182,8 +186,8 @@ function LectureList() {
               </li>
             ))}
             <li>
-              <button type="button" onClick={() => record(null)} className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base text-muted-foreground hover:bg-secondary">
-                <span className="h-3 w-3 flex-none rounded-full border" aria-hidden="true" />No class
+              <button type="button" onClick={() => record(null)} className={cn('flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base hover:bg-secondary', classes.length ? 'text-muted-foreground' : 'font-medium text-foreground')}>
+                <span className="h-3 w-3 flex-none rounded-full border" aria-hidden="true" />{classes.length ? 'No class' : 'Start recording'}
               </button>
             </li>
           </ul>
@@ -251,7 +255,6 @@ function LectureView({ id }) {
 
   const writing = lec.writing[id];
   const transcript = transcriptText(lecture.segments);
-  const failed = (lecture.segments || []).filter(s => s.error).length;
   const hasNotes = !!lecture.notes;
   const canExport = hasNotes || !!String(lecture.my_notes || '').trim();
   const material = lecture.source === 'material';
@@ -265,7 +268,7 @@ function LectureView({ id }) {
     }
   };
 
-  const transcriptPanel = <TranscriptView lecture={lecture} live={live} failed={failed} lec={lec} />;
+  const transcriptPanel = <TranscriptView lecture={lecture} live={live} lec={lec} />;
 
   return (
     <div className={cn('mx-auto px-4 pt-3 sm:px-6 lg:pt-6', showTranscript ? 'max-w-6xl' : 'max-w-3xl')}>
@@ -307,7 +310,7 @@ function LectureView({ id }) {
           <TitleEditor lecture={lecture} onSave={(title) => actions.updateLecture(id, { title, auto_title: false })} />
           <ClassPicker lecture={lecture} classes={classes} onPick={(c) => actions.updateLecture(id, { class_name: c?.name || '', class_id: c?.id || '' })} />
 
-          {live && <RecorderBar live={live} lec={lec} lecture={lecture} />}
+          {live && <RecorderBar live={live} lec={lec} />}
 
           {!live && (lecture.status === 'transcribing' || writing) && (
             <div className="mt-4 flex items-center gap-3 rounded-2xl border bg-card p-3.5 text-sm text-foreground" role="status">
@@ -315,11 +318,13 @@ function LectureView({ id }) {
               {writing || 'Finishing the transcript…'}
             </div>
           )}
+          {!live && <TranscribeStatus lecture={lecture} lec={lec} />}
           {!live && !writing && lecture.notes_error && !hasNotes && (
             <p className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-200" role="alert">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />{lecture.notes_error}
             </p>
           )}
+          {!live && <RecordingCard lecture={lecture} lec={lec} />}
 
           {hasNotes && !live && (
             <div className="mt-4 inline-flex rounded-lg border bg-card p-0.5" role="group" aria-label="Which notes">
@@ -369,12 +374,12 @@ function LectureView({ id }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this lecture?</AlertDialogTitle>
-            <AlertDialogDescription>Its transcript and notes go too. You can undo for a few seconds.</AlertDialogDescription>
+            <AlertDialogDescription>Its transcript and notes go too, and so does the recording kept on this device. Undo, for a few seconds, brings back the transcript and notes but not the recording.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep it</AlertDialogCancel>
             <AlertDialogAction className="bg-red-600 text-white hover:bg-red-700"
-              onClick={() => { actions.deleteLecture(lecture); navigate('/Notes'); }}>Delete</AlertDialogAction>
+              onClick={() => { actions.deleteLecture(lecture); lec.forget(lecture.id); navigate('/Notes'); }}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -432,10 +437,37 @@ function ClassPicker({ lecture, classes, onPick }) {
 
 /* ---------------------------------------------------------- live recording */
 
-function RecorderBar({ live, lec, lecture }) {
+/** What the microphone is doing, when it isn't simply hearing the room: [tone, words], or null. */
+function hearingNote(health = {}) {
+  if (health.mic === 'ended') return ['bad', 'The microphone disconnected. LOCK IN! is trying to get it back.'];
+  if (health.mic === 'muted') return ['bad', 'The microphone is muted. Check its switch, or the sound settings.'];
+  if (health.audio === 'suspended') return ['bad', 'The browser paused the recording. Keep this tab open and in front.'];
+  if (health.hearing === 'silent') return ['bad', 'I can’t hear anything. Is the microphone muted, or too far away?'];
+  if (health.hearing === 'quiet') return ['warn', 'It’s very quiet. I’m still listening, and turning it up, but moving the device closer helps.'];
+  return null;
+}
+
+/** The clock, ticking once a second while `on`, for a "trying again in 12 s" that counts down. */
+function useNow(on) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!on) return undefined;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [on]);
+  return now;
+}
+
+function RecorderBar({ live, lec }) {
   const bars = useLevelHistory(live.level, live.state === 'recording');
   const finishing = live.state === 'finishing';
-  const lastError = [...(lecture.segments || [])].reverse().find(x => x.error)?.error;
+  const info = lec.queueInfo[live.id];
+  const now = useNow(!!(info && info.waiting && info.nextAt));
+  const hear = hearingNote(live.health);
+  const wait = info?.waiting && info.nextAt > now
+    ? `The transcription service is busy. Your audio is safe on this device. Trying again in ${Math.ceil((info.nextAt - now) / 1000)} s.`
+    : info?.failed ? `${info.failed} part${info.failed === 1 ? '' : 's'} couldn’t be transcribed yet. The audio is kept, and LOCK IN! tries again every few minutes.` : '';
   return (
     <section className="sticky top-14 z-10 mt-4 rounded-2xl border bg-card/95 p-2.5 backdrop-blur lg:top-2" aria-label="Recording">
       <div className="flex items-center gap-3">
@@ -454,10 +486,12 @@ function RecorderBar({ live, lec, lecture }) {
           {finishing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Square className="h-5 w-5 fill-current" />}
         </button>
       </div>
-      {live.failed > 0 && (
-        <p className="mt-2 px-1 text-xs text-amber-700 dark:text-amber-300" role="status">
-          {live.failed} part{live.failed === 1 ? '' : 's'} not transcribed yet{lastError ? ` (${lastError})` : ''}. Retrying.
-        </p>
+      {(hear || wait || live.warning) && (
+        <div className="mt-2 space-y-1 px-1 text-xs" role="status">
+          {hear && <p className={hear[0] === 'bad' ? 'font-medium text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'}>{hear[1]}</p>}
+          {live.warning && <p className="text-amber-700 dark:text-amber-300">{live.warning}</p>}
+          {wait && <p className="text-amber-700 dark:text-amber-300">{wait}</p>}
+        </div>
       )}
     </section>
   );
@@ -499,43 +533,128 @@ function MyNotes({ lecture, live, onSave }) {
   );
 }
 
-function TranscriptView({ lecture, live, failed, lec }) {
+function TranscriptView({ lecture, live, lec }) {
   const end = useRef(null);
   const segs = (lecture.segments || []).filter(s => s.text || s.error);
-  const [pending, setPending] = useState(0);
-  const retrying = lec.retrying[lecture.id];
+  const info = lec.queueInfo[lecture.id];
+  const busy = (info?.waiting || 0) + (info?.active || 0) > 0;
   useEffect(() => { if (live) end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [segs.length, live]);
-  useEffect(() => { let on = true; lec.pendingCount(lecture.id).then(n => on && setPending(n)); return () => { on = false; }; },
-    [lecture.id, failed, retrying]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!segs.length) {
+    return <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+      {live ? (busy ? 'Transcribing…' : 'Lines appear here as you record') : busy ? 'Transcribing… the first lines appear here.' : 'No transcript'}
+    </p>;
+  }
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <ol className="space-y-3">
+        {segs.map(s => (
+          <li key={s.start} className="flex gap-3">
+            <span className="w-10 flex-none pt-0.5 text-xs tabular-nums text-muted-foreground">{clock(s.start)}</span>
+            <p className={cn('text-sm leading-relaxed', s.error ? 'italic text-muted-foreground' : 'text-foreground')}>{s.error ? 'Waiting to be transcribed' : s.text}</p>
+          </li>
+        ))}
+      </ol>
+      {busy && <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />More is on its way…</p>}
+      <div ref={end} />
+    </div>
+  );
+}
+
+/**
+ * Parts of a lecture that haven't been transcribed yet, whether they're waiting for a busy service,
+ * were given up on for now, or were left when the app was closed. The audio is kept on this device, so
+ * nothing is lost, and LOCK IN! keeps trying by itself; this just says so, and offers to try right now.
+ */
+function TranscribeStatus({ lecture, lec }) {
+  const info = lec.queueInfo[lecture.id];
+  const retrying = lec.retrying[lecture.id];
+  const left = (info?.waiting || 0) + (info?.active || 0);
+  const failed = info?.failed || 0;
+  const now = useNow(!!(info && info.waiting && info.nextAt));
+  const [missing, setMissing] = useState(0);
+  useEffect(() => { let on = true; lec.pendingCount(lecture.id).then(n => on && setMissing(n)); return () => { on = false; }; },
+    [lecture.id, left, failed, lecture.status, retrying]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (lecture.status === 'recording') return null;
+  const total = Math.max(missing, left + failed);
+  if (!total && !retrying) return null;
   const retry = async () => {
     const r = await lec.retryFailed(lecture.id);
     if (r.error) toast({ title: r.done ? `Got ${r.done} more, then it stopped` : 'Still can’t transcribe', description: r.error, variant: 'destructive' });
     else if (r.done) toast({ title: `Transcribed ${r.done} more part${r.done === 1 ? '' : 's'}` });
   };
-  if (!segs.length) {
-    return <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-      {live ? (live.queued ? 'Transcribing…' : 'Lines appear here as you record') : 'No transcript'}
-    </p>;
-  }
+  const rewrite = lecture.notes_partial || !lecture.notes;
+  const secs = info?.nextAt > now ? Math.ceil((info.nextAt - now) / 1000) : 0;
   return (
-    <div className="rounded-2xl border bg-card p-4">
-      {failed > 0 && !live && pending > 0 && (
-        <button type="button" onClick={retry} disabled={!!retrying}
-          className="mb-3 inline-flex h-10 items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 text-sm font-semibold text-amber-900 disabled:opacity-60 dark:text-amber-200">
-          <RefreshCw className={cn('h-4 w-4', retrying && 'animate-spin')} />
-          {retrying ? `Transcribing ${retrying.done} of ${retrying.total}…` : `Retry ${pending} missing part${pending === 1 ? '' : 's'}`}
-        </button>
-      )}
-      <ol className="space-y-3">
-        {segs.map(s => (
-          <li key={s.start} className="flex gap-3">
-            <span className="w-10 flex-none pt-0.5 text-xs tabular-nums text-muted-foreground">{clock(s.start)}</span>
-            <p className={cn('text-sm leading-relaxed', s.error ? 'italic text-muted-foreground' : 'text-foreground')}>{s.error ? 'Not transcribed yet' : s.text}</p>
-          </li>
-        ))}
-      </ol>
-      <div ref={end} />
+    <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-200" role="status">
+      {left || retrying
+        ? <Loader2 className="mt-0.5 h-4 w-4 flex-none animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        : <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />}
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">
+          {left ? `Transcribing the rest: ${left} part${left === 1 ? '' : 's'} to go.`
+            : `${total} part${total === 1 ? '' : 's'} of this recording ${total === 1 ? 'hasn’t' : 'haven’t'} been transcribed yet.`}
+        </p>
+        <p className="mt-0.5 text-xs opacity-90">
+          {left
+            ? `${secs ? `The transcription service is busy, so LOCK IN! is waiting a moment (${secs} s). ` : ''}You can leave this page; it keeps going.`
+            : 'The audio is kept on this device, and LOCK IN! tries again every few minutes.'}
+          {rewrite ? ' The notes are written when it’s done.' : ''}
+        </p>
+      </div>
+      <button type="button" onClick={retry} disabled={!!retrying}
+        className="inline-flex h-10 flex-none items-center gap-2 rounded-xl border border-amber-500/40 bg-background/60 px-3 text-sm font-semibold disabled:opacity-60">
+        <RefreshCw className={cn('h-4 w-4', retrying && 'animate-spin motion-reduce:animate-none')} aria-hidden="true" />
+        {retrying ? `${retrying.done} of ${retrying.total}` : left ? 'Try now' : 'Transcribe now'}
+      </button>
     </div>
+  );
+}
+
+/** The recording itself, kept on this device: play it, save it as a file, or delete it (the words stay). */
+function RecordingCard({ lecture, lec }) {
+  const [info, setInfo] = useState(null);
+  const [src, setSrc] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { let on = true; lec.audioInfo(lecture.id).then(i => on && setInfo(i)); return () => { on = false; }; },
+    [lecture.id, lecture.status, lecture.duration]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
+  if (!info?.pieces) return null;
+  const mb = Math.max(1, Math.round(info.bytes / 1048576));
+  const open = async () => {
+    setBusy(true);
+    const blob = await lec.audioFile(lecture.id);
+    setBusy(false);
+    return blob;
+  };
+  const play = async () => { const blob = await open(); if (blob) setSrc(URL.createObjectURL(blob)); };
+  const save = async () => { const blob = await open(); if (blob) download(fileName(lecture.title || 'Lecture', 'wav'), blob, 'audio/wav'); };
+  const remove = async () => {
+    setSrc('');
+    await lec.deleteAudio(lecture.id);
+    setInfo({ pieces: 0, seconds: 0, bytes: 0 });
+    toast({ title: 'Recording deleted from this device', description: 'The transcript and notes are kept.' });
+  };
+  return (
+    <section className="mt-4 rounded-2xl border bg-card p-3.5" aria-label="Recording">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <AudioLines className="h-5 w-5 flex-none text-muted-foreground" aria-hidden="true" />
+        <div className="min-w-0 flex-[1_1_11rem]">
+          <p className="text-sm font-semibold text-foreground">Recording · {clock(info.seconds)}</p>
+          <p className="text-xs text-muted-foreground">{mb} MB, kept on this device only</p>
+        </div>
+        {!src && (
+          <button type="button" onClick={play} disabled={busy}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-secondary px-3 text-sm font-medium text-foreground hover:bg-secondary/80 disabled:opacity-60">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}Play
+          </button>
+        )}
+        <button type="button" onClick={save} disabled={busy} aria-label="Download the recording"
+          className="grid h-10 w-10 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"><Download className="h-4 w-4" /></button>
+        <button type="button" onClick={remove} aria-label="Delete the recording from this device"
+          className="grid h-10 w-10 place-items-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
+      </div>
+      {src && <audio className="mt-3 w-full" controls autoPlay src={src} aria-label="Lecture recording" />}
+    </section>
   );
 }
 
