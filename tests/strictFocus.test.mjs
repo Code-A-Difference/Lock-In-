@@ -39,13 +39,14 @@ test('a site includes its own pages but not look-alikes', () => {
 test('settings from the server are cleaned before use', () => {
   const p = normalizeStrictPrefs({
     enabled: 1, exitDelaySec: 3, allowedSites: ['https://Desmos.com/calculator', 'desmos.com', 'github.io', { host: 'khanacademy.org' }, 42, null],
-    presets: ['gdocs', 'nonsense', 'gdocs'], allowMusic: 'yes', appMode: 'weird', appList: ['Discord.exe', 'Discord', '<script>'],
+    presets: ['gdocs', 'nonsense', 'gdocs'], allowMusic: 'yes', appMode: 'weird', appList: ['Discord.exe', 'Discord', '<script>'],   // allowMusic: an old saved setting, now ignored
   });
   assert.equal(p.enabled, true);
   assert.equal(p.exitDelaySec, EXIT_DELAY_MIN);
   assert.deepEqual(p.allowedSites, ['desmos.com', 'khanacademy.org']);
   assert.deepEqual(p.presets, ['gdocs']);
-  assert.equal(p.allowMusic, true);
+  assert.equal('allowMusic' in p, false);                       // there is no music in LOCK IN!, so nothing is kept for it
+  assert.equal(compileAllowlist(p).music, false);               // older desktop apps still read this field: nothing extra is opened up
   assert.equal(p.appMode, 'blocklist');
   assert.deepEqual(p.appList, ['discord']);
   assert.equal(normalizeStrictPrefs({ exitDelaySec: 9999 }).exitDelaySec, EXIT_DELAY_MAX);

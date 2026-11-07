@@ -62,7 +62,7 @@ export default function CrossLock() {
     const sn = focus.strictSnapshot;
     save(newSession({
       id: ownId, deviceId, kind, startedAt: focus.startedAt, endsAt: focus.endsAt,
-      plannedMin: Math.round(focus.total / 60), pages: sn.pages, support: sn.support, music: sn.music, delaySec: sn.exitDelaySec,
+      plannedMin: Math.round(focus.total / 60), pages: sn.pages, support: sn.support, music: false, delaySec: sn.exitDelaySec,
       blockApps: sn.blockApps, appMode: sn.appMode, appList: sn.appList, appAllow: sn.appAllow,
     }));
   }, [enabled, ownId, focus.status, focus.strictSnapshot, focus.startedAt, focus.endsAt, focus.total, deviceId, kind, session?.id]);
@@ -100,7 +100,7 @@ export default function CrossLock() {
     if (locked && session) {
       mainLinked.current = true;
       desktop.strict.begin({
-        id: session.id, endsAt: session.endsAt, pages: session.pages, support: session.support, music: session.music, delaySec: session.delaySec,
+        id: session.id, endsAt: session.endsAt, pages: session.pages, support: session.support, music: false, delaySec: session.delaySec,
         blockApps: session.blockApps, appMode: session.appMode, appList: session.appList, appAllow: session.appAllow, linked: true,
       }).catch(() => {});
     } else if (mainLinked.current) {
