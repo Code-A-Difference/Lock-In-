@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic, PictureInPicture2 } from 'lucide-react';
+import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic, PictureInPicture2, MessageSquare } from 'lucide-react';
 import { desktop, isDesktop } from '@/lib/desktop';
 import { DesktopBridge, MiniView, useMini } from '@/components/lockin/DesktopShell';
 import { useAuth } from '@/lib/AuthContext';
@@ -12,6 +12,7 @@ import { useFocus } from '@/lib/FocusContext';
 import { useLecture } from '@/lib/LectureContext';
 import { clock } from '@/lib/lectureNotes';
 import { isNativeApp, syncStatusBar } from '@/lib/native';
+import { SITE_URL, FEEDBACK_URL } from '@/lib/site';
 import ShortcutsDialog from '@/components/lockin/ShortcutsDialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -36,16 +37,16 @@ function Brand({ compact = false }) {
         <Lock className="h-4 w-4 text-primary-foreground" aria-hidden="true" />
       </span>
       {!compact && (
-        <span className="truncate text-lg font-extrabold tracking-tight text-foreground">
-          LOCK IN<span className="text-primary">!</span>
-        </span>
+        <>
+          <span className="truncate text-lg font-extrabold tracking-tight text-foreground">
+            LOCK IN<span className="text-primary">!</span>
+          </span>
+          <span className="flex-none rounded-full border px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" title="LOCK IN! is in beta">Beta</span>
+        </>
       )}
     </Link>
   );
 }
-
-// The Code A Difference home page. LOCK IN! is served from /lockin/ inside it.
-const SITE_URL = import.meta.env.VITE_SITE_URL || '/';
 
 /**
  * Changes save to the server as they're made. This only speaks up when they
@@ -182,6 +183,9 @@ export default function Layout({ children, currentPageName }) {
           {!isNativeApp && <a href={SITE_URL} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Code A Difference
           </a>}
+          {FEEDBACK_URL && <a href={FEEDBACK_URL} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground">
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />Beta: send feedback
+          </a>}
           <div className="flex items-center gap-2 rounded-lg border p-2">
             <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{initial(user)}</span>
             <div className="min-w-0 flex-1">
@@ -219,6 +223,7 @@ export default function Layout({ children, currentPageName }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate('/Settings')}><Settings className="mr-2 h-4 w-4" />Settings</DropdownMenuItem>
             {!isNativeApp && <DropdownMenuItem asChild><a href={SITE_URL}><ArrowLeft className="mr-2 h-4 w-4" />Code A Difference</a></DropdownMenuItem>}
+            {FEEDBACK_URL && <DropdownMenuItem asChild><a href={FEEDBACK_URL}><MessageSquare className="mr-2 h-4 w-4" />Beta: send feedback</a></DropdownMenuItem>}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={logout}><LogOut className="mr-2 h-4 w-4" />Sign out</DropdownMenuItem>
           </DropdownMenuContent>

@@ -26,7 +26,7 @@ function Chip({ as: As = 'button', className, children, ...rest }) {
  * fri !", and the chips underneath show how it was read; click a chip to
  * change it. Enter saves and keeps the box focused for the next one.
  */
-const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
+const QuickAdd = forwardRef(function QuickAdd({ classes = [], flush = false, className }, ref) {
   const act = useActions();
   const input = useRef(null);
   const dateInput = useRef(null);
@@ -72,7 +72,8 @@ const QuickAdd = forwardRef(function QuickAdd({ classes = [] }, ref) {
   };
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border bg-card p-2 shadow-sm focus-within:border-primary/40 dark:focus-within:border-primary/40">
+    // `flush`: a row inside another card (the agenda), no box of its own
+    <form onSubmit={submit} className={cn(flush ? 'p-2' : 'rounded-2xl border bg-card p-2 shadow-sm focus-within:border-primary/40', className)}>
       <div className="flex items-center gap-2">
         <label htmlFor="quick-add" className="sr-only">Add homework or a test</label>
         <Plus className="ml-2 h-5 w-5 flex-none text-muted-foreground" aria-hidden="true" />

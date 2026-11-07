@@ -28,9 +28,11 @@ export function breakDownToast(r) {
 }
 
 /**
- * One homework item or test. Everything you'd do to it is on the row:
- * tick it off, focus on it, break it into steps, or the ⋯ menu for the rest.
- * The old app needed an edit dialog for all of it.
+ * One homework item or test, as a row in a list (the list sits in one card, rows
+ * are divided by hairlines, not boxed each on their own). Tick it off, focus on
+ * it, or the ⋯ menu for the rest. The wand (break it into steps) shows when the
+ * row is hovered or focused with a mouse, and always on a touch screen, so a row
+ * carries two controls, not three; the same action is in the menu.
  */
 export default function AgendaRow({ entry, classes = [], onEdit, showDay = true }) {
   const { kind, item } = entry;
@@ -66,9 +68,8 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
   };
 
   return (
-    <li className={cn('rounded-xl border bg-card transition-shadow duration-150 hover:shadow-sm',
-      isCurrent && 'border-primary/40 ring-1 ring-primary/40')}>
-      <div className="flex items-start gap-3 p-3 sm:p-3.5">
+    <li className={cn('group transition-colors duration-150', isCurrent ? 'bg-accent/60' : 'hover:bg-accent/30')}>
+      <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
         {isTest ? (
           <span className="mt-0.5 grid h-6 w-6 flex-none place-items-center rounded-md bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" title="Test">
             <GraduationCap className="h-4 w-4" aria-hidden="true" />
@@ -82,16 +83,16 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
             onClick={() => act.toggleHomework(item)}
             className="-m-2.5 grid h-11 w-11 flex-none place-items-center rounded-lg"
           >
-            <span className={cn('grid h-6 w-6 place-items-center rounded-md border-2 transition-colors duration-150',
-              item.is_completed ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 hover:border-primary/40 dark:border-slate-600')}>
-              {item.is_completed && <Check className="h-4 w-4" strokeWidth={3} />}
+            <span className={cn('grid h-6 w-6 place-items-center rounded-full border-2 transition-colors duration-150',
+              item.is_completed ? 'border-primary bg-primary text-primary-foreground' : 'border-slate-300 hover:border-primary dark:border-slate-600 dark:hover:border-primary')}>
+              {item.is_completed && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
             </span>
           </button>
         )}
 
         <div className="min-w-0 flex-1">
           <button type="button" onClick={() => (isTest ? onEdit?.(entry) : setOpen(o => !o))}
-            className={cn('block max-w-full text-left text-[15px] font-medium leading-6',
+            className={cn('block max-w-full text-left text-base font-medium leading-6',
               item.is_completed ? 'text-muted-foreground line-through' : 'text-foreground')}
             aria-expanded={isTest ? undefined : open}>
             {isTest && !/\b(test|exam|quiz|midterm|final)s?\b/i.test(item.title) && (
@@ -99,7 +100,7 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
             )}
             {item.title}
           </button>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
             {item.class_name && (
               <span className="inline-flex items-center gap-1.5">
                 <span className={cn('h-2 w-2 rounded-full', cls?.color || 'bg-slate-400')} aria-hidden="true" />
@@ -126,22 +127,25 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
           </div>
         </div>
 
-        <div className="flex flex-none items-center gap-1">
+        <div className="flex flex-none items-center gap-0.5">
           {!item.is_completed && (
             <button type="button" onClick={lockIn}
-              className="inline-flex h-11 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium text-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-primary hover:bg-accent"
               aria-label={`${isTest ? 'Study for' : 'Focus on'} "${item.title}"`}>
-              <Play className="h-3.5 w-3.5" aria-hidden="true" />
+              <Play className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
               <span className="hidden sm:inline">{isTest ? 'Study' : 'Focus'}</span>
             </button>
           )}
           {!isTest && !item.is_completed && prog.total === 0 && (
             <button type="button" onClick={breakDown} disabled={busy} title="Break it into steps"
-              className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"
+              className={cn('grid h-11 w-11 place-items-center rounded-lg text-muted-foreground transition-opacity duration-150 hover:bg-secondary hover:text-foreground disabled:opacity-60',
+                'focus-visible:opacity-100 group-focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100', busy && '!opacity-100')}
               aria-label={`Break "${item.title}" into steps`}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             </button>
           )}
+          {/* the wand's place, kept on rows without one so every row's buttons line up */}
+          {!item.is_completed && (isTest || prog.total > 0) && <span className="hidden h-11 w-11 flex-none sm:block" aria-hidden="true" />}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -175,7 +179,7 @@ export default function AgendaRow({ entry, classes = [], onEdit, showDay = true 
       </div>
 
       {!isTest && open && (
-        <div className="border-t px-3 pb-3 pt-2 sm:px-3.5">
+        <div className="mx-4 border-t border-dashed px-0 pb-3 pt-2 sm:mx-5">
           {item.description && <p className="mb-2 whitespace-pre-wrap text-sm text-muted-foreground">{item.description}</p>}
           <StepList steps={steps} onChange={s => act.setSteps(item, s)} onRedo={breakDown} redoing={busy} />
         </div>
