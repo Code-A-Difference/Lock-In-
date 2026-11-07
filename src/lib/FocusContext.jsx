@@ -149,7 +149,7 @@ export function FocusProvider({ children }) {
     return {
       ...next, total, remaining: Math.min(next.remaining, total),
       strict: true, exitReqAt: null, blockedCount: 0,
-      strictSnapshot: { pages: a.pages, support: a.support, music: a.music, exitDelaySec: sp.exitDelaySec,
+      strictSnapshot: { pages: a.pages, support: a.support, exitDelaySec: sp.exitDelaySec,
         blockApps: sp.blockApps, appMode: sp.appMode, appList: sp.appList, appAllow: sp.appAllow },
     };
   };
@@ -455,7 +455,7 @@ export function FocusProvider({ children }) {
     if (t.exitReqAt != null && exit.phase === 'expired') commit({ ...tRef.current, exitReqAt: null });
   }, [exit.phase, t.exitReqAt, commit]);
   const strictAllow = useMemo(
-    () => (strictOn && t.strictSnapshot ? compileAllowlist({ allowedSites: t.strictSnapshot.pages, allowMusic: t.strictSnapshot.music }) : null),
+    () => (strictOn && t.strictSnapshot ? compileAllowlist({ allowedSites: t.strictSnapshot.pages }) : null),
     [strictOn, t.strictSnapshot],
   );
 

@@ -24,8 +24,6 @@ import StrictGuard from '@/components/lockin/StrictGuard';
 import CrossLock from '@/components/lockin/CrossLock';
 import AiDevPanel from '@/components/lockin/AiDevPanel';
 import AuthenticatorPrompt from '@/components/lockin/AuthenticatorPrompt';
-import { MusicProvider } from '@/lib/MusicContext';
-import NowPlaying from '@/components/lockin/NowPlaying';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -121,7 +119,6 @@ const AuthenticatedApp = () => {
     <FocusProvider>
     <LectureProvider>
     <PlannerProvider>
-    <MusicProvider>
     <AssistantProvider>
     <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center" role="status" aria-label="Loading"><div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" /></div>}>
     <Routes>
@@ -154,11 +151,9 @@ const AuthenticatedApp = () => {
     <PlannerSheet />
     <GraphPanel />
     <Reminders />
-    <NowPlaying />
     <AiDevPanel />
     <AuthenticatorPrompt />
     </AssistantProvider>
-    </MusicProvider>
     </PlannerProvider>
     </LectureProvider>
     </FocusProvider>

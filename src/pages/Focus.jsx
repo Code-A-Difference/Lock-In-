@@ -289,7 +289,7 @@ export default function Focus() {
                 <h2 id="strict-h" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />Strict focus</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {sp.enabled
-                    ? `Your next block locks pause and skip, and keeps you to ${approvedCount ? `${approvedCount} approved ${approvedCount === 1 ? 'list' : 'lists'} of sites` : 'LOCK IN! only'}${sp.allowMusic ? ', plus music' : ''}.`
+                    ? `Your next block locks pause and skip, and keeps you to ${approvedCount ? `${approvedCount} approved ${approvedCount === 1 ? 'list' : 'lists'} of sites` : 'LOCK IN! only'}.`
                     : 'Lock your next block: no pausing, and only sites you approve.'}
                 </p>
               </div>

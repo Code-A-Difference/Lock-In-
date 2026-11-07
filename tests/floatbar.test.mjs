@@ -19,27 +19,22 @@ test('words that merely contain those letters are not the floating bar', () => {
   }
 });
 
-test('music controls', () => {
-  assert.equal(parseCommand('skip this song').action, 'musicNext');
-  assert.equal(parseCommand('next track').action, 'musicNext');
-  assert.equal(parseCommand('previous song').action, 'musicPrevious');
-  assert.equal(parseCommand('resume the music').action, 'musicResume');
-});
-
-test('"play …" a song starts music; the timer\'s own sounds still work', () => {
-  assert.deepEqual(parseCommand('play Blinding Lights'), { action: 'playMusic', query: 'blinding lights', source: '' });
-  assert.deepEqual(parseCommand('play lofi beats on spotify'), { action: 'playMusic', query: 'lofi beats', source: 'spotify' });
+test('there is no music player: song commands are not music commands, and the timer\'s own sounds still work', () => {
+  for (const s of ['skip this song', 'next track', 'previous song', 'resume the music', 'play Blinding Lights', 'play lofi beats on spotify']) {
+    assert.ok(!/^(music|playMusic)/.test(parseCommand(s).action), s);
+  }
   assert.equal(parseCommand('play rain').action, 'sound');
   assert.equal(parseCommand('play some music').action, 'sound');
   assert.equal(parseCommand('stop the music').action, 'sound');
 });
 
-test('the model can ask for them too', () => {
+test('the model can ask for the floating bar, but not for music or the Music page', () => {
   assert.deepEqual(actionToCommand({ name: 'floatOnTop' }), { action: 'floatOn' });
-  assert.deepEqual(actionToCommand({ name: 'playMusic', query: 'jazz', source: 'youtube' }), { action: 'playMusic', query: 'jazz', source: 'youtube' });
-  assert.equal(actionToCommand({ name: 'playMusic' }), null);
-  assert.equal(actionToCommand({ name: 'nextSong' }).action, 'musicNext');
-  assert.equal(actionToCommand({ name: 'openPage', path: 'music' }).path, '/Music');
+  for (const name of ['playMusic', 'pauseMusic', 'resumeMusic', 'nextSong', 'previousSong']) {
+    assert.equal(actionToCommand({ name, query: 'jazz' }), null, name);
+  }
+  assert.equal(actionToCommand({ name: 'openPage', path: 'music' }), null);
+  assert.equal(actionToCommand({ name: 'openPage', path: 'notes' }).path, '/Notes');
 });
 
 test('the assistant is told what the app has, and whether this is the desktop app', () => {
@@ -49,6 +44,7 @@ test('the assistant is told what the app has, and whether this is the desktop ap
   assert.match(desk, /floatOnTop/);
   assert.match(desk, /This IS the desktop app/);
   assert.match(web, /NOT the desktop app/);
-  assert.match(desk, /Music page/);
+  assert.doesNotMatch(desk, /Music page/);
+  assert.match(desk, /There is no music player/);
   assert.match(desk, /floating bar/);
 });

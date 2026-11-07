@@ -827,9 +827,6 @@ function StrictSection() {
             {[15, 30, 45, 60, 90, 120].map(s => <option key={s} value={s}>{s} seconds</option>)}
           </select>
         </Row>
-        <Row id="strictMusic" label="Allow music" hint="Keep music during a block.">
-          <Switch id="strictMusic" checked={!!sp.allowMusic} disabled={locked} onCheckedChange={v => save({ allowMusic: v })} />
-        </Row>
         <Row id="strictLockOthers" label="Lock my other device too" hint={sp.lockOthers && termsOk
           ? `On. Starting a strict block here also locks your other signed-in device (a phone shows the focus screen; a computer also blocks other sites and programs). You agreed on ${new Date(user.strictTerms.at).toLocaleDateString()}.`
           : 'Optional. Starting a strict block here also locks your other signed-in device. You will be asked to read and agree to a short notice first.'}>

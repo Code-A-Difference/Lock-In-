@@ -102,7 +102,6 @@ export function normalizeStrictPrefs(raw) {
     exitDelaySec: Number.isFinite(delay) ? Math.min(EXIT_DELAY_MAX, Math.max(EXIT_DELAY_MIN, delay)) : EXIT_DELAY_DEFAULT,
     allowedSites: unique(r.allowedSites, (x) => normalizeHost(typeof x === 'string' ? x : x?.host), MAX_SITES),
     presets: unique(r.presets, (x) => (PRESETS.some(p => p.id === x) ? x : null), PRESETS.length),
-    allowMusic: r.allowMusic !== false,
     lockOthers: r.lockOthers === true,
     blockApps: r.blockApps !== false,
     appMode: r.appMode === 'allowlist' ? 'allowlist' : 'blocklist',
@@ -136,7 +135,8 @@ export function compileAllowlist(prefs) {
   const support = [...new Set(fromPresets.support)].filter(h => !pages.includes(h));
   const matchAny = (host, list) => list.some(e => hostMatches(host, e));
   return {
-    pages, support, music: p.allowMusic,
+    // Older desktop builds read this: music no longer exists in LOCK IN!, so nothing extra is allowed for it.
+    pages, support, music: false,
     isAllowedHost: (host) => matchAny(host, pages),
     isAllowedSupport: (host) => matchAny(host, pages) || matchAny(host, support),
     isAllowedUrl(url) {
