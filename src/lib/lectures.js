@@ -28,9 +28,15 @@ async function ask(request, tries = 4) {
 /**
  * Send one piece of recording to the AI proxy for its words. `hint` is the
  * class name and the end of what was said just before, which helps names
- * and terms come out spelled right. Retries a busy proxy a few times.
+ * and terms come out spelled right. `tries` is how many times to ask a busy
+ * proxy before giving up on this call (the lecture's queue, transcribeQueue.js,
+ * passes 1 and does its own, patient, retrying); `signal` cancels it.
+ *
+ * A failure says whether asking again could help: `retryable` is false when
+ * the piece itself was refused (too long, not audio), true for a busy or
+ * unreachable service, and `retryAfterMs` carries any wait the service asked for.
  */
-export async function transcribeChunk(wav, hint = '', { tries = 4 } = {}) {
+export async function transcribeChunk(wav, hint = '', { tries = 4, signal } = {}) {
   // In the desktop app, on this computer first: private, free, no service limits.
   try {
     const local = await transcribeLocally(wav, hint);
@@ -41,16 +47,19 @@ export async function transcribeChunk(wav, hint = '', { tries = 4 } = {}) {
   for (let i = 0; ; i++) {
     let r, j = null;
     try {
-      r = await aiFetch(AI_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }, 'transcribe');
+      r = await aiFetch(AI_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal }, 'transcribe');
       try { j = await r.json(); } catch (_) {}
-    } catch (_) {
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e;
       r = null;
     }
     if (j?.ok) return (j.text || '').trim();
-    const retry = !r || r.status === 429 || r.status >= 500;
+    // no answer at all, a busy or failing service, or the host's check page (a 200 that isn't JSON): worth asking again
+    const retry = !r || r.status === 429 || r.status >= 500 || (r.ok && !j);
     if (!retry || i >= tries - 1) {
+      const after = Number(r?.headers?.get?.('Retry-After'));
       throw Object.assign(new Error(j?.error || (r ? `Transcription failed (${r.status}).` : 'No connection to transcribe that part.')),
-        { status: r?.status || 0 });
+        { status: r?.status || 0, retryable: retry, retryAfterMs: Number.isFinite(after) && after > 0 ? after * 1000 : 0 });
     }
     await new Promise(res => setTimeout(res, wait));
     wait *= 2;
