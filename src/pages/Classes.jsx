@@ -6,7 +6,7 @@ import { Plus, Share2, MoreHorizontal, Pencil, Trash2, User, Clock, BookOpen, Ca
 import { db, sharing } from '@/api/db';
 import { cn } from '@/lib/utils';
 import { useStudyData, KEYS } from '@/lib/data';
-import { ymd } from '@/lib/dates';
+import { ymd, relativeDay } from '@/lib/dates';
 import { toast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -92,26 +92,35 @@ export default function Classes() {
     tests: allTests.filter(t => t.class_name === name && t.date >= ymd(new Date())).length,
     lectures: lectures.filter(l => l.class_name === name).length,
   });
+  /** The next thing due for a class: its soonest unfinished homework or coming test. */
+  const nextUp = (name) => {
+    const today = ymd(new Date());
+    const items = [
+      ...allHomework.filter(h => h.class_name === name && !h.is_completed && h.due_date).map(h => ({ title: h.title, day: h.due_date, late: h.due_date < today })),
+      ...allTests.filter(t => t.class_name === name && t.date >= today).map(t => ({ title: t.title, day: t.date, late: false })),
+    ].sort((a, b) => a.day.localeCompare(b.day));
+    return items[0] || null;
+  };
   const delCounts = target ? counts(target.name) : { hw: 0, tests: 0, lectures: 0 };
   const delAll = target ? allHomework.filter(h => h.class_name === target.name).length + allTests.filter(t => t.class_name === target.name).length : 0;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       {materialFor !== null && (
         <AddMaterialSheet classes={classes} defaultClass={materialFor} onClose={() => setMaterialFor(null)}
           onAdded={(l) => { setMaterialFor(null); navigate(`/Notes?id=${l.id}`); }} />
       )}
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Classes</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Classes</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => open('join')}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border px-3.5 text-sm font-semibold text-foreground hover:bg-secondary">
+            className="inline-flex h-11 items-center gap-2 rounded-xl border px-3.5 text-sm font-semibold text-foreground hover:bg-secondary">
             <Share2 className="h-4 w-4" />Use a share code
           </button>
           <button type="button" onClick={() => open('add')}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-3.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-3.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
             <Plus className="h-4 w-4" />Add class
           </button>
         </div>
@@ -128,10 +137,11 @@ export default function Classes() {
           </button>
         </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(15.5rem,1fr))] gap-4">
           {classes.map(cls => {
             const Icon = ICONS[cls.icon] || BookOpen;
             const c = counts(cls.name);
+            const up = nextUp(cls.name);
             return (
               <li key={cls.id} className="flex flex-col rounded-2xl border bg-card p-4">
                 <div className="flex items-start gap-3">
@@ -163,7 +173,12 @@ export default function Classes() {
                   <span className="inline-flex items-center gap-1.5"><ClipboardList className="h-4 w-4" aria-hidden="true" />{c.hw} to do</span>
                   <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-4 w-4" aria-hidden="true" />{c.tests} test{c.tests === 1 ? '' : 's'}</span>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <p className="mt-2 truncate text-sm">
+                  {up
+                    ? <><span className={up.late ? 'font-semibold text-red-700 dark:text-red-400' : 'text-muted-foreground'}>{up.late ? 'Overdue' : `Next, ${relativeDay(up.day)}`}:</span> <span className="text-foreground">{up.title}</span></>
+                    : <span className="text-muted-foreground">Nothing due.</span>}
+                </p>
+                <div className="mt-auto flex flex-wrap gap-2 pt-4">
                   <button type="button" onClick={() => navigate('/Notes', { state: { className: cls.name } })}
                     className="inline-flex h-11 min-w-[8.5rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-3 text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary">
                     <NotebookPen className="h-4 w-4" />{c.lectures ? `${c.lectures} lecture${c.lectures === 1 ? '' : 's'}` : 'Lectures'}

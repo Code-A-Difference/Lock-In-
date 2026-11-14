@@ -26,7 +26,8 @@ export function useBadges() {
   const list = useMemo(() => badges(input, firsts.data || {}),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data.lectures, data.sessions, data.allHomework, history.data, firsts.data]);
-  return { list, earned: list.filter(b => b.earned), ready: !data.isLoading && history.isSuccess, user: data.user };
+  // "ready" waits for the server's firsts too: a badge that arrives a moment later is not a new one
+  return { list, earned: list.filter(b => b.earned), ready: !data.isLoading && history.isSuccess && (firsts.isSuccess || firsts.isError), user: data.user };
 }
 
 /** Says "New badge" when one is earned, anywhere in the app. Mounted once, in the layout. */

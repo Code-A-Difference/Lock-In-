@@ -23,12 +23,12 @@ export default function Progress() {
   const span = days === 7 ? 'this week' : 'in the last 30 days';
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:py-8">
-      <Link to="/" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <Link to="/" className="mb-3 inline-flex lg:hidden min-h-11 items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />Today
       </Link>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Progress</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Progress</h1>
         <div role="radiogroup" aria-label="Time span" className="flex rounded-lg border p-0.5">
           {RANGES.map(([n, label]) => (
             <button key={n} type="button" role="radio" aria-checked={days === n} onClick={() => setDays(n)}
@@ -38,18 +38,20 @@ export default function Progress() {
           ))}
         </div>
       </div>
-      <p className="mt-3 max-w-[60ch] text-base text-foreground">
+      <p className="mt-3 max-w-[65ch] text-base text-foreground sm:text-lg">
         {s.total
           ? <>You focused <strong>{formatMinutes(s.total)}</strong> {span}, on {s.activeDays} {s.activeDays === 1 ? 'day' : 'days'}{s.classes[0] && s.classes[0].name !== 'No class' ? <>, most of it on <strong>{s.classes[0].name}</strong></> : null}. You finished <strong>{s.done}</strong> {s.done === 1 ? 'piece' : 'pieces'} of homework{s.done ? `, ${s.onTime} on time` : ''}.</>
           : <>No focus time {span} yet. Lock in on something and it shows up here.</>}
       </p>
 
-      <section aria-labelledby="by-day" className="mt-8">
+      {/* two columns on a wide screen: the charts side by side, not a thin strip down the middle */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <section aria-labelledby="by-day" className="rounded-2xl border bg-card p-5 lg:col-span-2">
         <h2 id="by-day" className="text-base font-semibold text-foreground">Focus by day</h2>
         <div className={cn('mt-3 grid items-end gap-1', days === 7 ? 'grid-cols-7' : 'grid-cols-[repeat(30,minmax(0,1fr))]')}>
           {s.perDay.map((d, i) => (
             <div key={d.day} className="flex flex-col items-center gap-1" title={`${d.day}: ${formatMinutes(d.minutes)}`}>
-              <div className="flex h-28 w-full items-end">
+              <div className="flex h-28 w-full items-end lg:h-40">
                 <div className={cn('w-full rounded-t', d.minutes ? 'bg-primary' : 'bg-secondary')}
                   style={{ height: `${Math.max(d.minutes ? 4 : 2, (d.minutes / dayMax) * 100)}%` }} />
               </div>
@@ -64,7 +66,7 @@ export default function Progress() {
       </section>
 
       {s.classes.length > 0 && (
-        <section aria-labelledby="by-class" className="mt-8">
+        <section aria-labelledby="by-class" className="rounded-2xl border bg-card p-5">
           <h2 id="by-class" className="text-base font-semibold text-foreground">By class</h2>
           <ul className="mt-3 space-y-2">
             {s.classes.map(c => (
@@ -80,7 +82,7 @@ export default function Progress() {
         </section>
       )}
 
-      <section aria-labelledby="hw-weeks" className="mt-8">
+      <section aria-labelledby="hw-weeks" className="rounded-2xl border bg-card p-5">
         <h2 id="hw-weeks" className="text-base font-semibold text-foreground">Homework finished, week by week</h2>
         <div className="mt-3 grid grid-cols-6 items-end gap-2">
           {s.weeks.map(w => (
@@ -95,7 +97,7 @@ export default function Progress() {
         </div>
       </section>
 
-      <section aria-labelledby="coming" className="mt-8 border-t pt-6">
+      <section aria-labelledby="coming" className="rounded-2xl border bg-card p-5">
         <h2 id="coming" className="text-base font-semibold text-foreground">Coming up</h2>
         <ul className="mt-2 space-y-1 text-sm text-foreground">
           <li>{s.dueSoon ? `${s.dueSoon} ${s.dueSoon === 1 ? 'piece' : 'pieces'} of homework due in the next 7 days.` : 'Nothing due in the next 7 days.'}</li>
@@ -103,6 +105,7 @@ export default function Progress() {
           {s.overdue > 0 && <li>{s.overdue} overdue. <Link to="/" className="font-medium text-primary underline">See them on Today</Link>.</li>}
         </ul>
       </section>
+      </div>
     </div>
   );
 }

@@ -623,8 +623,8 @@ export function FocusProvider({ children }) {
 
   /* ------------------------------------------------------------- chrome */
   useEffect(() => {
-    const base = 'LOCK IN!';
-    document.title = t.status === 'running' ? `${clock(remaining)} · ${PHASE_LABEL[t.phase]}, ${base}` : base;
+    // While a block runs the tab shows the time left; otherwise the layout names the page (Layout.jsx).
+    if (t.status === 'running') document.title = `${clock(remaining)} · ${PHASE_LABEL[t.phase]}, LOCK IN!`;
   }, [remaining, t.status, t.phase]);
 
   // Leaving (sign out): stop the sound and the voice, put the title back.

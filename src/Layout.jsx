@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic, PictureInPicture2, MessageSquare } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { CalendarCheck, Timer, Sparkles, GraduationCap, Settings, Lock, LogOut, Keyboard, ArrowLeft, CloudOff, NotebookPen, Mic, PictureInPicture2, MessageSquare, TrendingUp } from 'lucide-react';
 import { desktop, isDesktop } from '@/lib/desktop';
 import { DesktopBridge, MiniView, useMini } from '@/components/lockin/DesktopShell';
 import { useAuth } from '@/lib/AuthContext';
@@ -27,8 +27,20 @@ export const NAV = [
   { name: 'Notes', icon: NotebookPen, page: 'Notes', key: 'l' },
   { name: 'Practice', icon: Sparkles, page: 'Study', key: 'p' },
   { name: 'Classes', icon: GraduationCap, page: 'Classes', key: 'c' },
+  { name: 'Progress', icon: TrendingUp, page: 'Progress', key: 'g', wideOnly: true },   // on a phone it is one tap from Today; five tabs is the limit there
   { name: 'Settings', icon: Settings, page: 'Settings' },
 ];
+
+const PAGE_TITLE = { Today: 'Today', Notes: 'Notes', Study: 'Practice', Classes: 'Classes', Progress: 'Progress', Settings: 'Settings' };
+
+// The other pages' code is fetched while the browser is idle, so opening one doesn't wait on the network.
+let warmed = false;
+function warmPages() {
+  if (warmed) return;
+  warmed = true;
+  const go = () => { import('./pages/Notes'); import('./pages/Study'); import('./pages/Classes'); import('./pages/Progress'); import('./pages/Settings'); import('./pages/Today'); };
+  if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
+}
 
 function Brand({ compact = false }) {
   return (
@@ -93,9 +105,32 @@ export default function Layout({ children, currentPageName }) {
   const { user, logout } = useAuth();
   const focus = useFocus();
   const navigate = useNavigate();
+  const location = useLocation();
+  const lecture = useLecture();
   const [showKeys, setShowKeys] = useState(false);
+  const [announce, setAnnounce] = useState('');
   const active = currentPageName === 'Home' ? 'Today' : currentPageName;
   const mini = useMini();
+  const pageTitle = PAGE_TITLE[active] || 'LOCK IN!';
+
+  useEffect(() => { warmPages(); }, []);
+
+  // The tab names the page (a running timer shows its time instead, FocusContext).
+  useEffect(() => {
+    if (focus.status !== 'running') document.title = `${pageTitle} · LOCK IN!`;
+  }, [pageTitle, focus.status]);
+
+  // Moving to another page: say so to a screen reader, and start keyboard focus at the top of the new page
+  // (not on the first load, and not when only the ?query changed, like opening a lecture or a settings page).
+  const firstPage = React.useRef(true);
+  useEffect(() => {
+    if (firstPage.current) { firstPage.current = false; return; }
+    setAnnounce(`${pageTitle} page`);
+    document.getElementById('main')?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const record = () => (lecture.active ? navigate(`/Notes?id=${lecture.active.id}`) : navigate('/Notes', { state: { record: Date.now() } }));
 
   useEffect(() => {
     const dark = user?.theme !== 'light';   // dark unless they chose light
@@ -122,12 +157,13 @@ export default function Layout({ children, currentPageName }) {
       if (e.key === '?') { e.preventDefault(); setShowKeys(true); return; }
       if (k === 'f') { e.preventDefault(); focus.openFocus(); return; }
       if (k === 'm') { e.preventDefault(); window.dispatchEvent(new Event('lockin:talk')); return; }
+      if (k === 'r') { e.preventDefault(); record(); return; }
       const item = NAV.find(n => n.key === k);
       if (item) { e.preventDefault(); navigate(item.page === 'Today' ? '/' : `/${item.page}`); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, focus.openFocus, navigate]);
+  }, [active, focus.openFocus, navigate, lecture.active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (mini) {
     return (<><DesktopBridge /><MiniView /><SaveStatus /></>);
@@ -144,10 +180,17 @@ export default function Layout({ children, currentPageName }) {
       {/* ── sidebar (lg+) ─────────────────────────────────────────── */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card px-3 py-4 lg:flex">
         <div className="px-2"><Brand /></div>
-        <button type="button" onClick={focus.openFocus}
-          className="mt-5 flex h-11 items-center gap-3 rounded-lg border border-primary/40 px-3 text-sm font-semibold text-primary hover:bg-accent">
-          <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Lock in <kbd className="ml-auto rounded border border-primary/40 px-1.5 text-xs">F</kbd>
-        </button>
+        {/* the two things done in a hurry, one press from any page */}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button type="button" onClick={focus.openFocus} title="Open the focus timer (F)"
+            className="flex h-11 items-center justify-center gap-2 rounded-lg border border-primary/40 px-2 text-sm font-semibold text-primary hover:bg-accent">
+            <Timer className="h-[18px] w-[18px]" aria-hidden="true" />Lock in
+          </button>
+          <button type="button" onClick={record} title="Record a lecture (R)" disabled={!lecture.canRecord}
+            className="flex h-11 items-center justify-center gap-2 rounded-lg border px-2 text-sm font-semibold text-foreground hover:bg-secondary disabled:opacity-50">
+            <Mic className="h-[18px] w-[18px]" aria-hidden="true" />Record
+          </button>
+        </div>
         <nav aria-label="Main" className="mt-3 flex flex-col gap-0.5">
           {NAV.map(({ name, icon: Icon, page, key }) => {
             const on = active === page;
@@ -237,7 +280,7 @@ export default function Layout({ children, currentPageName }) {
       {/* ── bottom tabs (< lg) ───────────────────────────────────── */}
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         <div className="mx-auto grid max-w-lg grid-cols-5">
-          {NAV.map(({ name, icon: Icon, page }) => {
+          {NAV.filter(n => !n.wideOnly).map(({ name, icon: Icon, page }) => {
             const on = active === page;
             return (
               <Link
@@ -258,6 +301,7 @@ export default function Layout({ children, currentPageName }) {
       </nav>
 
       <SaveStatus />
+      <p className="sr-only" role="status" aria-live="polite">{announce}</p>
       <ShortcutsDialog open={showKeys} onOpenChange={setShowKeys} />
     </div>
   );
