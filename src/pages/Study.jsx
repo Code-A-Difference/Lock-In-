@@ -5,20 +5,16 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Upload, Target, Sparkles, Loader2, GraduationCap, FileText, NotebookPen, Layers } from "lucide-react";
+import { Brain, Upload, Target, Sparkles, Loader2, GraduationCap, FileText, NotebookPen, Layers, ChevronRight, ChevronLeft, Info } from "lucide-react";
+import { toast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 import { classSources, gatherMaterial, classQuizPrompt } from '@/lib/classQuiz';
 import { DIFFICULTIES, QUIZ_LENGTHS, TIME_LIMITS, QUIZ_SCHEMA, quizRules, normaliseQuiz, writtenCount, checkPrompt, CHECK_SCHEMA, applyChecks } from '@/lib/quizKit';
 import QuizRunner from '@/components/study/QuizRunner';
 import Flashcards from '@/components/study/Flashcards';
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { format } from "date-fns";
 import { useStudyData } from '@/lib/data';
-import { parseDay, daysUntil } from '@/lib/dates';
+import { parseDay, daysUntil, relativeDay } from '@/lib/dates';
 import StudyHistorySidebar from "../components/study/StudyHistorySidebar";
 
 // The AI Assistant chat and the Planner tab moved out of here: the planner
@@ -64,7 +60,6 @@ export default function Study() {
   const lectureNotes = location.state?.notes || '';
   const [customQuizClass, setCustomQuizClass] = useState('');
   const [includeWritten, setIncludeWritten] = useState(false);
-  const [showHistory, setShowHistory] = useState(true);
   // A whole class: every lecture's notes plus the material added to it.
   const [quizClass, setQuizClass] = useState(location.state?.className || '');
   const [leftOut, setLeftOut] = useState(() => new Set());
@@ -120,7 +115,6 @@ export default function Study() {
     if (t) setSelectedTest(t);
   }, [location.state, myTests, selectedTest]);
 
-  const upcomingTest = tests[0];
 
   // Homework Grading
   const handleFileUpload = (e) => {
@@ -194,7 +188,7 @@ Be constructive, encouraging, and specific.`;
       setRunKey(k => k + 1);
       setQuiz({ questions, title: `${quizClass}${quizFocus.trim() ? `, ${quizFocus.trim()}` : ''}`, difficulty });
     } catch (error) {
-      alert(`Couldn't make that quiz: ${error?.message || 'please try again.'}`);
+      toast({ title: 'Couldn’t make that quiz', description: error?.message || 'Please try again.', variant: 'destructive' });
     } finally {
       setIsGeneratingQuiz(false);
     }
@@ -241,7 +235,7 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
       setCustomQuizTopic('');
       setCustomQuizClass('');
     } catch (error) {
-      alert(`Couldn't make that quiz: ${error?.message || 'please try again.'}`);
+      toast({ title: 'Couldn’t make that quiz', description: error?.message || 'Please try again.', variant: 'destructive' });
     } finally {
       setIsGeneratingQuiz(false);
     }
@@ -263,421 +257,309 @@ ${quizRules({ difficulty, count: quizCount, written: writtenCount(quizCount, use
 
 
 
-  /** Difficulty, length, time limit and written answers, the same for every kind of quiz. */
-  const quizSettings = (idp) => (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <div>
-        <Label htmlFor={`${idp}-diff`}>Difficulty</Label>
-        <select id={`${idp}-diff`} value={difficulty} onChange={e => setDifficulty(e.target.value)} className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
-          {DIFFICULTIES.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
-        </select>
+  const field = 'mt-1.5 h-11 w-full rounded-lg border bg-background px-3 text-base text-foreground placeholder:text-muted-foreground';
+  const label = 'text-sm font-medium text-foreground';
+  const primaryBtn = 'inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50';
+  const card = 'rounded-2xl border bg-card p-5';
+  const choosing = !quiz && !isGeneratingQuiz && !selectedTest;
+
+  /** Difficulty, length, time limit and written answers: set once, used by whichever quiz is made. */
+  const quizSettings = (
+    <fieldset className={card}>
+      <legend className="sr-only">How the quiz is made</legend>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <label htmlFor="q-diff" className={label}>Difficulty</label>
+          <select id="q-diff" value={difficulty} onChange={e => setDifficulty(e.target.value)} className={field}>
+            {DIFFICULTIES.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="q-len" className={label}>Questions</label>
+          <select id="q-len" value={quizCount} onChange={e => setQuizCount(Number(e.target.value))} className={field}>
+            {QUIZ_LENGTHS.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="q-time" className={label}>Time limit</label>
+          <select id="q-time" value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))} className={field}>
+            {TIME_LIMITS.map(t => <option key={t} value={t}>{t ? `${t} minutes` : 'No limit'}</option>)}
+          </select>
+        </div>
       </div>
-      <div>
-        <Label htmlFor={`${idp}-len`}>Questions</Label>
-        <select id={`${idp}-len`} value={quizCount} onChange={e => setQuizCount(Number(e.target.value))} className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
-          {QUIZ_LENGTHS.map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
-      </div>
-      <div>
-        <Label htmlFor={`${idp}-time`}>Time limit</Label>
-        <select id={`${idp}-time`} value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))} className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
-          {TIME_LIMITS.map(t => <option key={t} value={t}>{t ? `${t} minutes` : 'No limit'}</option>)}
-        </select>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-foreground sm:col-span-3">
-        <input type="checkbox" className="h-4 w-4" checked={includeWritten} onChange={e => setIncludeWritten(e.target.checked)} />
+      <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">
+        <input type="checkbox" className="h-5 w-5 accent-primary" checked={includeWritten} onChange={e => setIncludeWritten(e.target.checked)} />
         Include written answers (worked solutions, marked by the AI)
       </label>
-    </div>
+    </fieldset>
   );
 
+  const history = (
+    <StudyHistorySidebar
+      history={studyHistory.filter(h => h.type !== 'flashcards' && h.type !== 'companion')}
+      activeType={activeTab === 'grading' ? 'grading' : activeTab === 'quiz' ? 'quiz' : 'all'}
+      isLoading={historyLoading}
+      onSelectItem={(item) => {
+        if (item.type === 'grading') {
+          setActiveTab('grading');
+          setGradingResult(item.data?.result);
+          setHomeworkTitle(item.title);
+        } else if (item.type === 'quiz') {
+          setActiveTab('quiz');
+          const q = normaliseQuiz(item.data?.quiz);
+          let run = item.data?.run;
+          if (!run) {   // saved before the quiz was rebuilt: answers and written grades kept separately
+            const a = { ...(item.data?.answers || {}) };
+            Object.entries(item.data?.writtenAnswers || {}).forEach(([i, v]) => { a[`w${i}`] = v; });
+            const grades = {};
+            (item.data?.results?.results || []).forEach((r, i) => {
+              if (r?.type === 'written' && r.graded) grades[i] = { score: Number(r.writtenScore) || 0, verdict: r.writtenScore >= 9 ? 'correct' : r.writtenScore >= 4 ? 'partly correct' : 'incorrect', what_was_right: r.feedback || '', what_was_missing: '', missing_points: r.missingPoints || [] };
+            });
+            run = { answers: a, grades };
+          }
+          setSelectedTest(null);
+          setQuiz({ ...q, title: item.title });
+          setSavedRun(run);
+          setRunKey(k => k + 1);
+        }
+      }}
+      onDeleteItem={(id) => deleteHistoryMutation.mutate(id)}
+    />
+  );
+
+  /**
+   * Practice. One page, three tools (quiz, flashcards, homework feedback), with
+   * past attempts beside them on a wide screen and under them on a phone. The
+   * quickest path is first: a test that is coming up is one press away.
+   */
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div>
-        <div className="mb-6 flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent text-accent-foreground">
-            <Brain className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Practice</h1>
-            <p className="text-sm text-muted-foreground">Quizzes, flashcards and homework feedback.</p>
-          </div>
-        </div>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Practice</h1>
+        <p className="mt-2 text-base text-muted-foreground sm:text-lg">Quiz yourself, run flashcards, or get feedback on homework.</p>
+      </header>
 
-        {upcomingTest && activeTab === "quiz" && (
-          <Card className="mb-6 border-primary/40 bg-accent">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-primary mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-primary">Upcoming Test Alert</p>
-                  <p className="text-sm text-primary mt-1">
-                    You have <strong>{upcomingTest.title}</strong>{upcomingTest.class_name ? ` (${upcomingTest.class_name})` : ''} on {format(parseDay(upcomingTest.date), 'MMMM d')}. Practice with a quiz?
-                  </p>
-                  <Button 
-                    size="sm" 
-                    className="mt-3 bg-primary hover:bg-primary/90"
-                    onClick={() => setSelectedTest(upcomingTest)}
-                  >
-                    Practise for it
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-5 grid h-auto w-full grid-cols-3 gap-1 rounded-xl bg-secondary/60 p-1 sm:inline-grid sm:w-auto">
+              {[['quiz', Target, 'Quiz', 'Quiz'], ['cards', Layers, 'Flashcards', 'Cards'], ['grading', Upload, 'Homework feedback', 'Feedback']].map(([id, Icon, name, short]) => (
+                <TabsTrigger key={id} value={id}
+                  aria-label={name} className="h-11 gap-2 rounded-lg px-2 text-sm sm:px-4 font-medium text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                  <Icon className="h-4 w-4 flex-none" aria-hidden="true" /><span className="hidden sm:inline">{name}</span><span className="sm:hidden">{short}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4 grid h-12 w-full grid-cols-3 sm:mb-6 dark:bg-slate-800 dark:border-slate-700">
-            <TabsTrigger value="grading" className="h-10 dark:text-slate-300 dark:data-[state=active]:text-white">
-              <Upload className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Grade HW</span>
-              <span className="sm:hidden">Grade</span>
-            </TabsTrigger>
-            <TabsTrigger value="quiz" className="h-10 dark:text-slate-300 dark:data-[state=active]:text-white">
-              <Target className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Quiz</span>
-              <span className="sm:hidden">Quiz</span>
-            </TabsTrigger>
-            <TabsTrigger value="cards" className="h-10 dark:text-slate-300 dark:data-[state=active]:text-white">
-              <Layers className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Flashcards</span>
-              <span className="sm:hidden">Cards</span>
-            </TabsTrigger>
-          </TabsList>
+            <TabsContent value="cards" className="mt-0">
+              <Flashcards initial={location.state?.tab === 'cards' || location.state?.className ? location.state : null} />
+            </TabsContent>
 
-          <TabsContent value="cards">
-            <Flashcards initial={location.state?.tab === 'cards' || location.state?.className ? location.state : null} />
-          </TabsContent>
+            <TabsContent value="quiz" className="mt-0 space-y-5">
+              {choosing && (
+                <>
+                  {tests.length > 0 && (
+                    <section aria-labelledby="test-quiz-h" className="overflow-hidden rounded-2xl border bg-card">
+                      <h2 id="test-quiz-h" className="px-5 pb-1 pt-4 text-lg font-semibold tracking-tight text-foreground">Practise for a test</h2>
+                      <ul className="divide-y divide-border/60">
+                        {tests.map(test => {
+                          const n = daysUntil(parseDay(test.date));
+                          return (
+                            <li key={test.id}>
+                              <button type="button" onClick={() => setSelectedTest(test)}
+                                className="flex min-h-14 w-full items-center gap-3 px-5 py-3 text-left hover:bg-accent/30">
+                                <span className={cn('grid h-11 w-11 flex-none place-items-center rounded-xl text-center leading-none',
+                                  n <= 2 ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300' : 'bg-secondary text-foreground')} aria-hidden="true">
+                                  <span><span className="block text-base font-bold tabular-nums">{n}</span><span className="block text-[11px] font-medium">{n === 1 ? 'day' : 'days'}</span></span>
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-base font-medium text-foreground">{test.title}</span>
+                                  <span className="block truncate text-[13px] text-muted-foreground">{[test.class_name, relativeDay(test.date)].filter(Boolean).join(' · ')}</span>
+                                </span>
+                                <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  )}
 
-          <TabsContent value="grading">
-            <Card className="border-0 bg-transparent shadow-none">
-              <CardHeader className="hidden sm:flex bg-card">
-                <CardTitle className="flex items-center gap-2 text-foreground">
-                  <Upload className="w-5 h-5 text-primary" />
-                  Grade my homework
-                </CardTitle>
-                <CardDescription className="text-muted-foreground">Get instant feedback on your work</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 px-0 pt-4 sm:px-6 sm:pt-6">
-                <div className="space-y-2">
-                  <Label htmlFor="homework-title" className="text-base font-semibold text-foreground">Assignment Title</Label>
-                  <Input
-                    id="homework-title"
-                    value={homeworkTitle}
-                    onChange={(e) => setHomeworkTitle(e.target.value)}
-                    placeholder="e.g., Chapter 5 Math Problems"
-                    className="text-lg"
-                  />
-                </div>
-                
-                <div className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <Button
-                    variant={useTextInput ? "outline" : "default"}
-                    size="sm"
-                    onClick={() => setUseTextInput(false)}
-                  >
-                    Upload File
-                  </Button>
-                  <Button
-                    variant={useTextInput ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setUseTextInput(true)}
-                  >
-                    Paste Text
-                  </Button>
-                </div>
+                  <div className="grid gap-5 lg:grid-cols-2">
+                    <section className={card} aria-labelledby="topic-quiz-h">
+                      <h2 id="topic-quiz-h" className="text-lg font-semibold tracking-tight text-foreground">Quiz on any topic</h2>
+                      <div className="mt-3 space-y-4">
+                        <div>
+                          <label htmlFor="study-f4" className={label}>Topic</label>
+                          <input id="study-f4" value={customQuizTopic} onChange={(e) => setCustomQuizTopic(e.target.value)}
+                            placeholder="Photosynthesis, World War II, quadratics" className={field} />
+                        </div>
+                        <div>
+                          <label htmlFor="study-f5" className={label}>Subject or class <span className="font-normal text-muted-foreground">(optional)</span></label>
+                          <input id="study-f5" value={customQuizClass} onChange={(e) => setCustomQuizClass(e.target.value)}
+                            placeholder="Biology" className={field} />
+                        </div>
+                        <button type="button" onClick={() => handleGenerateQuiz(null, lectureNotes.slice(0, 12000), [], includeWritten)}
+                          disabled={!customQuizTopic.trim()} className={primaryBtn}>
+                          <Brain className="h-5 w-5" aria-hidden="true" />Make the quiz
+                        </button>
+                      </div>
+                    </section>
 
-                {!useTextInput ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="homework-file" className="text-base font-semibold text-foreground">Upload Your Work</Label>
-                    <div className="border-2 border-dashed border-primary/40 rounded-lg p-6 text-center hover:border-primary/40 transition-colors">
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
-                      <Input
-                        id="homework-file"
-                        type="file"
-                        onChange={handleFileUpload}
-                        accept="image/*,.pdf"
-                        className="max-w-xs mx-auto"
-                      />
-                      {selectedFile && (
-                        <p className="text-sm text-green-600 dark:text-green-400 mt-2 font-medium">
-                          ✓ {selectedFile.name}
-                        </p>
+                    <section className={card} aria-labelledby="class-quiz-h">
+                      <h2 id="class-quiz-h" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground"><GraduationCap className="h-5 w-5 text-muted-foreground" aria-hidden="true" />Quiz on a whole class</h2>
+                      <p className="mt-1 text-sm text-muted-foreground">From its lecture notes and anything you added to it.</p>
+                      {classOptions.length === 0 ? (
+                        <p className="mt-3 text-sm text-muted-foreground">Nothing to quiz from yet. Record a lecture, or add material to a class, and it appears here.</p>
+                      ) : (
+                        <div className="mt-3 space-y-4">
+                          <div>
+                            <label htmlFor="quiz-class" className={label}>Class</label>
+                            <select id="quiz-class" value={quizClass} onChange={e => { setQuizClass(e.target.value); setLeftOut(new Set()); }} className={field}>
+                              <option value="">Choose a class…</option>
+                              {classOptions.map(c => <option key={c.id} value={c.name}>{c.name} · {classSources(lectures, c.name).length} item{classSources(lectures, c.name).length === 1 ? '' : 's'}</option>)}
+                            </select>
+                          </div>
+                          {quizClass && (
+                            <>
+                              <fieldset>
+                                <legend className={label}>Include</legend>
+                                <ul className="mt-1.5 max-h-56 space-y-0.5 overflow-y-auto rounded-lg border p-1.5">
+                                  {sourcesForClass.map(x => (
+                                    <li key={x.id}>
+                                      <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-sm hover:bg-secondary">
+                                        <input type="checkbox" className="h-5 w-5 accent-primary" checked={!leftOut.has(x.id)}
+                                          onChange={e => setLeftOut(prev => { const n = new Set(prev); if (e.target.checked) n.delete(x.id); else n.add(x.id); return n; })} />
+                                        {x.kind === 'material' ? <FileText className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" /> : <NotebookPen className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />}
+                                        <span className="min-w-0 flex-1 truncate text-foreground">{x.title}</span>
+                                        <span className="flex-none text-xs text-muted-foreground">{x.kind === 'material' ? 'material' : x.date}</span>
+                                      </label>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </fieldset>
+                              <div>
+                                <label htmlFor="quiz-focus" className={label}>Focus on <span className="font-normal text-muted-foreground">(optional)</span></label>
+                                <input id="quiz-focus" value={quizFocus} onChange={e => setQuizFocus(e.target.value)} placeholder="cell division" className={field} />
+                              </div>
+                            </>
+                          )}
+                          <button type="button" onClick={handleClassQuiz} disabled={!quizClass || !chosenSources.length} className={primaryBtn}>
+                            <Brain className="h-5 w-5" aria-hidden="true" />{quizClass ? `Quiz me on ${chosenSources.length} item${chosenSources.length === 1 ? '' : 's'}` : 'Make the quiz'}
+                          </button>
+                        </div>
                       )}
-                    </div>
+                    </section>
+                  </div>
+
+                  {quizSettings}
+                </>
+              )}
+
+              {selectedTest && !quiz && !isGeneratingQuiz && (
+                <section className={cn(card, 'space-y-4')} aria-labelledby="sel-test-h">
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setSelectedTest(null)} aria-label="Back to all quizzes"
+                      className="-ml-2 grid h-11 w-11 flex-none place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground">
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    <h2 id="sel-test-h" className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight text-foreground">{selectedTest.title}</h2>
+                  </div>
+                  <div>
+                    <label htmlFor="study-f6" className={label}>What it covers <span className="font-normal text-muted-foreground">(optional)</span></label>
+                    <textarea id="study-f6" value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} rows={3}
+                      placeholder="Chapters 4 and 5, cell division, the lab on osmosis" className={cn(field, 'h-auto py-2')} />
+                  </div>
+                  <div>
+                    <label htmlFor="study-f7" className={label}>Study material <span className="font-normal text-muted-foreground">(optional, photos or PDFs)</span></label>
+                    <input id="study-f7" type="file" multiple accept="image/*,.pdf" onChange={(e) => setQuizFiles(Array.from(e.target.files))}
+                      className="mt-1.5 block w-full text-sm text-foreground file:mr-3 file:h-11 file:rounded-lg file:border file:border-border file:bg-secondary file:px-4 file:text-sm file:font-medium file:text-foreground" />
+                    {quizFiles.length > 0 && <p className="mt-1 text-sm text-muted-foreground" role="status">{quizFiles.length} file{quizFiles.length === 1 ? '' : 's'} chosen</p>}
+                  </div>
+                  <button type="button" onClick={() => handleGenerateQuiz(selectedTest, quizDescription, quizFiles, includeWritten)} className={primaryBtn}>
+                    <Brain className="h-5 w-5" aria-hidden="true" />Make the quiz
+                  </button>
+                </section>
+              )}
+              {selectedTest && !quiz && !isGeneratingQuiz && quizSettings}
+
+              {isGeneratingQuiz && (
+                <div className={cn(card, 'flex items-center gap-3 py-10 text-base text-foreground')} role="status">
+                  <Loader2 className="h-6 w-6 flex-none animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                  {makingStep || 'Writing your quiz. This takes a few seconds.'}
+                </div>
+              )}
+
+              {quiz && !isGeneratingQuiz && (
+                <QuizRunner key={runKey} quiz={quiz} timeLimit={savedRun ? 0 : timeLimit} saved={savedRun}
+                  onSubmitted={saveAttempt}
+                  onNew={resetQuiz}
+                  onRetake={() => { setSavedRun(null); setRunKey(k => k + 1); }}
+                  onRegenerate={() => (lastMake.current ? lastMake.current() : resetQuiz())} />
+              )}
+
+              <AiNote>Questions and marking are written by AI and can be wrong. If an answer looks off, check it against your notes or textbook.</AiNote>
+            </TabsContent>
+
+            <TabsContent value="grading" className="mt-0 space-y-5">
+              <section className={cn(card, 'space-y-4')} aria-labelledby="grade-h">
+                <h2 id="grade-h" className="text-lg font-semibold tracking-tight text-foreground">Feedback on your homework</h2>
+                <div>
+                  <label htmlFor="homework-title" className={label}>What is the assignment?</label>
+                  <input id="homework-title" value={homeworkTitle} onChange={(e) => setHomeworkTitle(e.target.value)}
+                    placeholder="Chapter 5 problems 1 to 12" className={field} />
+                </div>
+                <div role="radiogroup" aria-label="How to give your work" className="inline-flex rounded-lg bg-secondary/60 p-0.5">
+                  {[[false, 'Upload a photo or PDF'], [true, 'Paste text']].map(([v, name]) => (
+                    <button key={name} type="button" role="radio" aria-checked={useTextInput === v} onClick={() => setUseTextInput(v)}
+                      className={cn('h-10 rounded-md px-3 text-sm font-medium', useTextInput === v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>{name}</button>
+                  ))}
+                </div>
+                {!useTextInput ? (
+                  <div>
+                    <label htmlFor="homework-file" className={label}>Your work</label>
+                    <input id="homework-file" type="file" onChange={handleFileUpload} accept="image/*,.pdf"
+                      className="mt-1.5 block w-full text-sm text-foreground file:mr-3 file:h-11 file:rounded-lg file:border file:border-border file:bg-secondary file:px-4 file:text-sm file:font-medium file:text-foreground" />
+                    {selectedFile && <p className="mt-1 text-sm text-muted-foreground" role="status">Chosen: {selectedFile.name}</p>}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="pasted-work" className="text-base font-semibold text-foreground">Paste Your Work</Label>
-                    <Textarea
-                      id="pasted-work"
-                      value={pastedWork}
-                      onChange={(e) => setPastedWork(e.target.value)}
-                      placeholder="Paste your homework answers here..."
-                      rows={10}
-                      className="font-mono text-sm"
-                    />
+                  <div>
+                    <label htmlFor="pasted-work" className={label}>Your work</label>
+                    <textarea id="pasted-work" value={pastedWork} onChange={(e) => setPastedWork(e.target.value)} rows={10}
+                      placeholder="Paste your answers here" className={cn(field, 'h-auto py-2')} />
                   </div>
                 )}
-                
-                <Button 
-                  onClick={handleGradeHomework} 
-                  disabled={(useTextInput ? !pastedWork : !selectedFile) || !homeworkTitle || isGrading}
-                  className="w-full text-lg py-6"
-                >
-                  {isGrading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Grading...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Grade My Homework
-                    </>
-                  )}
-                </Button>
-                
+                <button type="button" onClick={handleGradeHomework}
+                  disabled={(useTextInput ? !pastedWork : !selectedFile) || !homeworkTitle || isGrading} className={primaryBtn}>
+                  {isGrading
+                    ? <><Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />Reading your work…</>
+                    : <><Sparkles className="h-5 w-5" aria-hidden="true" />Get feedback</>}
+                </button>
+              </section>
+              <div aria-live="polite">
                 {gradingResult && (
-                  <Card className="mt-6 border border-green-200 dark:border-green-800 bg-card">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2 text-foreground">
-                        <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
-                        Grading Results
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <RichText text={gradingResult} />
-                    </CardContent>
-                  </Card>
+                  <section className={card} aria-labelledby="grade-result-h">
+                    <h2 id="grade-result-h" className="mb-2 text-lg font-semibold tracking-tight text-foreground">Feedback</h2>
+                    <RichText text={gradingResult} />
+                  </section>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="quiz">
-            <Card className="border-0 bg-transparent shadow-none">
-              <CardHeader className="hidden sm:flex bg-card">
-                <CardTitle className="text-foreground">Practice Quizzes</CardTitle>
-                <CardDescription className="text-muted-foreground">Test your knowledge with AI-generated questions</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 px-0 pt-4 sm:px-6 sm:pt-6">
-                {!quiz && !isGeneratingQuiz && !selectedTest && (
-                  <>
-                    <div className="space-y-4">
-                      <section className="rounded-lg border bg-card p-4" aria-labelledby="class-quiz-h">
-                        <h3 id="class-quiz-h" className="mb-1 flex items-center gap-2 font-medium text-foreground"><GraduationCap className="h-4 w-4" aria-hidden="true" />Quiz me on a whole class</h3>
-                        <p className="mb-3 text-sm text-muted-foreground">Every lecture's notes for the class, plus anything you've added to it, handouts, slides, photos, pasted notes.</p>
-                        {classOptions.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">Record a lecture or add material to a class in Notes, and it can be quizzed here.</p>
-                        ) : (
-                          <div className="space-y-3">
-                            <div>
-                              <Label htmlFor="quiz-class">Class</Label>
-                              <select id="quiz-class" value={quizClass} onChange={e => { setQuizClass(e.target.value); setLeftOut(new Set()); }}
-                                className="mt-1 h-11 w-full rounded-md border bg-background px-3 text-base text-foreground sm:text-sm">
-                                <option value="">Choose a class…</option>
-                                {classOptions.map(c => <option key={c.id} value={c.name}>{c.name} · {classSources(lectures, c.name).length} item{classSources(lectures, c.name).length === 1 ? '' : 's'}</option>)}
-                              </select>
-                            </div>
-                            {quizClass && (
-                              <>
-                                <fieldset>
-                                  <legend className="text-sm font-medium text-foreground">Include</legend>
-                                  <ul className="mt-1 max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
-                                    {sourcesForClass.map(x => (
-                                      <li key={x.id}>
-                                        <label className="flex min-h-[40px] cursor-pointer items-center gap-2 rounded px-2 text-sm hover:bg-secondary">
-                                          <input type="checkbox" className="h-4 w-4" checked={!leftOut.has(x.id)}
-                                            onChange={e => setLeftOut(prev => { const n = new Set(prev); if (e.target.checked) n.delete(x.id); else n.add(x.id); return n; })} />
-                                          {x.kind === 'material' ? <FileText className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" /> : <NotebookPen className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />}
-                                          <span className="min-w-0 flex-1 truncate text-foreground">{x.title}</span>
-                                          <span className="flex-none text-xs text-muted-foreground">{x.kind === 'material' ? 'material' : x.date}</span>
-                                        </label>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </fieldset>
-                                <div>
-                                  <Label htmlFor="quiz-focus">Focus on (optional)</Label>
-                                  <Input id="quiz-focus" value={quizFocus} onChange={e => setQuizFocus(e.target.value)} placeholder="e.g. cell division" className="mt-1" />
-                                </div>
-                                {quizSettings('cq')}
-                                <Button onClick={handleClassQuiz} disabled={!chosenSources.length} className="w-full">
-                                  <Brain className="mr-2 h-4 w-4" />Quiz me on {chosenSources.length} item{chosenSources.length === 1 ? '' : 's'}
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </section>
-
-                      <div className="p-4 bg-accent rounded-lg border border-primary/40">
-                        <h3 className="font-medium text-foreground mb-3">Create Custom Quiz</h3>
-                        <div className="space-y-3">
-                          <div>
-                            <Label htmlFor="study-f4" className="text-foreground">Topic</Label>
-                            <Input id="study-f4"
-                              value={customQuizTopic}
-                              onChange={(e) => setCustomQuizTopic(e.target.value)}
-                              placeholder="e.g., World War II, Photosynthesis, Algebra"
-                              className="dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="study-f5" className="text-foreground">Subject/Class (optional)</Label>
-                            <Input id="study-f5"
-                              value={customQuizClass}
-                              onChange={(e) => setCustomQuizClass(e.target.value)}
-                              placeholder="e.g., History, Biology, Math"
-                              className="dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-                            />
-                          </div>
-                          {quizSettings('cu')}
-                          <Button 
-                            onClick={() => handleGenerateQuiz(null, lectureNotes.slice(0, 12000), [], includeWritten)}
-                            disabled={!customQuizTopic.trim()}
-                            className="w-full bg-primary hover:bg-primary/90"
-                          >
-                            Generate Quiz
-                          </Button>
-                        </div>
-                      </div>
-
-                      {tests.length > 0 && (
-                        <>
-                          <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                              <span className="w-full border-t dark:border-slate-700" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                              <span className="bg-card px-2 text-muted-foreground">Or select from upcoming tests</span>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            {tests.map(test => (
-                              <Card key={test.id} className="hover:border-primary/40 transition-colors cursor-pointer dark:bg-slate-800 dark:border-slate-700" onClick={() => setSelectedTest(test)}>
-                                <CardContent className="pt-4">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium text-foreground">{test.title}</p>
-                                      <p className="text-sm text-muted-foreground">{test.class_name} • {format(new Date(test.date + 'T00:00:00'), 'MMM d')}</p>
-                                    </div>
-                                    <Button size="sm" className="">Select</Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
-                
-                {selectedTest && !quiz && !isGeneratingQuiz && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg text-foreground">{selectedTest.title}</h3>
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedTest(null)} className="dark:text-slate-300 dark:hover:bg-slate-700">
-                        Change
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="study-f6" className="text-foreground">Add Description (optional)</Label>
-                      <Textarea id="study-f6"
-                        value={quizDescription}
-                        onChange={(e) => setQuizDescription(e.target.value)}
-                        placeholder="Describe what topics will be covered..."
-                        rows={3}
-                        className="dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="study-f7" className="text-foreground">Upload Study Materials (optional)</Label>
-                      <Input id="study-f7"
-                        type="file"
-                        multiple
-                        accept="image/*,.pdf"
-                        onChange={(e) => setQuizFiles(Array.from(e.target.files))}
-                        className="dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600"
-                      />
-                      {quizFiles.length > 0 && (
-                        <p className="text-sm text-muted-foreground">{quizFiles.length} file(s) selected</p>
-                      )}
-                    </div>
-                    
-                    {quizSettings('tq')}
-                    
-                    <Button 
-                      onClick={() => handleGenerateQuiz(selectedTest, quizDescription, quizFiles, includeWritten)}
-                      className="w-full bg-primary hover:bg-primary/90"
-                    >
-                      Generate Quiz
-                    </Button>
-                  </div>
-                )}
-                
-                {isGeneratingQuiz && (
-                  <div className="text-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary" />
-                    <p className="text-muted-foreground">{makingStep || 'Writing your quiz…'}</p>
-                  </div>
-                )}
-                
-                {quiz && !isGeneratingQuiz && (
-                  <QuizRunner key={runKey} quiz={quiz} timeLimit={savedRun ? 0 : timeLimit} saved={savedRun}
-                    onSubmitted={saveAttempt}
-                    onNew={resetQuiz}
-                    onRetake={() => { setSavedRun(null); setRunKey(k => k + 1); }}
-                    onRegenerate={() => (lastMake.current ? lastMake.current() : resetQuiz())} />
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-          </div>
-          
-          <div className="hidden lg:block">
-            <StudyHistorySidebar
-              history={studyHistory.filter(h => h.type !== 'flashcards' && h.type !== 'companion')}
-              activeType={activeTab === 'grading' ? 'grading' : activeTab === 'quiz' ? 'quiz' : 'all'}
-              isLoading={historyLoading}
-              onSelectItem={(item) => {
-                if (item.type === 'grading') {
-                  setActiveTab('grading');
-                  setGradingResult(item.data?.result);
-                  setHomeworkTitle(item.title);
-                } else if (item.type === 'quiz') {
-                  setActiveTab('quiz');
-                  const q = normaliseQuiz(item.data?.quiz);
-                  let run = item.data?.run;
-                  if (!run) {   // saved before the quiz was rebuilt: answers and written grades kept separately
-                    const a = { ...(item.data?.answers || {}) };
-                    Object.entries(item.data?.writtenAnswers || {}).forEach(([i, v]) => { a[`w${i}`] = v; });
-                    const grades = {};
-                    (item.data?.results?.results || []).forEach((r, i) => {
-                      if (r?.type === 'written' && r.graded) grades[i] = { score: Number(r.writtenScore) || 0, verdict: r.writtenScore >= 9 ? 'correct' : r.writtenScore >= 4 ? 'partly correct' : 'incorrect', what_was_right: r.feedback || '', what_was_missing: '', missing_points: r.missingPoints || [] };
-                    });
-                    run = { answers: a, grades };
-                  }
-                  setSelectedTest(null);
-                  setQuiz({ ...q, title: item.title });
-                  setSavedRun(run);
-                  setRunKey(k => k + 1);
-                }
-              }}
-              onDeleteItem={(id) => deleteHistoryMutation.mutate(id)}
-            />
-          </div>
+              </div>
+              <AiNote>This feedback and grade are written by AI. They are a second opinion, not your teacher’s mark.</AiNote>
+            </TabsContent>
+          </Tabs>
         </div>
+
+        <aside aria-label="Past quizzes and feedback" className="min-w-0">{history}</aside>
       </div>
     </div>
+  );
+}
+
+/** Said plainly wherever the AI writes something a student might rely on. */
+function AiNote({ children }) {
+  return (
+    <p className="flex items-start gap-2 px-1 text-sm text-muted-foreground">
+      <Info className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />{children}
+    </p>
   );
 }

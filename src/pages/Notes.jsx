@@ -16,6 +16,7 @@ import { NOTE_TEMPLATES } from '@/lib/classChat';
 import { cn } from '@/lib/utils';
 import { useStudyData, useActions } from '@/lib/data';
 import { useLecture } from '@/lib/LectureContext';
+import { useWide } from '@/hooks/use-wide';
 import { clock, notesMarkdown, transcriptText } from '@/lib/lectures';
 import { relativeDay, parseDay } from '@/lib/dates';
 import { parseQuickAdd } from '@/lib/quickadd';
@@ -38,7 +39,28 @@ import {
 export default function Notes() {
   const location = useLocation();
   const id = new URLSearchParams(location.search).get('id');
-  return id ? <LectureView id={id} /> : <LectureList />;
+  const wide = useWide();
+  const { lectures } = useStudyData();
+  if (!wide) return id ? <LectureView id={id} /> : <LectureList />;
+  // On a wide screen the list and a lecture sit side by side, and the newest lecture is open
+  // straight away, so nothing is one more click away and the page isn't half empty.
+  const newest = [...lectures].sort((a, b) => String(b.started_at || b.date || '').localeCompare(String(a.started_at || a.date || '')))[0];
+  const shown = id || newest?.id || '';
+  return (
+    <div className="grid grid-cols-[21rem_minmax(0,1fr)] xl:grid-cols-[24rem_minmax(0,1fr)]">
+      <div className="sticky top-0 h-dvh overflow-y-auto border-r">
+        <LectureList pane selectedId={shown} />
+      </div>
+      <div className="min-w-0">
+        {shown ? <LectureView key={shown} id={shown} pane /> : (
+          <div className="mx-auto max-w-xl px-8 py-16">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">Your lecture notes live here</h2>
+            <p className="mt-2 text-base text-muted-foreground">Press Record a lecture and LOCK IN! writes down what is said. When you stop, it turns it into notes you can read, search and be quizzed on. You can also add a handout, slides or pasted text to a class from the Classes page.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ===================================================================== list */
@@ -56,7 +78,7 @@ function dayLabel(day) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-function LectureList() {
+function LectureList({ pane = false, selectedId = '' }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { lectures, classes, isLoading } = useStudyData();
@@ -69,6 +91,12 @@ function LectureList() {
 
   useEffect(() => write(GROUP_KEY, group), [group]);
   useEffect(() => write(FOLD_KEY, folded), [folded]);
+  // "Record" from the sidebar or the R key lands here with the sheet already open
+  useEffect(() => {
+    if (!location.state?.record) return;
+    if (!lec.active) setPicking(true);
+    navigate(location.pathname + location.search, { replace: true, state: null });
+  }, [location.state?.record]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const groups = useMemo(() => {
     const byNew = [...lectures].sort((a, b) => String(b.started_at || b.date || '').localeCompare(String(a.started_at || a.date || '')));
@@ -90,7 +118,7 @@ function LectureList() {
   const classOf = (name) => classes.find(c => c.name === name);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pt-5 sm:px-6 lg:pt-8">
+    <div className={pane ? 'px-4 pb-28 pt-6' : 'mx-auto max-w-3xl px-4 pt-5 sm:px-6 lg:pt-8'}>
       <header className="mb-4 flex items-center gap-3">
         <h1 className="flex-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Notes</h1>
         <div className="inline-flex rounded-lg border bg-card p-0.5" role="group" aria-label="Group notes">
@@ -163,7 +191,7 @@ function LectureList() {
               </div>
               {open && (
                 <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
-                  {items.map(l => <LectureRow key={l.id} lecture={l} showClass={group === 'date'} onOpen={() => navigate(`/Notes?id=${l.id}`)} />)}
+                  {items.map(l => <LectureRow key={l.id} lecture={l} showClass={group === 'date'} selected={l.id === selectedId} onOpen={() => navigate(`/Notes?id=${l.id}`)} />)}
                 </ul>
               )}
             </div>
@@ -203,12 +231,13 @@ const STATUS = {
   writing: ['Writing notes', 'text-primary'],
 };
 
-function LectureRow({ lecture: l, onOpen, showClass }) {
+function LectureRow({ lecture: l, onOpen, showClass, selected = false }) {
   const [label, color] = STATUS[l.status] || ['', ''];
   const meta = [showClass ? l.class_name : relativeDay(l.date), l.duration ? `${Math.max(1, Math.round(l.duration / 60))} min` : null].filter(Boolean).join(' · ');
   return (
     <li>
-      <button type="button" onClick={onOpen} className="flex w-full items-center gap-3 px-3.5 py-3 text-left hover:bg-secondary/60 active:bg-secondary">
+      <button type="button" onClick={onOpen} aria-current={selected ? 'true' : undefined}
+        className={cn('flex min-h-12 w-full items-center gap-3 px-3.5 py-3 text-left active:bg-secondary', selected ? 'bg-accent text-accent-foreground' : 'hover:bg-secondary/60')}>
         <FileText className="h-4 w-4 flex-none text-muted-foreground" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-foreground">{l.title}</span>
         {label
@@ -221,7 +250,7 @@ function LectureRow({ lecture: l, onOpen, showClass }) {
 
 /* ================================================================ one lecture */
 
-function LectureView({ id }) {
+function LectureView({ id, pane = false }) {
   const navigate = useNavigate();
   const { lectures, classes, isLoading } = useStudyData();
   const actions = useActions();
@@ -229,7 +258,8 @@ function LectureView({ id }) {
   const lecture = lectures.find(l => l.id === id);
   const live = lec.active?.id === id ? lec.active : null;
   const [view, setView] = useState('ai');            // 'ai' | 'mine', once there are AI notes
-  const [showTranscript, setShowTranscript] = useState(false);
+  // with room for it (a wide screen), the transcript is open beside the notes from the start
+  const [showTranscript, setShowTranscript] = useState(() => pane && typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches);
   const [slidesOpen, setSlidesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -258,6 +288,7 @@ function LectureView({ id }) {
   const hasNotes = !!lecture.notes;
   const canExport = hasNotes || !!String(lecture.my_notes || '').trim();
   const material = lecture.source === 'material';
+  const sideOpen = showTranscript && !material;          // material has no transcript to put beside it
   const mine = (lecture.my_notes || '').trim();
   const slides = lecture.slides || [];
   const canWrite = !!(transcript || mine || material || slides.length);
@@ -271,12 +302,14 @@ function LectureView({ id }) {
   const transcriptPanel = <TranscriptView lecture={lecture} live={live} lec={lec} />;
 
   return (
-    <div className={cn('mx-auto px-4 pt-3 sm:px-6 lg:pt-6', showTranscript ? 'max-w-6xl' : 'max-w-3xl')}>
+    <div className={cn('mx-auto px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6', sideOpen ? 'max-w-6xl' : 'max-w-3xl')}>
       <div className="mb-1 flex items-center gap-1">
-        <button type="button" onClick={() => navigate('/Notes')} aria-label="All notes"
-          className="-ml-2 grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground">
-          <ChevronLeft className="h-6 w-6" />
-        </button>
+        {!pane && (
+          <button type="button" onClick={() => navigate('/Notes')} aria-label="All notes"
+            className="-ml-2 grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground">
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
         <div className="min-w-0 flex-1" />
         <button type="button" onClick={() => setSlidesOpen(true)}
           className="inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
@@ -305,7 +338,7 @@ function LectureView({ id }) {
         )}
       </div>
 
-      <div className={cn(showTranscript && 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-6')}>
+      <div className={cn(sideOpen && 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-6')}>
         <div className="min-w-0">
           <TitleEditor lecture={lecture} onSave={(title) => actions.updateLecture(id, { title, auto_title: false })} />
           <ClassPicker lecture={lecture} classes={classes} onPick={(c) => actions.updateLecture(id, { class_name: c?.name || '', class_id: c?.id || '' })} />
@@ -356,7 +389,7 @@ function LectureView({ id }) {
           )}
         </div>
 
-        {showTranscript && (
+        {sideOpen && (
           <>
             <aside className="mt-6 hidden lg:block" aria-label="Transcript">
               <div className="sticky top-6 max-h-[calc(100dvh-9rem)] overflow-y-auto">{transcriptPanel}</div>
