@@ -259,7 +259,10 @@ function LectureView({ id, pane = false }) {
   const live = lec.active?.id === id ? lec.active : null;
   const [view, setView] = useState('ai');            // 'ai' | 'mine', once there are AI notes
   // with room for it (a wide screen), the transcript is open beside the notes from the start
-  const [showTranscript, setShowTranscript] = useState(() => pane && typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches);
+  const [showTranscript, setShowTranscript] = useState(false);
+  // The transcript goes beside the notes only when the lecture itself still has room: in the two-pane
+  // Notes page that takes a very wide window; otherwise it opens as a sheet over the page.
+  const roomy = useWide(pane ? 1800 : 1024);
   const [slidesOpen, setSlidesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -302,7 +305,7 @@ function LectureView({ id, pane = false }) {
   const transcriptPanel = <TranscriptView lecture={lecture} live={live} lec={lec} />;
 
   return (
-    <div className={cn('mx-auto px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6', sideOpen ? 'max-w-6xl' : 'max-w-3xl')}>
+    <div className={cn('mx-auto px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6', sideOpen && roomy ? 'max-w-6xl' : 'max-w-3xl')}>
       <div className="mb-1 flex items-center gap-1">
         {!pane && (
           <button type="button" onClick={() => navigate('/Notes')} aria-label="All notes"
@@ -338,7 +341,7 @@ function LectureView({ id, pane = false }) {
         )}
       </div>
 
-      <div className={cn(sideOpen && 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-6')}>
+      <div className={cn(sideOpen && roomy && 'grid grid-cols-[minmax(0,1fr)_minmax(0,22rem)] gap-6')}>
         <div className="min-w-0">
           <TitleEditor lecture={lecture} onSave={(title) => actions.updateLecture(id, { title, auto_title: false })} />
           <ClassPicker lecture={lecture} classes={classes} onPick={(c) => actions.updateLecture(id, { class_name: c?.name || '', class_id: c?.id || '' })} />
@@ -390,14 +393,13 @@ function LectureView({ id, pane = false }) {
         </div>
 
         {sideOpen && (
-          <>
-            <aside className="mt-6 hidden lg:block" aria-label="Transcript">
+          roomy ? (
+            <aside className="mt-6" aria-label="Transcript">
               <div className="sticky top-6 max-h-[calc(100dvh-9rem)] overflow-y-auto">{transcriptPanel}</div>
             </aside>
-            <div className="lg:hidden">
-              <Sheet title="Transcript" onClose={() => setShowTranscript(false)} wide>{transcriptPanel}</Sheet>
-            </div>
-          </>
+          ) : (
+            <Sheet title="Transcript" onClose={() => setShowTranscript(false)} wide>{transcriptPanel}</Sheet>
+          )
         )}
       </div>
 
